@@ -16,6 +16,18 @@ struct ContentView: View {
             MapWebView(bridge: bridge)
                 .ignoresSafeArea()
 
+            VStack {
+                HStack {
+                    Spacer()
+                    Button("Reset view") {
+                        bridge.goToGlobal()
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .padding()
+                }
+                Spacer()
+            }
+
             occupancyPanel
         }
         .statusBarHidden(false)
