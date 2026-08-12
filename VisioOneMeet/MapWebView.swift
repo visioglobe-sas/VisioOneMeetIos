@@ -2,6 +2,8 @@ import SwiftUI
 import WebKit
 
 struct MapWebView: UIViewRepresentable {
+    let bridge: VisioOneBridge
+
     func makeUIView(context: Context) -> WKWebView {
         let configuration = WKWebViewConfiguration()
         configuration.allowsInlineMediaPlayback = true
@@ -16,6 +18,7 @@ struct MapWebView: UIViewRepresentable {
             webView.loadFileURL(url, allowingReadAccessTo: url.deletingLastPathComponent())
         }
 
+        bridge.webView = webView
         return webView
     }
 
