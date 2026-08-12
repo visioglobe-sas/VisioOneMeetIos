@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		3FDF7D3D4158A0020E52960F /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE8F91A79D67B4EE4E61C9CC /* ContentView.swift */; };
+		50E1C797D9DB74CB32482C90 /* VisioOneBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = BFFDF5130E4730632C49AF49 /* VisioOneBridge.swift */; };
 		5AE948C390C0188E908499E8 /* WebContent in Resources */ = {isa = PBXBuildFile; fileRef = BDFA82E7DAF044589B4DF57D /* WebContent */; };
 		5CBCBC7BC25F3655FFDB9449 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = C34C4BBEB8D408F4E676FDD4 /* Assets.xcassets */; };
 		69EECDC3C20BD64BFEDF3355 /* VisioOneMeetApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 02E28AAC1015E3E897957968 /* VisioOneMeetApp.swift */; };
@@ -20,6 +21,7 @@
 		673AD5796D2AF2821BA9174B /* MapWebView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapWebView.swift; sourceTree = "<group>"; };
 		AE8F91A79D67B4EE4E61C9CC /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		BDFA82E7DAF044589B4DF57D /* WebContent */ = {isa = PBXFileReference; lastKnownFileType = folder; name = WebContent; path = VisioOneMeet/WebContent; sourceTree = SOURCE_ROOT; };
+		BFFDF5130E4730632C49AF49 /* VisioOneBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VisioOneBridge.swift; sourceTree = "<group>"; };
 		C34C4BBEB8D408F4E676FDD4 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -46,6 +48,7 @@
 				C34C4BBEB8D408F4E676FDD4 /* Assets.xcassets */,
 				AE8F91A79D67B4EE4E61C9CC /* ContentView.swift */,
 				673AD5796D2AF2821BA9174B /* MapWebView.swift */,
+				BFFDF5130E4730632C49AF49 /* VisioOneBridge.swift */,
 				02E28AAC1015E3E897957968 /* VisioOneMeetApp.swift */,
 				BDFA82E7DAF044589B4DF57D /* WebContent */,
 			);
@@ -125,6 +128,7 @@
 			files = (
 				3FDF7D3D4158A0020E52960F /* ContentView.swift in Sources */,
 				9D8EB87580F89AA4FF2B5996 /* MapWebView.swift in Sources */,
+				50E1C797D9DB74CB32482C90 /* VisioOneBridge.swift in Sources */,
 				69EECDC3C20BD64BFEDF3355 /* VisioOneMeetApp.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

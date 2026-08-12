@@ -28,9 +28,29 @@
   <script>
     var visioOne = VisioOne.createVisioOne();
     var container = document.getElementById('container');
+    var venue = null;
+
+    // Native -> JS bridge: one method per command, called from Swift via
+    // WKWebView.evaluateJavaScript(). Swift JSON-encodes arguments before
+    // interpolating them into the generated script call, so what arrives
+    // here is already a real JS value (array/object), never a string to
+    // re-parse.
+    window.MapBridge = {
+      updateOccupancy: function (occupancy) {
+        if (!venue) return;
+        occupancy.forEach(function (entry) {
+          var poi = venue.pois.find(function (p) { return p.id === entry.planId; });
+          if (!poi) return;
+          poi.surfaces.forEach(function (surface) {
+            venue.updateSurface(surface, { color: entry.color });
+          });
+        });
+      },
+    };
 
     visioOne.loadVenue({ hash: 'kbae8e6c066cca4b02c2afac2bc963a643d87437a' }, container)
-      .then(function (venue) {
+      .then(function (v) {
+        venue = v;
         return visioOne.createView(container, venue);
       })
       .catch(function (error) {
