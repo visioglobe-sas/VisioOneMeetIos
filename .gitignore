@@ -1,0 +1,13 @@
+# macOS
+.DS_Store
+
+# Claude Code / internal notes
+.claude/
+CLAUDE.md
+
+# Xcode / XcodeGen generated
+Generated/
+xcuserdata/
+*.xcuserstate
+DerivedData/
+build/

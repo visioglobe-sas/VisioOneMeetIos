@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+  <title>VisioOne Map</title>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      background: #000000;
+      overflow: hidden;
+    }
+    #container {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+    }
+  </style>
+  <script src="visioone.umd.cjs"></script>
+</head>
+<body>
+  <div id="container"></div>
+  <script>
+    var visioOne = VisioOne.createVisioOne();
+    var container = document.getElementById('container');
+
+    visioOne.loadVenue({ hash: 'k5f59b8615f0379390e03e4cbe893ff813b9ac94a' }, container)
+      .then(function (venue) {
+        return visioOne.createView(container, venue);
+      })
+      .catch(function (error) {
+        visioOne.showError(error, container);
+      });
+  </script>
+</body>
+</html>

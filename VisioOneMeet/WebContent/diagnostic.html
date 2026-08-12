@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>VisioOne diagnostic</title>
+  <style>
+    html, body { margin: 0; padding: 0; background: #111; }
+    #log {
+      white-space: pre-wrap;
+      word-break: break-word;
+      font-family: -apple-system, Menlo, monospace;
+      font-size: 13px;
+      color: #d4ffd4;
+      padding: 12px;
+    }
+    #container { width: 100%; height: 300px; background: #222; }
+  </style>
+</head>
+<body>
+  <pre id="log"></pre>
+  <div id="container"></div>
+  <script type="module">
+    const logEl = document.getElementById('log');
+    const log = (msg) => {
+      logEl.textContent += msg + '\n';
+      // eslint-disable-next-line no-console
+      console.log(msg);
+    };
+
+    const stringifyError = (err) => {
+      if (err instanceof Error) return `${err.name}: ${err.message}\n${err.stack || ''}`;
+      try { return JSON.stringify(err); } catch (e) { return String(err); }
+    };
+
+    const originalWarn = console.warn;
+    console.warn = (...args) => {
+      log('[console.warn] ' + args.map((a) => (a instanceof Error ? stringifyError(a) : String(a))).join(' '));
+      originalWarn.apply(console, args);
+    };
+    const originalError = console.error;
+    console.error = (...args) => {
+      log('[console.error] ' + args.map((a) => (a instanceof Error ? stringifyError(a) : String(a))).join(' '));
+      originalError.apply(console, args);
+    };
+    window.addEventListener('error', (e) => {
+      log('[window.onerror] ' + e.message + ' @ ' + e.filename + ':' + e.lineno + ':' + e.colno);
+    });
+    window.addEventListener('unhandledrejection', (e) => {
+      log('[unhandledrejection] ' + stringifyError(e.reason));
+    });
+
+    const SDK_VERSION = '1.0.5';
+    const HASH = 'k5f59b8615f0379390e03e4cbe893ff813b9ac94a';
+
+    log(`Loading VisioOne ${SDK_VERSION} as ESM from CDN (file:// host page)...`);
+
+    import(`https://cdn.visioglobe.com/visioone/${SDK_VERSION}/dist/visioone.js`)
+      .then(({ createVisioOne }) => {
+        log('import() resolved OK, createVisioOne = ' + typeof createVisioOne);
+        const visioOne = createVisioOne();
+        log('visioOne.version = ' + visioOne.version);
+        const container = document.getElementById('container');
+        log('Calling loadVenue({ hash: "' + HASH + '" }, container)...');
+        return visioOne
+          .loadVenue({ hash: HASH }, container)
+          .then((venue) => {
+            log('loadVenue SUCCEEDED. venue keys: ' + Object.keys(venue).join(', '));
+            return visioOne.createView(container, venue).then(() => {
+              log('createView SUCCEEDED.');
+            });
+          })
+          .catch((err) => {
+            log('loadVenue/createView FAILED: ' + stringifyError(err));
+          });
+      })
+      .catch((err) => {
+        log('import() FAILED: ' + stringifyError(err));
+      });
+  </script>
+</body>
+</html>
