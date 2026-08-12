@@ -16,9 +16,39 @@ struct ContentView: View {
             MapWebView(bridge: bridge)
                 .ignoresSafeArea()
 
-            occupancyPanel
+            switch bridge.loadState {
+            case .loading:
+                ProgressView()
+                    .tint(.white)
+                    .scaleEffect(1.5)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            case .ready:
+                occupancyPanel
+            case .error(let message):
+                errorOverlay(message: message)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
         }
         .statusBarHidden(false)
+    }
+
+    private func errorOverlay(message: String) -> some View {
+        VStack(spacing: 16) {
+            Text("Impossible de charger la carte VisioOne")
+                .font(.headline)
+                .foregroundColor(.white)
+            Text(message)
+                .font(.subheadline)
+                .foregroundColor(.white.opacity(0.8))
+                .multilineTextAlignment(.center)
+            Button("Réessayer") {
+                bridge.reload()
+            }
+            .buttonStyle(.borderedProminent)
+        }
+        .padding(24)
+        .frame(maxWidth: .infinity)
+        .background(Color.black.opacity(0.85))
     }
 
     private var occupancyPanel: some View {

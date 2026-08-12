@@ -30,6 +30,18 @@
     var container = document.getElementById('container');
     var venue = null;
 
+    // JS -> native: forward the loading lifecycle so the SwiftUI layer can
+    // show a spinner/error instead of a screen frozen on a black rectangle.
+    // See docs/APP_SDK_COMMUNICATION.md for the pattern.
+    function sendToNative(type, message) {
+      var handler = window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.mapBridge;
+      if (!handler) {
+        console.log('[VisioOne:web]', type, message);
+        return;
+      }
+      handler.postMessage({ type: type, message: message });
+    }
+
     // Native -> JS bridge: one method per command, called from Swift via
     // WKWebView.evaluateJavaScript(). Swift JSON-encodes arguments before
     // interpolating them into the generated script call, so what arrives
@@ -53,8 +65,12 @@
         venue = v;
         return visioOne.createView(container, venue);
       })
+      .then(function () {
+        sendToNative('ready');
+      })
       .catch(function (error) {
         visioOne.showError(error, container);
+        sendToNative('error', error && error.message ? error.message : String(error));
       });
   </script>
 </body>
