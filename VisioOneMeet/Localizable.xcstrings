@@ -1,6 +1,40 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "feature.goto_poi.description" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Center and highlight the camera on a place by its ID."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Centre et met en évidence la caméra sur un lieu via son ID."
+          }
+        }
+      }
+    },
+    "feature.goto_poi.title" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Go to place"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aller à un lieu"
+          }
+        }
+      }
+    },
     "feature.occupancy_simulated.description" : {
       "extractionState" : "manual",
       "localizations" : {

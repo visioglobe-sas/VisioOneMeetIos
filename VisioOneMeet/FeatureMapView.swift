@@ -102,6 +102,8 @@ struct FeatureMapView: View {
             OccupancyOverlay(bridge: bridge)
         case .poiClick:
             PoiClickOverlay(bridge: bridge)
+        case .goToPoi:
+            GoToPoiOverlay(bridge: bridge)
         }
     }
 }

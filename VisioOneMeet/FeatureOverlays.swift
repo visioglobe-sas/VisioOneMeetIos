@@ -75,6 +75,38 @@ struct OccupancyOverlay: View {
     }
 }
 
+/// Lets the user type a Place ID and center the camera on it via
+/// `view.goToPOI()`. See docs/features/goto-poi.md.
+struct GoToPoiOverlay: View {
+    @ObservedObject var bridge: VisioOneBridge
+    @State private var placeId = ""
+
+    var body: some View {
+        HStack {
+            TextField("Place ID", text: $placeId)
+                .textFieldStyle(.roundedBorder)
+                .autocorrectionDisabled()
+                .textInputAutocapitalization(.never)
+
+            Button("Go") {
+                goToPlace()
+            }
+            .disabled(placeId.trimmingCharacters(in: .whitespaces).isEmpty)
+
+            Button("Clear") {
+                bridge.clearPOI()
+            }
+        }
+        .padding()
+    }
+
+    private func goToPlace() {
+        let targetPlaceId = placeId.trimmingCharacters(in: .whitespaces)
+        guard !targetPlaceId.isEmpty else { return }
+        bridge.goToPOI(targetPlaceId)
+    }
+}
+
 /// Content of the panel shown when a POI is tapped on the map. Unlike the
 /// other overlays, this one is never opened by a FAB — `FeatureMapView`
 /// presents it automatically when `bridge.tappedPOI` goes non-nil, reacting

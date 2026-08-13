@@ -30,6 +30,9 @@
     var container = document.getElementById('container');
     var venue = null;
     var view = null;
+    // Last POI targeted via goToPOI, so clearPOI knows which surfaces to
+    // reset. See docs/features/goto-poi.md.
+    var selectedPoi = null;
 
     // JS -> native: forward the loading lifecycle so the SwiftUI layer can
     // show a spinner/error instead of a screen frozen on a black rectangle.
@@ -61,6 +64,42 @@
             venue.updateSurface(surface, { color: entry.color });
           });
         });
+      },
+      // Centers/zooms the camera on a POI by ID and highlights its surfaces.
+      // See docs/features/goto-poi.md.
+      goToPOI: function (poiId) {
+        if (!venue || !view) return;
+        var poi = venue.pois.find(function (p) { return p.id === poiId; });
+        if (!poi) return;
+
+        if (selectedPoi) {
+          selectedPoi.surfaces.forEach(function (surface) {
+            venue.updateSurface(surface, { selectionColor: undefined });
+          });
+        }
+        selectedPoi = poi;
+        poi.surfaces.forEach(function (surface) {
+          venue.updateSurface(surface, { selectionColor: '#057DBC' });
+        });
+
+        // The SDK docs for goToPOI are explicit: the caller must switch floor
+        // first, otherwise the currentFloor/Building stays whatever it was.
+        var floorChange = poi.floor ? view.goToFloor(poi.floor) : Promise.resolve();
+        floorChange.then(function () {
+          view.goToPOI(poi, {
+            orientation: { pitch: 20 },
+            padding: { top: 100, bottom: 100, right: 100, left: 100 },
+          });
+        });
+      },
+      // Resets the highlight left by goToPOI. Does not move the camera back
+      // (see docs/features/goto-poi.md for why "Clear" isn't also "Reset view").
+      clearPOI: function () {
+        if (!venue || !selectedPoi) return;
+        selectedPoi.surfaces.forEach(function (surface) {
+          venue.updateSurface(surface, { selectionColor: undefined });
+        });
+        selectedPoi = null;
       },
     };
 
