@@ -17,7 +17,15 @@ struct FeatureMapView: View {
                     .scaleEffect(1.5)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             case .ready:
-                fab
+                // poi-click has no manual trigger: the reaction panel is
+                // presented automatically from the SDK's own `poiclick`
+                // event (see the onChange below), so there's nothing for a
+                // FAB to open here.
+                if feature != .poiClick {
+                    fab
+                } else if bridge.tappedPOI == nil {
+                    poiClickHint
+                }
             case .error(let message):
                 errorOverlay(message: message)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -26,12 +34,30 @@ struct FeatureMapView: View {
         .statusBarHidden(false)
         .navigationTitle(Text(feature.title))
         .navigationBarTitleDisplayMode(.inline)
-        .sheet(isPresented: $isControlPresented) {
+        .sheet(isPresented: $isControlPresented, onDismiss: {
+            if feature == .poiClick {
+                bridge.clearTappedPOI()
+            }
+        }) {
             overlay
                 .background(Color(.systemBackground))
                 .presentationDetents([.medium])
                 .presentationDragIndicator(.visible)
         }
+        .onChange(of: bridge.tappedPOI) { newValue in
+            guard feature == .poiClick else { return }
+            isControlPresented = newValue != nil
+        }
+    }
+
+    private var poiClickHint: some View {
+        Text("Tap a POI on the map")
+            .font(.footnote)
+            .foregroundStyle(.white)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 10)
+            .background(Capsule().fill(.black.opacity(0.6)))
+            .padding(24)
     }
 
     private var fab: some View {
@@ -74,6 +100,8 @@ struct FeatureMapView: View {
             ResetViewOverlay(bridge: bridge)
         case .occupancySimulated:
             OccupancyOverlay(bridge: bridge)
+        case .poiClick:
+            PoiClickOverlay(bridge: bridge)
         }
     }
 }

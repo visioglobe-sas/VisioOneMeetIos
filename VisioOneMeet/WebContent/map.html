@@ -71,6 +71,20 @@
       })
       .then(function (v) {
         view = v;
+
+        // JS -> native: forward the SDK's `poiclick` event so the app can
+        // react to a POI tap with a native panel (see docs/features/poi-click.md).
+        // `event.pois` is the array of POIs under the tap point; only the
+        // topmost one is relevant here.
+        view.addEventListener('poiclick', function (event) {
+          var poi = event.pois && event.pois[0];
+          if (!poi) return;
+          sendToNative('poiSelected', {
+            id: poi.id,
+            name: poi.labels && poi.labels.length ? poi.labels[0].text : null,
+          });
+        });
+
         sendToNative('ready');
       })
       .catch(function (error) {
