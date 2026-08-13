@@ -45,7 +45,7 @@ Il n'y a pas de vrai capteur derrière : une `Task` Swift fait tourner la couleu
    }
    ```
 3. **Faire accepter le bridge à `MapWebView`** (`struct MapWebView: UIViewRepresentable`) et l'attacher une fois le `WKWebView` créé : `bridge.webView = webView` dans `makeUIView`.
-4. **Piloter la boucle depuis la vue SwiftUI** (`ContentView.swift`), avec `@StateObject private var bridge = VisioOneBridge()` possédé par la vue, et une `Task` annulable stockée en `@State` :
+4. **Piloter la boucle depuis l'overlay dédié** (`OccupancyOverlay` dans `FeatureOverlays.swift`), avec `@ObservedObject var bridge: VisioOneBridge` reçu de `FeatureMapView.swift` (qui, lui, possède `@StateObject private var bridge = VisioOneBridge()` pour l'écran de cette feature), et une `Task` annulable stockée en `@State` sur l'overlay :
    ```swift
    occupancySimulationTask = Task {
        var colorIndex = 0

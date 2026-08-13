@@ -42,21 +42,29 @@ Contrairement à `updateOccupancy`, cette commande ne prend aucun argument : ell
        }
    }
    ```
-3. **Ajouter le bouton dans `ContentView.swift`**, positionné en haut à droite (`top-trailing`), toujours visible, au-dessus de la carte :
+3. **Ajouter le bouton dans `FeatureOverlays.swift`** (`ResetViewOverlay`), positionné en haut à droite (`top-trailing`), toujours visible, au-dessus de la carte :
    ```swift
-   VStack {
-       HStack {
-           Spacer()
-           Button("Reset view") {
-               bridge.goToGlobal()
+   struct ResetViewOverlay: View {
+       @ObservedObject var bridge: VisioOneBridge
+
+       var body: some View {
+           VStack {
+               HStack {
+                   Spacer()
+                   Button {
+                       bridge.goToGlobal()
+                   } label: {
+                       Text(Feature.resetView.title)
+                   }
+                   .buttonStyle(.borderedProminent)
+                   .padding()
+               }
+               Spacer()
            }
-           .buttonStyle(.borderedProminent)
-           .padding()
        }
-       Spacer()
    }
    ```
-   Le reste de la vue (carte + panneau d'occupation en bas) reste inchangé.
+   `FeatureMapView.swift` choisit cet overlay quand `feature == .resetView` et possède la `MapWebView` + le `VisioOneBridge` pour cet écran dédié (voir `docs/features/README.md` du hub pour le pattern « un écran par feature »).
 
 ## Points d'attention
 
