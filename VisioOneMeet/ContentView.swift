@@ -23,6 +23,18 @@ struct ContentView: View {
                     .scaleEffect(1.5)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             case .ready:
+                VStack {
+                    HStack {
+                        Spacer()
+                        Button("Reset view") {
+                            bridge.goToGlobal()
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .padding()
+                    }
+                    Spacer()
+                }
+
                 occupancyPanel
             case .error(let message):
                 errorOverlay(message: message)

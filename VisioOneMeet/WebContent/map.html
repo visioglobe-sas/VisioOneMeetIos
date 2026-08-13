@@ -29,6 +29,7 @@
     var visioOne = VisioOne.createVisioOne();
     var container = document.getElementById('container');
     var venue = null;
+    var view = null;
 
     // JS -> native: forward the loading lifecycle so the SwiftUI layer can
     // show a spinner/error instead of a screen frozen on a black rectangle.
@@ -48,6 +49,9 @@
     // here is already a real JS value (array/object), never a string to
     // re-parse.
     window.MapBridge = {
+      goToGlobal: function () {
+        if (view) view.goToGlobal();
+      },
       updateOccupancy: function (occupancy) {
         if (!venue) return;
         occupancy.forEach(function (entry) {
@@ -65,7 +69,8 @@
         venue = v;
         return visioOne.createView(container, venue);
       })
-      .then(function () {
+      .then(function (v) {
+        view = v;
         sendToNative('ready');
       })
       .catch(function (error) {
