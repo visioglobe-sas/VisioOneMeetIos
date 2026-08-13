@@ -4,6 +4,7 @@ enum Feature: String, CaseIterable, Identifiable, Hashable {
     case resetView
     case occupancySimulated
     case poiClick
+    case goToPoi
 
     var id: String { slug }
 
@@ -15,6 +16,8 @@ enum Feature: String, CaseIterable, Identifiable, Hashable {
             return "occupancy-simulated"
         case .poiClick:
             return "poi-click"
+        case .goToPoi:
+            return "goto-poi"
         }
     }
 
@@ -26,6 +29,8 @@ enum Feature: String, CaseIterable, Identifiable, Hashable {
             return "feature.occupancy_simulated.title"
         case .poiClick:
             return "feature.poi_click.title"
+        case .goToPoi:
+            return "feature.goto_poi.title"
         }
     }
 
@@ -37,6 +42,8 @@ enum Feature: String, CaseIterable, Identifiable, Hashable {
             return "feature.occupancy_simulated.description"
         case .poiClick:
             return "feature.poi_click.description"
+        case .goToPoi:
+            return "feature.goto_poi.description"
         }
     }
 }

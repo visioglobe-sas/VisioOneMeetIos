@@ -71,6 +71,37 @@ final class VisioOneBridge: NSObject, WKScriptMessageHandler, ObservableObject {
         }
     }
 
+    /// Centers/zooms the camera on a POI by ID via `view.goToPOI()`, and
+    /// highlights its surfaces (see `docs/features/goto-poi.md`).
+    ///
+    /// `poiId` is JSON-encoded before being interpolated into the generated
+    /// script, same rule as `updateOccupancy` above — never raw string
+    /// concatenation.
+    func goToPOI(_ poiId: String) {
+        guard let webView else { return }
+
+        guard let data = try? JSONSerialization.data(withJSONObject: poiId, options: [.fragmentsAllowed]),
+              let json = String(data: data, encoding: .utf8) else {
+            return
+        }
+
+        webView.evaluateJavaScript("window.MapBridge.goToPOI(\(json))") { _, error in
+            if let error {
+                print("VisioOneBridge: goToPOI failed: \(error.localizedDescription)")
+            }
+        }
+    }
+
+    /// Clears whatever highlight `goToPOI` left on the map, without moving
+    /// the camera (see `docs/features/goto-poi.md`).
+    func clearPOI() {
+        webView?.evaluateJavaScript("window.MapBridge.clearPOI()") { _, error in
+            if let error {
+                print("VisioOneBridge: clearPOI failed: \(error.localizedDescription)")
+            }
+        }
+    }
+
     /// Resets to `.loading` and reloads the page, rather than leaving the UI
     /// stuck on `.error` until the next JS message arrives.
     func reload() {
