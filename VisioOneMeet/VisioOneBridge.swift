@@ -1,13 +1,25 @@
 import Foundation
 import WebKit
 
-/// Native -> JS bridge to the SDK running inside `MapWebView`.
+/// Mirrors the SDK's loading lifecycle (see `docs/features/loading-state.md`).
+enum MapLoadState: Equatable {
+    case loading
+    case ready
+    case error(String)
+}
+
+/// Two-way bridge to the SDK running inside `MapWebView`.
 ///
-/// There is currently no JS -> native direction (no `WKScriptMessageHandler`):
-/// `map.html` reports nothing back to Swift yet (see `docs/APP_SDK_COMMUNICATION.md`
-/// for the intended pattern once that's needed). This class only calls into
-/// `window.MapBridge`, defined in `map.html`.
-final class VisioOneBridge: ObservableObject {
+/// - Native -> JS: calls into `window.MapBridge`, defined in `map.html`, via
+///   `evaluateJavaScript`.
+/// - JS -> native: implements `WKScriptMessageHandler`, receiving `{type, message?}`
+///   payloads posted from `map.html` via `window.webkit.messageHandlers.mapBridge`.
+///   See `docs/APP_SDK_COMMUNICATION.md` for the pattern this follows.
+final class VisioOneBridge: NSObject, WKScriptMessageHandler, ObservableObject {
+    static let messageHandlerName = "mapBridge"
+
+    @Published private(set) var loadState: MapLoadState = .loading
+
     /// Set by `MapWebView.makeUIView` once the underlying `WKWebView` exists.
     weak var webView: WKWebView?
 
@@ -44,5 +56,41 @@ final class VisioOneBridge: ObservableObject {
                 print("VisioOneBridge: updateOccupancy failed: \(error.localizedDescription)")
             }
         }
+    }
+
+    /// Resets to `.loading` and reloads the page, rather than leaving the UI
+    /// stuck on `.error` until the next JS message arrives.
+    func reload() {
+        loadState = .loading
+        webView?.reload()
+    }
+
+    func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
+        guard message.name == Self.messageHandlerName,
+              let body = message.body as? [String: Any],
+              let type = body["type"] as? String else { return }
+
+        switch type {
+        case "ready":
+            loadState = .ready
+        case "error":
+            loadState = .error(body["message"] as? String ?? "Erreur inconnue du SDK VisioOne")
+        default:
+            break
+        }
+    }
+}
+
+/// `WKUserContentController.add(_:name:)` strongly retains its handler — registering
+/// this proxy instead of `VisioOneBridge` directly avoids a retain cycle with the web view.
+final class WeakScriptMessageHandler: NSObject, WKScriptMessageHandler {
+    private weak var target: WKScriptMessageHandler?
+
+    init(target: WKScriptMessageHandler) {
+        self.target = target
+    }
+
+    func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
+        target?.userContentController(userContentController, didReceive: message)
     }
 }

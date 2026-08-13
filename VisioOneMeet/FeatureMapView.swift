@@ -10,17 +10,18 @@ struct FeatureMapView: View {
             MapWebView(bridge: bridge)
                 .ignoresSafeArea()
 
-            Button {
-                isControlPresented = true
-            } label: {
-                Image(systemName: "slider.horizontal.3")
-                    .font(.title2)
-                    .foregroundStyle(.white)
-                    .frame(width: 56, height: 56)
-                    .background(Circle().fill(Color.accentColor))
-                    .shadow(radius: 6, y: 3)
+            switch bridge.loadState {
+            case .loading:
+                ProgressView()
+                    .tint(.white)
+                    .scaleEffect(1.5)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            case .ready:
+                fab
+            case .error(let message):
+                errorOverlay(message: message)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
-            .padding(24)
         }
         .statusBarHidden(false)
         .navigationTitle(Text(feature.title))
@@ -31,6 +32,39 @@ struct FeatureMapView: View {
                 .presentationDetents([.medium])
                 .presentationDragIndicator(.visible)
         }
+    }
+
+    private var fab: some View {
+        Button {
+            isControlPresented = true
+        } label: {
+            Image(systemName: "slider.horizontal.3")
+                .font(.title2)
+                .foregroundStyle(.white)
+                .frame(width: 56, height: 56)
+                .background(Circle().fill(Color.accentColor))
+                .shadow(radius: 6, y: 3)
+        }
+        .padding(24)
+    }
+
+    private func errorOverlay(message: String) -> some View {
+        VStack(spacing: 16) {
+            Text("Impossible de charger la carte VisioOne")
+                .font(.headline)
+                .foregroundColor(.white)
+            Text(message)
+                .font(.subheadline)
+                .foregroundColor(.white.opacity(0.8))
+                .multilineTextAlignment(.center)
+            Button("Réessayer") {
+                bridge.reload()
+            }
+            .buttonStyle(.borderedProminent)
+        }
+        .padding(24)
+        .frame(maxWidth: .infinity)
+        .background(Color.black.opacity(0.85))
     }
 
     @ViewBuilder
