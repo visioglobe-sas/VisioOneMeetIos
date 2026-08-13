@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		0B0228EE7103DF61352D499B /* BottomSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB9BE8FDDDDFB4857DDD70D1 /* BottomSheet.swift */; };
 		3CFB3B290673F85F34877E3F /* FeatureOverlays.swift in Sources */ = {isa = PBXBuildFile; fileRef = E62A59B4BB0AC4E6DFED2747 /* FeatureOverlays.swift */; };
 		3FDF7D3D4158A0020E52960F /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE8F91A79D67B4EE4E61C9CC /* ContentView.swift */; };
 		50E1C797D9DB74CB32482C90 /* VisioOneBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = BFFDF5130E4730632C49AF49 /* VisioOneBridge.swift */; };
@@ -26,6 +27,7 @@
 		6CA5AE82D423D3D56C43F4C8 /* Feature.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Feature.swift; sourceTree = "<group>"; };
 		78F5F28A7C73D01EDDB0CB89 /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
 		AE8F91A79D67B4EE4E61C9CC /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		BB9BE8FDDDDFB4857DDD70D1 /* BottomSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BottomSheet.swift; sourceTree = "<group>"; };
 		BD4DFC78890176D9AD39520C /* FeatureMapView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeatureMapView.swift; sourceTree = "<group>"; };
 		BDFA82E7DAF044589B4DF57D /* WebContent */ = {isa = PBXFileReference; lastKnownFileType = folder; name = WebContent; path = VisioOneMeet/WebContent; sourceTree = SOURCE_ROOT; };
 		BFFDF5130E4730632C49AF49 /* VisioOneBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VisioOneBridge.swift; sourceTree = "<group>"; };
@@ -54,6 +56,7 @@
 			isa = PBXGroup;
 			children = (
 				C34C4BBEB8D408F4E676FDD4 /* Assets.xcassets */,
+				BB9BE8FDDDDFB4857DDD70D1 /* BottomSheet.swift */,
 				AE8F91A79D67B4EE4E61C9CC /* ContentView.swift */,
 				6CA5AE82D423D3D56C43F4C8 /* Feature.swift */,
 				BD4DFC78890176D9AD39520C /* FeatureMapView.swift */,
@@ -140,6 +143,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				0B0228EE7103DF61352D499B /* BottomSheet.swift in Sources */,
 				3FDF7D3D4158A0020E52960F /* ContentView.swift in Sources */,
 				59E79597DE25668134C060FE /* Feature.swift in Sources */,
 				8FEA2CF3CAAC5CA2DEE1AAFA /* FeatureMapView.swift in Sources */,

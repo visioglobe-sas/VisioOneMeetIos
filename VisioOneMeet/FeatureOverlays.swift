@@ -4,19 +4,14 @@ struct ResetViewOverlay: View {
     @ObservedObject var bridge: VisioOneBridge
 
     var body: some View {
-        VStack {
-            HStack {
-                Spacer()
-                Button {
-                    bridge.goToGlobal()
-                } label: {
-                    Text(Feature.resetView.title)
-                }
-                .buttonStyle(.borderedProminent)
-                .padding()
-            }
-            Spacer()
+        Button {
+            bridge.goToGlobal()
+        } label: {
+            Text(Feature.resetView.title)
+                .frame(maxWidth: .infinity)
         }
+        .buttonStyle(.borderedProminent)
+        .padding()
     }
 }
 
@@ -42,7 +37,6 @@ struct OccupancyOverlay: View {
             }
         }
         .padding()
-        .background(Color.black.opacity(0.7))
     }
 
     private func toggleOccupancySimulation() {

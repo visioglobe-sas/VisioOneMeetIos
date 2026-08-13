@@ -9,7 +9,9 @@ struct FeatureMapView: View {
             MapWebView(bridge: bridge)
                 .ignoresSafeArea()
 
-            overlay
+            BottomSheet {
+                overlay
+            }
         }
         .statusBarHidden(false)
         .navigationTitle(Text(feature.title))
