@@ -8,6 +8,15 @@ enum MapLoadState: Equatable {
     case error(String)
 }
 
+/// A POI tapped on the map, forwarded by the SDK's `poiclick` event
+/// (see `docs/features/poi-click.md`). `name` mirrors whatever the SDK
+/// resolves as the POI's first label for the current locale — `nil` if the
+/// POI has no label at all.
+struct TappedPOI: Equatable {
+    let id: String
+    let name: String?
+}
+
 /// Two-way bridge to the SDK running inside `MapWebView`.
 ///
 /// - Native -> JS: calls into `window.MapBridge`, defined in `map.html`, via
@@ -19,6 +28,10 @@ final class VisioOneBridge: NSObject, WKScriptMessageHandler, ObservableObject {
     static let messageHandlerName = "mapBridge"
 
     @Published private(set) var loadState: MapLoadState = .loading
+
+    /// Last POI tapped on the map, `nil` once the reaction panel has been
+    /// dismissed. See `docs/features/poi-click.md`.
+    @Published private(set) var tappedPOI: TappedPOI?
 
     /// Set by `MapWebView.makeUIView` once the underlying `WKWebView` exists.
     weak var webView: WKWebView?
@@ -65,6 +78,13 @@ final class VisioOneBridge: NSObject, WKScriptMessageHandler, ObservableObject {
         webView?.reload()
     }
 
+    /// Resets the reaction panel's source of truth, e.g. once the user
+    /// dismisses it — so tapping the same POI again is still detected as a
+    /// change (`tappedPOI` going `nil` -> non-`nil`).
+    func clearTappedPOI() {
+        tappedPOI = nil
+    }
+
     func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
         guard message.name == Self.messageHandlerName,
               let body = message.body as? [String: Any],
@@ -75,6 +95,10 @@ final class VisioOneBridge: NSObject, WKScriptMessageHandler, ObservableObject {
             loadState = .ready
         case "error":
             loadState = .error(body["message"] as? String ?? "Erreur inconnue du SDK VisioOne")
+        case "poiSelected":
+            guard let payload = body["message"] as? [String: Any],
+                  let id = payload["id"] as? String else { return }
+            tappedPOI = TappedPOI(id: id, name: payload["name"] as? String)
         default:
             break
         }

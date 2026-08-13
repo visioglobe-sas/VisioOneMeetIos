@@ -35,6 +35,40 @@
         }
       }
     },
+    "feature.poi_click.description" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tap a POI on the map to see its details in a native panel."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Touchez un POI sur la carte pour voir ses détails dans un panneau natif."
+          }
+        }
+      }
+    },
+    "feature.poi_click.title" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "POI tap"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Clic sur un POI"
+          }
+        }
+      }
+    },
     "feature.reset_view.description" : {
       "extractionState" : "manual",
       "localizations" : {

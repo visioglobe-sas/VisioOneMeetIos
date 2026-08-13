@@ -74,3 +74,34 @@ struct OccupancyOverlay: View {
         simulatingOccupancy = false
     }
 }
+
+/// Content of the panel shown when a POI is tapped on the map. Unlike the
+/// other overlays, this one is never opened by a FAB — `FeatureMapView`
+/// presents it automatically when `bridge.tappedPOI` goes non-nil, reacting
+/// to the SDK's `poiclick` event. See docs/features/poi-click.md.
+struct PoiClickOverlay: View {
+    @ObservedObject var bridge: VisioOneBridge
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Tapped POI")
+                .font(.headline)
+
+            if let poi = bridge.tappedPOI {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(poi.name ?? "(no name)")
+                        .font(.title3)
+                        .fontWeight(.semibold)
+                    Text("ID: \(poi.id)")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
+            } else {
+                Text("No POI selected")
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding()
+    }
+}
