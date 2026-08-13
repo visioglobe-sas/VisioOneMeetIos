@@ -4,9 +4,14 @@ import SwiftUI
 struct VisioOneMeetApp: App {
     var body: some Scene {
         WindowGroup {
-            ContentView()
-                .preferredColorScheme(.dark)
-                .ignoresSafeArea()
+            NavigationStack {
+                ContentView()
+            }
+            .navigationDestination(for: Feature.self) { feature in
+                FeatureMapView(feature: feature)
+            }
+            .preferredColorScheme(.dark)
+            .ignoresSafeArea()
         }
     }
 }
