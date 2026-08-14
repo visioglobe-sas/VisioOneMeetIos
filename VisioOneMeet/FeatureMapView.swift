@@ -108,6 +108,8 @@ struct FeatureMapView: View {
             FloorSelectorOverlay(bridge: bridge)
         case .computeNavigation:
             ComputeNavigationOverlay(bridge: bridge)
+        case .uiPartVisibility:
+            UIPartVisibilityOverlay(bridge: bridge)
         }
     }
 }

@@ -198,6 +198,29 @@ final class VisioOneBridge: NSObject, WKScriptMessageHandler, ObservableObject {
         }
     }
 
+    /// Shows/hides one of the SDK's own default UI overlays via
+    /// `view.setUIPartVisible()` (see `docs/features/ui-part-visibility.md`).
+    ///
+    /// `uiPart` must be one of the SDK's exact, case-sensitive `UIPart`
+    /// values (`floorSelector`, `navigation`, `poiDetails`, `search`,
+    /// `userTracking`) — see `MapUIPart` in `FeatureOverlays.swift`, which is
+    /// the only caller. It's JSON-encoded before being interpolated into the
+    /// generated script, same rule as the other bridge methods above.
+    func setUIPartVisible(_ uiPart: String, isVisible: Bool) {
+        guard let webView else { return }
+
+        guard let data = try? JSONSerialization.data(withJSONObject: uiPart, options: [.fragmentsAllowed]),
+              let json = String(data: data, encoding: .utf8) else {
+            return
+        }
+
+        webView.evaluateJavaScript("window.MapBridge.setUIPartVisible(\(json), \(isVisible))") { _, error in
+            if let error {
+                print("VisioOneBridge: setUIPartVisible failed: \(error.localizedDescription)")
+            }
+        }
+    }
+
     /// Resets to `.loading` and reloads the page, rather than leaving the UI
     /// stuck on `.error` until the next JS message arrives.
     func reload() {

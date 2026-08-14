@@ -177,6 +177,15 @@
         var navigationTrace = venue.createNavigationTrace(navigation);
         view.setCurrentNavigationTrace(navigationTrace);
       },
+      // Shows/hides one of the SDK's own default UI overlays via
+      // view.setUIPartVisible(). uiPart is one of exactly 5 case-sensitive
+      // string values ('floorSelector', 'navigation', 'poiDetails',
+      // 'search', 'userTracking') — no validation here, an unknown value is
+      // simply ignored by the SDK. See docs/features/ui-part-visibility.md.
+      setUIPartVisible: function (uiPart, isVisible) {
+        if (!view) return;
+        view.setUIPartVisible(uiPart, isVisible);
+      },
     };
 
     visioOne.loadVenue({ hash: 'kbae8e6c066cca4b02c2afac2bc963a643d87437a' }, container)

@@ -243,6 +243,64 @@ struct ComputeNavigationOverlay: View {
     }
 }
 
+/// The 5 UI parts the SDK's `view.setUIPartVisible()` can individually
+/// show/hide. Raw values match the JS SDK's `UIPart` type exactly
+/// (case-sensitive) — see docs/features/ui-part-visibility.md.
+enum MapUIPart: String, CaseIterable, Identifiable {
+    case floorSelector
+    case navigation
+    case poiDetails
+    case search
+    case userTracking
+
+    var id: String { rawValue }
+
+    var title: LocalizedStringResource {
+        switch self {
+        case .floorSelector:
+            return "feature.ui_part_visibility.part.floor_selector"
+        case .navigation:
+            return "feature.ui_part_visibility.part.navigation"
+        case .poiDetails:
+            return "feature.ui_part_visibility.part.poi_details"
+        case .search:
+            return "feature.ui_part_visibility.part.search"
+        case .userTracking:
+            return "feature.ui_part_visibility.part.user_tracking"
+        }
+    }
+}
+
+/// Lets the user show/hide each of the SDK's own default UI overlays via
+/// `view.setUIPartVisible()`. All 5 toggles default to on/visible, matching
+/// the SDK's own default — nothing is hidden until the user flips a switch.
+/// See docs/features/ui-part-visibility.md.
+struct UIPartVisibilityOverlay: View {
+    @ObservedObject var bridge: VisioOneBridge
+    @State private var visibility: [MapUIPart: Bool] = Dictionary(
+        uniqueKeysWithValues: MapUIPart.allCases.map { ($0, true) }
+    )
+
+    var body: some View {
+        List(MapUIPart.allCases) { part in
+            Toggle(isOn: binding(for: part)) {
+                Text(part.title)
+            }
+        }
+        .listStyle(.plain)
+    }
+
+    private func binding(for part: MapUIPart) -> Binding<Bool> {
+        Binding(
+            get: { visibility[part, default: true] },
+            set: { newValue in
+                visibility[part] = newValue
+                bridge.setUIPartVisible(part.rawValue, isVisible: newValue)
+            }
+        )
+    }
+}
+
 /// Content of the panel shown when a POI is tapped on the map. Unlike the
 /// other overlays, this one is never opened by a FAB — `FeatureMapView`
 /// presents it automatically when `bridge.tappedPOI` goes non-nil, reacting
