@@ -45,6 +45,13 @@ struct FloorSelection: Equatable {
     static let empty = FloorSelection(buildings: [], currentBuildingId: nil, currentFloorId: nil)
 }
 
+/// A WGS84 point, as returned by `resolvePoiPosition` for a POI's marker,
+/// label, or image position (see `docs/features/simulated-position.md`).
+struct GeoPosition: Equatable {
+    let latitude: Double
+    let longitude: Double
+}
+
 /// Two-way bridge to the SDK running inside `MapWebView`.
 ///
 /// - Native -> JS: calls into `window.MapBridge`, defined in `map.html`, via
@@ -217,6 +224,73 @@ final class VisioOneBridge: NSObject, WKScriptMessageHandler, ObservableObject {
         webView.evaluateJavaScript("window.MapBridge.setUIPartVisible(\(json), \(isVisible))") { _, error in
             if let error {
                 print("VisioOneBridge: setUIPartVisible failed: \(error.localizedDescription)")
+            }
+        }
+    }
+
+    /// Resolves a POI's WGS84 position by ID via `window.MapBridge.resolvePoiPosition`
+    /// (see `docs/features/simulated-position.md`). Unlike the other bridge
+    /// methods, this one reads `evaluateJavaScript`'s own return value
+    /// instead of pushing a message through `WKScriptMessageHandler` — the
+    /// lookup is a synchronous, side-effect-free JS computation (an array
+    /// `find` + reading a nested `position`), so the existing native<->JS
+    /// call already carries the answer back; no extra message channel is
+    /// needed. Returns `nil` if the POI id doesn't exist, or if it has no
+    /// marker/label/image to read a position from — both cases are
+    /// indistinguishable "POI not found" to the caller, matching the spec.
+    func resolvePoiPosition(_ poiId: String) async -> GeoPosition? {
+        guard let webView else { return nil }
+
+        guard let data = try? JSONSerialization.data(withJSONObject: poiId, options: [.fragmentsAllowed]),
+              let json = String(data: data, encoding: .utf8) else {
+            return nil
+        }
+
+        return await withCheckedContinuation { continuation in
+            webView.evaluateJavaScript("window.MapBridge.resolvePoiPosition(\(json))") { result, error in
+                if let error {
+                    print("VisioOneBridge: resolvePoiPosition failed: \(error.localizedDescription)")
+                    continuation.resume(returning: nil)
+                    return
+                }
+                guard let payload = result as? [String: Any],
+                      let latitude = payload["latitude"] as? Double,
+                      let longitude = payload["longitude"] as? Double else {
+                    continuation.resume(returning: nil)
+                    return
+                }
+                continuation.resume(returning: GeoPosition(latitude: latitude, longitude: longitude))
+            }
+        }
+    }
+
+    /// Injects/updates a simulated tracked position + its accuracy circle via
+    /// `view.injectTrackedPosition()`, turning on `view.allowTracking` first
+    /// (done JS-side, on every call — see `map.html`). Meant to be called
+    /// repeatedly on a timer by the caller (see `SimulatedPositionOverlay`);
+    /// this method itself is stateless. `latitude`/`longitude`/
+    /// `precisionCircleRadius` are plain `Double`s computed on the Swift
+    /// side (never raw user text), so they're interpolated directly into
+    /// the generated script rather than JSON-encoded, same as the boolean
+    /// in `setUIPartVisible` above.
+    func injectTrackedPosition(latitude: Double, longitude: Double, precisionCircleRadius: Double) {
+        webView?.evaluateJavaScript(
+            "window.MapBridge.injectTrackedPosition(\(latitude), \(longitude), \(precisionCircleRadius))"
+        ) { _, error in
+            if let error {
+                print("VisioOneBridge: injectTrackedPosition failed: \(error.localizedDescription)")
+            }
+        }
+    }
+
+    /// Removes the simulated tracked position from the map via
+    /// `view.allowTracking = false` — the SDK has no dedicated "stop"
+    /// method, this is how the marker/accuracy circle is cleared (see
+    /// `docs/features/simulated-position.md`).
+    func stopTrackedPosition() {
+        webView?.evaluateJavaScript("window.MapBridge.stopTrackedPosition()") { _, error in
+            if let error {
+                print("VisioOneBridge: stopTrackedPosition failed: \(error.localizedDescription)")
             }
         }
     }

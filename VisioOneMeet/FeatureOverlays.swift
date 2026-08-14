@@ -301,6 +301,130 @@ struct UIPartVisibilityOverlay: View {
     }
 }
 
+// Stand-in for a real indoor-positioning feed: interpolates a position
+// between two POIs on a timer and feeds it to `injectTrackedPosition`, same
+// way `occupancy-simulated` stands in for a real occupancy sensor. See
+// docs/features/simulated-position.md.
+private let simulatedPositionIntervalNanoseconds: UInt64 = 150_000_000
+private let simulatedPositionStepFraction: Double = 0.02 // ~50 ticks (7.5s) per leg
+
+/// Lets the user animate a simulated tracked position + accuracy circle
+/// back and forth between two POIs via `view.injectTrackedPosition()`. Two
+/// Place ID fields resolve to WGS84 positions once at Start (through
+/// `VisioOneBridge.resolvePoiPosition`, itself backed by the POIs' own
+/// markers/labels/images — see `docs/features/simulated-position.md`), then
+/// a repeating Swift-side loop — same idiom as `OccupancyOverlay` above —
+/// ping-pongs a linear interpolation between them, independent of whether
+/// this sheet stays open.
+struct SimulatedPositionOverlay: View {
+    @ObservedObject var bridge: VisioOneBridge
+    @State private var originPlaceId = ""
+    @State private var destinationPlaceId = ""
+    @State private var precisionCircleRadius: Double = 5
+    @State private var isSimulating = false
+    @State private var errorMessage: String?
+    @State private var simulationTask: Task<Void, Never>?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            TextField("Origin POI ID", text: $originPlaceId)
+                .textFieldStyle(.roundedBorder)
+                .autocorrectionDisabled()
+                .textInputAutocapitalization(.never)
+                .disabled(isSimulating)
+
+            TextField("Destination POI ID", text: $destinationPlaceId)
+                .textFieldStyle(.roundedBorder)
+                .autocorrectionDisabled()
+                .textInputAutocapitalization(.never)
+                .disabled(isSimulating)
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Accuracy radius: \(Int(precisionCircleRadius)) m")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                Slider(value: $precisionCircleRadius, in: 1...20, step: 1)
+            }
+
+            if let errorMessage {
+                Text(errorMessage)
+                    .font(.footnote)
+                    .foregroundStyle(.red)
+            }
+
+            Button(isSimulating ? "Stop simulated position" : "Simulate position") {
+                toggleSimulation()
+            }
+            .frame(maxWidth: .infinity)
+            .buttonStyle(.borderedProminent)
+            .disabled(!isSimulating && !canStartSimulation)
+        }
+        .padding()
+    }
+
+    private var canStartSimulation: Bool {
+        !originPlaceId.trimmingCharacters(in: .whitespaces).isEmpty
+            && !destinationPlaceId.trimmingCharacters(in: .whitespaces).isEmpty
+    }
+
+    private func toggleSimulation() {
+        if isSimulating {
+            stopSimulation()
+        } else {
+            startSimulation()
+        }
+    }
+
+    private func startSimulation() {
+        let origin = originPlaceId.trimmingCharacters(in: .whitespaces)
+        let destination = destinationPlaceId.trimmingCharacters(in: .whitespaces)
+        guard !origin.isEmpty, !destination.isEmpty else { return }
+
+        errorMessage = nil
+        isSimulating = true
+
+        simulationTask = Task {
+            async let originPosition = bridge.resolvePoiPosition(origin)
+            async let destinationPosition = bridge.resolvePoiPosition(destination)
+
+            guard let originPos = await originPosition, let destPos = await destinationPosition else {
+                errorMessage = "Origin or destination POI not found"
+                isSimulating = false
+                return
+            }
+            guard !Task.isCancelled else { return }
+
+            var progress = 0.0
+            var direction = 1.0
+            while !Task.isCancelled {
+                bridge.injectTrackedPosition(
+                    latitude: originPos.latitude + (destPos.latitude - originPos.latitude) * progress,
+                    longitude: originPos.longitude + (destPos.longitude - originPos.longitude) * progress,
+                    precisionCircleRadius: precisionCircleRadius
+                )
+
+                progress += direction * simulatedPositionStepFraction
+                if progress >= 1 {
+                    progress = 1
+                    direction = -1
+                } else if progress <= 0 {
+                    progress = 0
+                    direction = 1
+                }
+
+                try? await Task.sleep(nanoseconds: simulatedPositionIntervalNanoseconds)
+            }
+        }
+    }
+
+    private func stopSimulation() {
+        simulationTask?.cancel()
+        simulationTask = nil
+        isSimulating = false
+        bridge.stopTrackedPosition()
+    }
+}
+
 /// Content of the panel shown when a POI is tapped on the map. Unlike the
 /// other overlays, this one is never opened by a FAB — `FeatureMapView`
 /// presents it automatically when `bridge.tappedPOI` goes non-nil, reacting

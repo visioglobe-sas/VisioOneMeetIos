@@ -205,6 +205,40 @@
         }
       }
     },
+    "feature.simulated_position.description" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Animate a simulated position with an accuracy circle between two POIs."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Anime une position simulée avec un cercle de précision entre deux POI."
+          }
+        }
+      }
+    },
+    "feature.simulated_position.title" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Simulated position"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Position simulée"
+          }
+        }
+      }
+    },
     "feature.ui_part_visibility.description" : {
       "extractionState" : "manual",
       "localizations" : {

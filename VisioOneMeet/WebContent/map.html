@@ -186,6 +186,44 @@
         if (!view) return;
         view.setUIPartVisible(uiPart, isVisible);
       },
+      // Resolves a POI's WGS84 position by ID, read from its first marker,
+      // label, or image (POIs have no direct lat/lng field of their own).
+      // Returns null for an unknown POI id or one with none of those three
+      // sub-objects — both are "POI not found" to the native caller. Unlike
+      // the other MapBridge methods, this one is read straight from
+      // evaluateJavaScript's return value on the Swift side rather than
+      // pushed back via sendToNative, since it's a synchronous lookup with
+      // no event to react to. See docs/features/simulated-position.md.
+      resolvePoiPosition: function (poiId) {
+        if (!venue) return null;
+        var poi = venue.pois.find(function (p) { return p.id === poiId; });
+        if (!poi) return null;
+        var position =
+          (poi.markers && poi.markers[0] && poi.markers[0].position) ||
+          (poi.labels && poi.labels[0] && poi.labels[0].position) ||
+          (poi.images && poi.images[0] && poi.images[0].position);
+        if (!position) return null;
+        return { latitude: position.latitude, longitude: position.longitude };
+      },
+      // Injects/updates the simulated tracked position + accuracy circle.
+      // allowTracking must be true before the first injectTrackedPosition
+      // call, so it's set here on every call rather than requiring a
+      // separate "start" step. See docs/features/simulated-position.md.
+      injectTrackedPosition: function (latitude, longitude, precisionCircleRadius) {
+        if (!view) return;
+        view.allowTracking = true;
+        view.injectTrackedPosition({
+          position: { latitude: latitude, longitude: longitude },
+          precisionCircleRadius: precisionCircleRadius,
+        });
+      },
+      // Removes the simulated marker/accuracy circle. The SDK has no
+      // dedicated stop method — this is what allowTracking = false is for.
+      // See docs/features/simulated-position.md.
+      stopTrackedPosition: function () {
+        if (!view) return;
+        view.allowTracking = false;
+      },
     };
 
     visioOne.loadVenue({ hash: 'kbae8e6c066cca4b02c2afac2bc963a643d87437a' }, container)

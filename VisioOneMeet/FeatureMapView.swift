@@ -110,6 +110,8 @@ struct FeatureMapView: View {
             ComputeNavigationOverlay(bridge: bridge)
         case .uiPartVisibility:
             UIPartVisibilityOverlay(bridge: bridge)
+        case .simulatedPosition:
+            SimulatedPositionOverlay(bridge: bridge)
         }
     }
 }

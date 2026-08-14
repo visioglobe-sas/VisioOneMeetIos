@@ -8,6 +8,7 @@ enum Feature: String, CaseIterable, Identifiable, Hashable {
     case floorSelector
     case computeNavigation
     case uiPartVisibility
+    case simulatedPosition
 
     var id: String { slug }
 
@@ -27,6 +28,8 @@ enum Feature: String, CaseIterable, Identifiable, Hashable {
             return "compute-navigation"
         case .uiPartVisibility:
             return "ui-part-visibility"
+        case .simulatedPosition:
+            return "simulated-position"
         }
     }
 
@@ -46,6 +49,8 @@ enum Feature: String, CaseIterable, Identifiable, Hashable {
             return "feature.compute_navigation.title"
         case .uiPartVisibility:
             return "feature.ui_part_visibility.title"
+        case .simulatedPosition:
+            return "feature.simulated_position.title"
         }
     }
 
@@ -65,6 +70,8 @@ enum Feature: String, CaseIterable, Identifiable, Hashable {
             return "feature.compute_navigation.description"
         case .uiPartVisibility:
             return "feature.ui_part_visibility.description"
+        case .simulatedPosition:
+            return "feature.simulated_position.description"
         }
     }
 }
