@@ -197,6 +197,52 @@ struct FloorSelectorOverlay: View {
     }
 }
 
+/// Lets the user type two Place IDs and compute/display a route between
+/// them via `venue.computeNavigation()` + `view.setCurrentNavigationTrace()`.
+/// See docs/features/compute-navigation.md. `isAccessible` is hardcoded to
+/// `false` here — same choice as the React Native sibling — to keep this a
+/// minimal demonstration of the bridge call rather than a full accessibility
+/// toggle UI.
+struct ComputeNavigationOverlay: View {
+    @ObservedObject var bridge: VisioOneBridge
+    @State private var originPlaceId = ""
+    @State private var destinationPlaceId = ""
+
+    private var canComputeNavigation: Bool {
+        !originPlaceId.trimmingCharacters(in: .whitespaces).isEmpty
+            && !destinationPlaceId.trimmingCharacters(in: .whitespaces).isEmpty
+    }
+
+    var body: some View {
+        VStack(spacing: 12) {
+            TextField("From (Place ID)", text: $originPlaceId)
+                .textFieldStyle(.roundedBorder)
+                .autocorrectionDisabled()
+                .textInputAutocapitalization(.never)
+
+            TextField("To (Place ID)", text: $destinationPlaceId)
+                .textFieldStyle(.roundedBorder)
+                .autocorrectionDisabled()
+                .textInputAutocapitalization(.never)
+
+            Button("Itinerary") {
+                computeNavigation()
+            }
+            .frame(maxWidth: .infinity)
+            .buttonStyle(.borderedProminent)
+            .disabled(!canComputeNavigation)
+        }
+        .padding()
+    }
+
+    private func computeNavigation() {
+        let origin = originPlaceId.trimmingCharacters(in: .whitespaces)
+        let destination = destinationPlaceId.trimmingCharacters(in: .whitespaces)
+        guard !origin.isEmpty, !destination.isEmpty else { return }
+        bridge.computeNavigation(origin: origin, destination: destination, isAccessible: false)
+    }
+}
+
 /// Content of the panel shown when a POI is tapped on the map. Unlike the
 /// other overlays, this one is never opened by a FAB — `FeatureMapView`
 /// presents it automatically when `bridge.tappedPOI` goes non-nil, reacting

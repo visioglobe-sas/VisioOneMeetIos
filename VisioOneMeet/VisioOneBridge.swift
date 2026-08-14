@@ -172,6 +172,32 @@ final class VisioOneBridge: NSObject, WKScriptMessageHandler, ObservableObject {
         }
     }
 
+    /// Computes a route between two POIs (by ID) and displays it, via
+    /// `venue.computeNavigation()` + `venue.createNavigationTrace()` +
+    /// `view.setCurrentNavigationTrace()` (see
+    /// `docs/features/compute-navigation.md`). Computing a new route while
+    /// one is already displayed replaces it automatically — no explicit
+    /// "clear" is needed.
+    ///
+    /// The request is JSON-encoded via `JSONSerialization` before being
+    /// interpolated into the generated script, same rule as the other
+    /// bridge methods above.
+    func computeNavigation(origin: String, destination: String, isAccessible: Bool) {
+        guard let webView else { return }
+
+        let request: [String: Any] = ["origin": origin, "destination": destination, "isAccessible": isAccessible]
+        guard let data = try? JSONSerialization.data(withJSONObject: request),
+              let json = String(data: data, encoding: .utf8) else {
+            return
+        }
+
+        webView.evaluateJavaScript("window.MapBridge.computeNavigation(\(json))") { _, error in
+            if let error {
+                print("VisioOneBridge: computeNavigation failed: \(error.localizedDescription)")
+            }
+        }
+    }
+
     /// Resets to `.loading` and reloads the page, rather than leaving the UI
     /// stuck on `.error` until the next JS message arrives.
     func reload() {
