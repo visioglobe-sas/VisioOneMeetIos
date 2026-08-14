@@ -17,6 +17,34 @@ struct TappedPOI: Equatable {
     let name: String?
 }
 
+/// One floor of a `VenueBuilding`, as pushed by the SDK's `floorsChanged`
+/// bridge message (see `docs/features/floor-selector.md`). `label` is
+/// already localized on the JS side (SDK translator), never a raw ID.
+struct VenueFloor: Equatable, Identifiable {
+    let id: String
+    let label: String
+}
+
+/// One building of the loaded venue, with its floors sorted top-to-bottom
+/// (see `docs/features/floor-selector.md`).
+struct VenueBuilding: Equatable, Identifiable {
+    let id: String
+    let label: String
+    let floors: [VenueFloor]
+}
+
+/// Snapshot of the venue's buildings/floors plus what's currently active,
+/// mirrored from the SDK's `view.currentBuilding`/`view.currentFloor`.
+/// Empty `buildings` means the SDK hasn't reported anything yet (see
+/// `docs/features/floor-selector.md`).
+struct FloorSelection: Equatable {
+    let buildings: [VenueBuilding]
+    let currentBuildingId: String?
+    let currentFloorId: String?
+
+    static let empty = FloorSelection(buildings: [], currentBuildingId: nil, currentFloorId: nil)
+}
+
 /// Two-way bridge to the SDK running inside `MapWebView`.
 ///
 /// - Native -> JS: calls into `window.MapBridge`, defined in `map.html`, via
@@ -32,6 +60,11 @@ final class VisioOneBridge: NSObject, WKScriptMessageHandler, ObservableObject {
     /// Last POI tapped on the map, `nil` once the reaction panel has been
     /// dismissed. See `docs/features/poi-click.md`.
     @Published private(set) var tappedPOI: TappedPOI?
+
+    /// Buildings/floors of the loaded venue, and which one is currently
+    /// active, pushed by the JS side on `ready` and on every SDK
+    /// `currentfloorchanged` event (see `docs/features/floor-selector.md`).
+    @Published private(set) var floorSelection: FloorSelection = .empty
 
     /// Set by `MapWebView.makeUIView` once the underlying `WKWebView` exists.
     weak var webView: WKWebView?
@@ -102,6 +135,43 @@ final class VisioOneBridge: NSObject, WKScriptMessageHandler, ObservableObject {
         }
     }
 
+    /// Switches floor within the currently active building via
+    /// `view.goToFloor()` (see `docs/features/floor-selector.md`).
+    ///
+    /// `floorId` is JSON-encoded before being interpolated into the
+    /// generated script, same rule as `goToPOI` above.
+    func goToFloor(_ floorId: String) {
+        guard let webView else { return }
+
+        guard let data = try? JSONSerialization.data(withJSONObject: floorId, options: [.fragmentsAllowed]),
+              let json = String(data: data, encoding: .utf8) else {
+            return
+        }
+
+        webView.evaluateJavaScript("window.MapBridge.goToFloor(\(json))") { _, error in
+            if let error {
+                print("VisioOneBridge: goToFloor failed: \(error.localizedDescription)")
+            }
+        }
+    }
+
+    /// Switches building via `view.goToBuilding()`, which resolves to that
+    /// building's default floor (see `docs/features/floor-selector.md`).
+    func goToBuilding(_ buildingId: String) {
+        guard let webView else { return }
+
+        guard let data = try? JSONSerialization.data(withJSONObject: buildingId, options: [.fragmentsAllowed]),
+              let json = String(data: data, encoding: .utf8) else {
+            return
+        }
+
+        webView.evaluateJavaScript("window.MapBridge.goToBuilding(\(json))") { _, error in
+            if let error {
+                print("VisioOneBridge: goToBuilding failed: \(error.localizedDescription)")
+            }
+        }
+    }
+
     /// Resets to `.loading` and reloads the page, rather than leaving the UI
     /// stuck on `.error` until the next JS message arrives.
     func reload() {
@@ -130,9 +200,35 @@ final class VisioOneBridge: NSObject, WKScriptMessageHandler, ObservableObject {
             guard let payload = body["message"] as? [String: Any],
                   let id = payload["id"] as? String else { return }
             tappedPOI = TappedPOI(id: id, name: payload["name"] as? String)
+        case "floorsChanged":
+            guard let payload = body["message"] as? [String: Any] else { return }
+            floorSelection = Self.parseFloorSelection(payload)
         default:
             break
         }
+    }
+
+    /// Parses the `floorsChanged` payload sent by `map.html`'s
+    /// `sendFloorsState()` (see `docs/features/floor-selector.md`). Malformed
+    /// entries are skipped rather than failing the whole payload, so a
+    /// single unexpected building doesn't blank out the rest of the list.
+    private static func parseFloorSelection(_ payload: [String: Any]) -> FloorSelection {
+        let rawBuildings = payload["buildings"] as? [[String: Any]] ?? []
+        let buildings: [VenueBuilding] = rawBuildings.compactMap { raw in
+            guard let id = raw["id"] as? String, let label = raw["label"] as? String else { return nil }
+            let rawFloors = raw["floors"] as? [[String: Any]] ?? []
+            let floors: [VenueFloor] = rawFloors.compactMap { rawFloor in
+                guard let floorId = rawFloor["id"] as? String, let floorLabel = rawFloor["label"] as? String else { return nil }
+                return VenueFloor(id: floorId, label: floorLabel)
+            }
+            return VenueBuilding(id: id, label: label, floors: floors)
+        }
+
+        return FloorSelection(
+            buildings: buildings,
+            currentBuildingId: payload["currentBuildingId"] as? String,
+            currentFloorId: payload["currentFloorId"] as? String
+        )
     }
 }
 

@@ -34,6 +34,46 @@
     // reset. See docs/features/goto-poi.md.
     var selectedPoi = null;
 
+    // Finds a floor by ID across every building of the venue (floor IDs are
+    // unique venue-wide, unlike POI IDs). See docs/features/floor-selector.md.
+    function findFloorById(floorId) {
+      if (!venue) return null;
+      var buildings = venue.venueLayout.buildings;
+      for (var i = 0; i < buildings.length; i++) {
+        var floor = buildings[i].floors.find(function (f) { return f.id === floorId; });
+        if (floor) return floor;
+      }
+      return null;
+    }
+
+    // JS -> native: pushes the full building/floor list plus what's
+    // currently active, so the native bottom sheet can render a list and
+    // highlight the selected floor. Sent once on `ready`, then again on
+    // every `currentfloorchanged` (which also fires on a building switch,
+    // since `view.goToBuilding` resolves to that building's default floor).
+    // See docs/features/floor-selector.md.
+    function sendFloorsState() {
+      if (!venue || !view) return;
+      var locale = venue.currentLocale;
+      var buildings = venue.venueLayout.buildings.map(function (building) {
+        var label = venue.translator.translateBuilding(building, locale).name || building.id;
+        var floors = building.floors
+          .slice()
+          .sort(function (a, b) { return b.altitude - a.altitude; })
+          .map(function (floor) {
+            var shortName = venue.translator.translateFloor(floor, locale).shortName;
+            return { id: floor.id, label: shortName || String(floor.levelIndex) };
+          });
+        return { id: building.id, label: label, floors: floors };
+      });
+
+      sendToNative('floorsChanged', {
+        buildings: buildings,
+        currentBuildingId: view.currentBuilding ? view.currentBuilding.id : null,
+        currentFloorId: view.currentFloor ? view.currentFloor.id : null,
+      });
+    }
+
     // JS -> native: forward the loading lifecycle so the SwiftUI layer can
     // show a spinner/error instead of a screen frozen on a black rectangle.
     // See docs/APP_SDK_COMMUNICATION.md for the pattern.
@@ -101,6 +141,22 @@
         });
         selectedPoi = null;
       },
+      // Switches floor within the currently active building via
+      // `view.goToFloor()`. See docs/features/floor-selector.md.
+      goToFloor: function (floorId) {
+        if (!venue || !view) return;
+        var floor = findFloorById(floorId);
+        if (!floor) return;
+        view.goToFloor(floor);
+      },
+      // Switches building via `view.goToBuilding()`, which resolves to that
+      // building's default floor. See docs/features/floor-selector.md.
+      goToBuilding: function (buildingId) {
+        if (!venue || !view) return;
+        var building = venue.venueLayout.buildings.find(function (b) { return b.id === buildingId; });
+        if (!building) return;
+        view.goToBuilding(building);
+      },
     };
 
     visioOne.loadVenue({ hash: 'kbae8e6c066cca4b02c2afac2bc963a643d87437a' }, container)
@@ -124,7 +180,16 @@
           });
         });
 
+        // JS -> native: refresh the floor-selector state whenever the
+        // active floor/building changes, whichever triggered it (native
+        // goToFloor/goToBuilding calls below, the SDK's own default
+        // floor-selector widget, or navigation). See docs/features/floor-selector.md.
+        view.addEventListener('currentfloorchanged', function () {
+          sendFloorsState();
+        });
+
         sendToNative('ready');
+        sendFloorsState();
       })
       .catch(function (error) {
         visioOne.showError(error, container);

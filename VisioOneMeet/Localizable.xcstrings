@@ -1,6 +1,40 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "feature.floor_selector.description" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Switch floor or building by tapping a native list."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Changer d'étage ou de bâtiment via une liste native."
+          }
+        }
+      }
+    },
+    "feature.floor_selector.title" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Floor / building selector"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sélection d'étage / bâtiment"
+          }
+        }
+      }
+    },
     "feature.goto_poi.description" : {
       "extractionState" : "manual",
       "localizations" : {
