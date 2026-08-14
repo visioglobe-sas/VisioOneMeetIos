@@ -157,6 +157,26 @@
         if (!building) return;
         view.goToBuilding(building);
       },
+      // Computes a route between two POIs (by ID) and displays it via
+      // view.setCurrentNavigationTrace(). That call replaces whatever route
+      // was previously current on its own, so no manual cleanup is needed
+      // between two calls. Errors thrown by computeNavigation (e.g. no
+      // route found) propagate to the evaluateJavaScript completion
+      // handler on the Swift side rather than being caught here — see
+      // docs/features/compute-navigation.md.
+      computeNavigation: function (request) {
+        if (!venue || !view) return;
+        var navigation = venue.computeNavigation({
+          origin: request.origin,
+          destination: request.destination,
+          isAccessible: request.isAccessible,
+          type: 'fastest',
+          firstNodeAsIntersection: false,
+          mergeFloorChangeInstructions: false,
+        });
+        var navigationTrace = venue.createNavigationTrace(navigation);
+        view.setCurrentNavigationTrace(navigationTrace);
+      },
     };
 
     visioOne.loadVenue({ hash: 'kbae8e6c066cca4b02c2afac2bc963a643d87437a' }, container)

@@ -106,6 +106,8 @@ struct FeatureMapView: View {
             GoToPoiOverlay(bridge: bridge)
         case .floorSelector:
             FloorSelectorOverlay(bridge: bridge)
+        case .computeNavigation:
+            ComputeNavigationOverlay(bridge: bridge)
         }
     }
 }
