@@ -308,74 +308,44 @@ struct UIPartVisibilityOverlay: View {
 private let simulatedPositionIntervalNanoseconds: UInt64 = 150_000_000
 private let simulatedPositionStepFraction: Double = 0.02 // ~50 ticks (7.5s) per leg
 
-/// Lets the user animate a simulated tracked position + accuracy circle
-/// back and forth between two POIs via `view.injectTrackedPosition()`. Two
-/// Place ID fields resolve to WGS84 positions once at Start (through
-/// `VisioOneBridge.resolvePoiPosition`, itself backed by the POIs' own
-/// markers/labels/images — see `docs/features/simulated-position.md`), then
-/// a repeating Swift-side loop — same idiom as `OccupancyOverlay` above —
-/// ping-pongs a linear interpolation between them, independent of whether
-/// this sheet stays open.
-struct SimulatedPositionOverlay: View {
-    @ObservedObject var bridge: VisioOneBridge
-    @State private var originPlaceId = ""
-    @State private var destinationPlaceId = ""
-    @State private var precisionCircleRadius: Double = 5
-    @State private var isSimulating = false
-    @State private var errorMessage: String?
-    @State private var simulationTask: Task<Void, Never>?
+/// Drives the origin/destination-POI ping-pong loop shared by
+/// `SimulatedPositionOverlay` and `CameraLockOnPositionOverlay` (see
+/// `docs/features/simulated-position.md` and
+/// `docs/features/camera-lock-on-position.md`) — extracted so the ~60-line
+/// loop (resolve two POI ids once, then interpolate between them on a
+/// repeating timer) isn't duplicated between the two screens, which only
+/// differ in what they show alongside it (the latter adds a camera-lock
+/// toggle). Resolution + the loop itself are unchanged from the original
+/// `SimulatedPositionOverlay` implementation.
+@MainActor
+final class PositionTrackingController: ObservableObject {
+    @Published var originPlaceId = ""
+    @Published var destinationPlaceId = ""
+    @Published var precisionCircleRadius: Double = 5
+    @Published private(set) var isSimulating = false
+    @Published var errorMessage: String?
 
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            TextField("Origin POI ID", text: $originPlaceId)
-                .textFieldStyle(.roundedBorder)
-                .autocorrectionDisabled()
-                .textInputAutocapitalization(.never)
-                .disabled(isSimulating)
+    private let bridge: VisioOneBridge
+    private var simulationTask: Task<Void, Never>?
 
-            TextField("Destination POI ID", text: $destinationPlaceId)
-                .textFieldStyle(.roundedBorder)
-                .autocorrectionDisabled()
-                .textInputAutocapitalization(.never)
-                .disabled(isSimulating)
-
-            VStack(alignment: .leading, spacing: 4) {
-                Text("Accuracy radius: \(Int(precisionCircleRadius)) m")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-                Slider(value: $precisionCircleRadius, in: 1...20, step: 1)
-            }
-
-            if let errorMessage {
-                Text(errorMessage)
-                    .font(.footnote)
-                    .foregroundStyle(.red)
-            }
-
-            Button(isSimulating ? "Stop simulated position" : "Simulate position") {
-                toggleSimulation()
-            }
-            .frame(maxWidth: .infinity)
-            .buttonStyle(.borderedProminent)
-            .disabled(!isSimulating && !canStartSimulation)
-        }
-        .padding()
+    init(bridge: VisioOneBridge) {
+        self.bridge = bridge
     }
 
-    private var canStartSimulation: Bool {
+    var canStart: Bool {
         !originPlaceId.trimmingCharacters(in: .whitespaces).isEmpty
             && !destinationPlaceId.trimmingCharacters(in: .whitespaces).isEmpty
     }
 
-    private func toggleSimulation() {
+    func toggle() {
         if isSimulating {
-            stopSimulation()
+            stop()
         } else {
-            startSimulation()
+            start()
         }
     }
 
-    private func startSimulation() {
+    func start() {
         let origin = originPlaceId.trimmingCharacters(in: .whitespaces)
         let destination = destinationPlaceId.trimmingCharacters(in: .whitespaces)
         guard !origin.isEmpty, !destination.isEmpty else { return }
@@ -417,11 +387,140 @@ struct SimulatedPositionOverlay: View {
         }
     }
 
-    private func stopSimulation() {
+    func stop() {
         simulationTask?.cancel()
         simulationTask = nil
         isSimulating = false
         bridge.stopTrackedPosition()
+    }
+}
+
+/// The Origin/Destination POI ID fields + accuracy slider + Start/Stop
+/// button shared by `SimulatedPositionOverlay` and
+/// `CameraLockOnPositionOverlay` — factored out so this ~25-line block of UI
+/// isn't duplicated between the two screens; only the controller instance
+/// (and, for the camera-lock screen, an extra toggle appended below it in
+/// the caller) differs.
+struct PositionTrackingControls: View {
+    @ObservedObject var controller: PositionTrackingController
+
+    var body: some View {
+        Group {
+            TextField("Origin POI ID", text: $controller.originPlaceId)
+                .textFieldStyle(.roundedBorder)
+                .autocorrectionDisabled()
+                .textInputAutocapitalization(.never)
+                .disabled(controller.isSimulating)
+
+            TextField("Destination POI ID", text: $controller.destinationPlaceId)
+                .textFieldStyle(.roundedBorder)
+                .autocorrectionDisabled()
+                .textInputAutocapitalization(.never)
+                .disabled(controller.isSimulating)
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Accuracy radius: \(Int(controller.precisionCircleRadius)) m")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                Slider(value: $controller.precisionCircleRadius, in: 1...20, step: 1)
+            }
+
+            if let errorMessage = controller.errorMessage {
+                Text(errorMessage)
+                    .font(.footnote)
+                    .foregroundStyle(.red)
+            }
+
+            Button(controller.isSimulating ? "Stop simulated position" : "Simulate position") {
+                controller.toggle()
+            }
+            .frame(maxWidth: .infinity)
+            .buttonStyle(.borderedProminent)
+            .disabled(!controller.isSimulating && !controller.canStart)
+        }
+    }
+}
+
+/// Lets the user animate a simulated tracked position + accuracy circle
+/// back and forth between two POIs via `view.injectTrackedPosition()`. Two
+/// Place ID fields resolve to WGS84 positions once at Start (through
+/// `VisioOneBridge.resolvePoiPosition`, itself backed by the POIs' own
+/// markers/labels/images — see `docs/features/simulated-position.md`), then
+/// a repeating Swift-side loop — now `PositionTrackingController` above,
+/// same idiom as `OccupancyOverlay` further up — ping-pongs a linear
+/// interpolation between them, independent of whether this sheet stays
+/// open.
+struct SimulatedPositionOverlay: View {
+    @StateObject private var controller: PositionTrackingController
+
+    init(bridge: VisioOneBridge) {
+        _controller = StateObject(wrappedValue: PositionTrackingController(bridge: bridge))
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            PositionTrackingControls(controller: controller)
+        }
+        .padding()
+    }
+}
+
+/// Lets the user lock the camera onto the same simulated tracked position
+/// driven by `PositionTrackingController` above (identical Origin/
+/// Destination POI ID + accuracy + Start/Stop UI, via
+/// `PositionTrackingControls`), plus a **Recenter camera on position**
+/// toggle that calls `view.lockCameraPositionOnTracking` through
+/// `VisioOneBridge.setCameraLockOnPosition`. See
+/// `docs/features/camera-lock-on-position.md`.
+///
+/// The toggle is disabled while no simulation is running — locking onto
+/// nothing has no visible effect — and is reset off (with the matching
+/// `bridge.setCameraLockOnPosition(false)` call) whenever the simulation
+/// stops, whether via the Stop button or a "POI not found" error:
+/// `onChange(of: controller.isSimulating)` below reacts to both transitions
+/// uniformly, since `PositionTrackingController` flips `isSimulating` back
+/// to `false` in either case. Leaving the screen entirely tears down the
+/// `WKWebView` (see `MapWebView.swift`/CLAUDE.md), which discards the SDK's
+/// `view` — and with it `lockCameraPositionOnTracking` — the same way it
+/// already discards the tracked position itself, so no separate handling
+/// is needed for that third case.
+struct CameraLockOnPositionOverlay: View {
+    @ObservedObject var bridge: VisioOneBridge
+    @StateObject private var controller: PositionTrackingController
+    @State private var isCameraLocked = false
+
+    init(bridge: VisioOneBridge) {
+        self.bridge = bridge
+        _controller = StateObject(wrappedValue: PositionTrackingController(bridge: bridge))
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            PositionTrackingControls(controller: controller)
+
+            Divider()
+
+            Toggle(isOn: cameraLockBinding) {
+                Text("Recenter camera on position")
+            }
+            .disabled(!controller.isSimulating)
+        }
+        .padding()
+        .onChange(of: controller.isSimulating) { simulating in
+            guard !simulating, isCameraLocked else { return }
+            isCameraLocked = false
+            bridge.setCameraLockOnPosition(false)
+        }
+    }
+
+    private var cameraLockBinding: Binding<Bool> {
+        Binding(
+            get: { isCameraLocked },
+            set: { newValue in
+                isCameraLocked = newValue
+                bridge.setCameraLockOnPosition(newValue)
+            }
+        )
     }
 }
 

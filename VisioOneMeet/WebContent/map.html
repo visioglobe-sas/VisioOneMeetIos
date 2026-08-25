@@ -224,6 +224,17 @@
         if (!view) return;
         view.allowTracking = false;
       },
+      // Locks/unlocks the camera onto the currently tracked position via
+      // view.lockCameraPositionOnTracking. Only has a visible effect once
+      // view.allowTracking is already true (i.e. a tracked position is
+      // being injected, see injectTrackedPosition above) — per the SDK's
+      // own doc comment, setting this while tracking is off is a harmless
+      // no-op, not an error, so no guard is needed here. See
+      // docs/features/camera-lock-on-position.md.
+      setCameraLockOnPosition: function (locked) {
+        if (!view) return;
+        view.lockCameraPositionOnTracking = locked;
+      },
     };
 
     visioOne.loadVenue({ hash: 'kbae8e6c066cca4b02c2afac2bc963a643d87437a' }, container)

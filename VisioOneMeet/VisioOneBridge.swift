@@ -295,6 +295,28 @@ final class VisioOneBridge: NSObject, WKScriptMessageHandler, ObservableObject {
         }
     }
 
+    /// Locks/unlocks the camera onto the currently tracked position via
+    /// `view.lockCameraPositionOnTracking` (see
+    /// `docs/features/camera-lock-on-position.md`). Only has a visible
+    /// effect once `view.allowTracking` is already `true` (i.e. a
+    /// simulated-position loop is running, see `injectTrackedPosition`
+    /// above) — per the SDK's own doc comment, setting this while tracking
+    /// is off is a harmless no-op, not an exception (unlike
+    /// `injectTrackedPosition`, which does throw when `allowTracking` is
+    /// `false`), so no extra guard is needed on the Swift side either.
+    ///
+    /// `locked` is a plain `Bool` computed on the Swift side (never raw
+    /// user text), so it's interpolated directly into the generated script
+    /// rather than JSON-encoded — same rule as the boolean in
+    /// `setUIPartVisible` above.
+    func setCameraLockOnPosition(_ locked: Bool) {
+        webView?.evaluateJavaScript("window.MapBridge.setCameraLockOnPosition(\(locked))") { _, error in
+            if let error {
+                print("VisioOneBridge: setCameraLockOnPosition failed: \(error.localizedDescription)")
+            }
+        }
+    }
+
     /// Resets to `.loading` and reloads the page, rather than leaving the UI
     /// stuck on `.error` until the next JS message arrives.
     func reload() {
