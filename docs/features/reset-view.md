@@ -1,77 +1,36 @@
-# Réinitialisation de la vue
+# Reset View
 
 ## Description
 
-Ajoute un bouton natif « Reset view » qui recentre la caméra sur la venue via `view.goToGlobal()`. Réutilise le pont natif→JS (`window.MapBridge` + `WKWebView.evaluateJavaScript`) introduit par la feature `occupancy-simulated` — aucun nouveau canal de communication n'a été nécessaire, seulement une nouvelle commande sur le pont existant.
+Recenters the camera on the whole venue via `view.goToGlobal()` — a `View` method that takes no arguments and animates the camera back to the venue's default overview.
 
-Contrairement à `updateOccupancy`, cette commande ne prend aucun argument : elle appelle simplement `view.goToGlobal()`, exposé par la `view` retournée par `visioOne.createView(container, venue)`.
+## SDK usage
 
-## Step by step
+```swift
+func goToGlobal() {
+    webView?.evaluateJavaScript("window.MapBridge.goToGlobal()") { _, error in
+        if let error {
+            print("VisioOneBridge: goToGlobal failed: \(error.localizedDescription)")
+        }
+    }
+}
+```
 
-1. **Conserver la `view` retournée par `createView`** (`VisioOneMeet/WebContent/map.html`) — jusqu'ici seule `venue` était hissée en variable de module ; `view` ne l'était pas :
-   ```js
-   var venue = null;
-   var view = null;
+```js
+// window.MapBridge, JS side
+goToGlobal: function () {
+  if (view) view.goToGlobal();
+},
+```
 
-   window.MapBridge = {
-     goToGlobal: function () {
-       if (view) view.goToGlobal();
-     },
-     updateOccupancy: function (occupancy) { /* inchangé */ },
-   };
+`view` is the object returned once the promise from `visioOne.createView(container, venue)` resolves — keep a reference to it, since most `View` methods (including this one) are called on it directly.
 
-   visioOne.loadVenue({ hash: '...' }, container)
-     .then(function (v) {
-       venue = v;
-       return visioOne.createView(container, venue);
-     })
-     .then(function (v) {
-       view = v;
-     })
-     .catch(function (error) {
-       visioOne.showError(error, container);
-     });
-   ```
-2. **Ajouter la méthode côté Swift** (`VisioOneMeet/VisioOneBridge.swift`), à côté de `updateOccupancy`, sur la même classe `VisioOneBridge` :
-   ```swift
-   func goToGlobal() {
-       webView?.evaluateJavaScript("window.MapBridge.goToGlobal()") { _, error in
-           if let error {
-               print("VisioOneBridge: goToGlobal failed: \(error.localizedDescription)")
-           }
-       }
-   }
-   ```
-3. **Ajouter le bouton dans `FeatureOverlays.swift`** (`ResetViewOverlay`), positionné en haut à droite (`top-trailing`), toujours visible, au-dessus de la carte :
-   ```swift
-   struct ResetViewOverlay: View {
-       @ObservedObject var bridge: VisioOneBridge
+## Things to know
 
-       var body: some View {
-           VStack {
-               HStack {
-                   Spacer()
-                   Button {
-                       bridge.goToGlobal()
-                   } label: {
-                       Text(Feature.resetView.title)
-                   }
-                   .buttonStyle(.borderedProminent)
-                   .padding()
-               }
-               Spacer()
-           }
-       }
-   }
-   ```
-   `FeatureMapView.swift` choisit cet overlay quand `feature == .resetView` et possède la `MapWebView` + le `VisioOneBridge` pour cet écran dédié (voir `docs/features/README.md` du hub pour le pattern « un écran par feature »).
+- Takes no arguments — no JSON-encoding needed, unlike SDK calls that take structured data.
+- `view` is `null` until `createView` resolves; calling `goToGlobal` before that is a silent no-op — no error, the camera simply doesn't move.
+- The camera animates back immediately when called. The `evaluateJavaScript` completion handler only reports JS-execution errors, not animation completion — there's no callback or event to await for the animation itself.
 
-## Points d'attention
+## Learn more
 
-- **Aucun risque de cycle de rétention ici** : cette feature n'ajoute pas de `WKScriptMessageHandler` (pas de canal JS→natif), seulement une commande native→JS supplémentaire sur le pont `VisioOneBridge` existant, qui garde déjà sa référence `weak` vers le `WKWebView`.
-- **`view` n'est non-`nil` qu'une fois la promesse de `createView` résolue.** Appeler `goToGlobal` avant ce moment (ex. bouton tapé pendant le chargement initial de la carte) est un no-op silencieux côté JS — pas d'erreur, la caméra ne bouge simplement pas. Ce repo n'a pas (encore) de machine à états loading/ready/error pour désactiver le bouton pendant le chargement.
-- Le bouton chevauche visuellement la barre de recherche native du SDK (élément d'UI du SDK lui-même, pas de ce bridge) — à ajuster si besoin en fonction du layout réel de la carte utilisée.
-
-## Pour aller plus loin
-
-- Ce pont (`window.MapBridge` + `evaluateJavaScript`) est désormais le point d'ancrage pour les prochains fondamentaux encore ❌ sur cette plateforme (aller à un POI, changer d'étage, calculer un itinéraire) — voir le `ROADMAP.md` du hub (`VisioOneHub`).
+- See `docs/features/goto-poi.md` for `view.goToFloor()`/`view.goToPOI()`, used together for a more targeted camera move than a full reset.

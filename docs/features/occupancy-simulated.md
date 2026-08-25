@@ -1,76 +1,42 @@
-# Occupation temps réel (données simulées)
+# Occupancy (Simulated Data)
 
 ## Description
 
-Colore dynamiquement la surface d'un POI pour refléter un statut d'occupation (libre / bientôt occupé / occupé), via une nouvelle commande `updateOccupancy` ajoutée au pont natif→JS — **qui n'existait pas du tout avant cette feature** sur cette plateforme (aucun pont, dans aucune direction).
+Colors a POI's surface to reflect an occupancy status (free / soon busy / busy), via `venue.updateSurface(surface, { color })`. There's no real sensor behind this demo — a timer cycles through colors as a stand-in for a real IoT/occupancy feed.
 
-Il n'y a pas de vrai capteur derrière : une `Task` Swift fait tourner la couleur toutes les 2,5 secondes, en lieu et place d'un flux IoT réel.
+## SDK usage
 
-## Step by step
+```swift
+func updateOccupancy(planId: String, color: String?) {
+    guard let webView else { return }
+    let entry: [String: Any] = ["planId": planId, "color": color ?? NSNull()]
+    guard let data = try? JSONSerialization.data(withJSONObject: [entry]),
+          let json = String(data: data, encoding: .utf8) else { return }
+    webView.evaluateJavaScript("window.MapBridge.updateOccupancy(\(json))")
+}
+```
 
-1. **Ajouter la commande côté JS** (`VisioOneMeet/WebContent/map.html`) — la `venue` doit être hissée en variable accessible au script (elle n'était utilisée que dans la promesse `.then`) :
-   ```js
-   var venue = null;
+```js
+// window.MapBridge, JS side
+updateOccupancy: function (occupancy) {
+  if (!venue) return;
+  occupancy.forEach(function (entry) {
+    var poi = venue.pois.find(function (p) { return p.id === entry.planId; });
+    if (!poi) return;
+    poi.surfaces.forEach(function (surface) {
+      venue.updateSurface(surface, { color: entry.color });
+    });
+  });
+},
+```
 
-   window.MapBridge = {
-     updateOccupancy: function (occupancy) {
-       if (!venue) return;
-       occupancy.forEach(function (entry) {
-         var poi = venue.pois.find(function (p) { return p.id === entry.planId; });
-         if (!poi) return;
-         poi.surfaces.forEach(function (surface) {
-           venue.updateSurface(surface, { color: entry.color });
-         });
-       });
-     },
-   };
+## Things to know
 
-   visioOne.loadVenue({ hash: '...' }, container).then(function (v) {
-     venue = v; // au lieu de passer directement à createView
-     return visioOne.createView(container, venue);
-   });
-   ```
-2. **Créer un pont Swift dédié** (`VisioOneMeet/VisioOneBridge.swift`), une classe `ObservableObject` détenant une référence `weak` vers le `WKWebView` :
-   ```swift
-   final class VisioOneBridge: ObservableObject {
-       weak var webView: WKWebView?
+- `venue.pois.find(...)` fails silently if `planId` doesn't match any POI in the loaded map — nothing is raised on either side of the bridge.
+- Passing `color: nil` resets the surface to its default appearance. On the Swift side, `JSONSerialization` refuses a raw `nil` inside a dictionary/array, so it must be encoded explicitly as `NSNull()` — otherwise serialization fails silently (`try?` returns `nil`, and the JS call is never sent).
+- A POI can have multiple `surfaces`; `updateSurface` is called once per surface so the whole POI footprint changes color, not just one polygon.
+- This demonstrates the **mechanism** of a real-time update, not a real IoT integration — a real deployment would replace the timer with a subscription to an actual data source (websocket, API polling) without changing `updateOccupancy` or the SDK call itself.
 
-       func updateOccupancy(planId: String, color: String?) {
-           guard let webView else { return }
-           let entry: [String: Any] = ["planId": planId, "color": color ?? NSNull()]
-           guard let data = try? JSONSerialization.data(withJSONObject: [entry]),
-                 let json = String(data: data, encoding: .utf8) else { return }
-           webView.evaluateJavaScript("window.MapBridge.updateOccupancy(\(json))")
-       }
-   }
-   ```
-3. **Faire accepter le bridge à `MapWebView`** (`struct MapWebView: UIViewRepresentable`) et l'attacher une fois le `WKWebView` créé : `bridge.webView = webView` dans `makeUIView`.
-4. **Piloter la boucle depuis l'overlay dédié** (`OccupancyOverlay` dans `FeatureOverlays.swift`), avec `@ObservedObject var bridge: VisioOneBridge` reçu de `FeatureMapView.swift` (qui, lui, possède `@StateObject private var bridge = VisioOneBridge()` pour l'écran de cette feature), et une `Task` annulable stockée en `@State` sur l'overlay :
-   ```swift
-   occupancySimulationTask = Task {
-       var colorIndex = 0
-       bridge.updateOccupancy(planId: targetPlaceId, color: occupancyColors[colorIndex])
-       while !Task.isCancelled {
-           try? await Task.sleep(nanoseconds: 2_500_000_000)
-           guard !Task.isCancelled else { break }
-           colorIndex = (colorIndex + 1) % occupancyColors.count
-           bridge.updateOccupancy(planId: targetPlaceId, color: occupancyColors[colorIndex])
-       }
-       bridge.updateOccupancy(planId: targetPlaceId, color: nil) // reset
-   }
-   ```
-   Arrêter la simulation appelle `occupancySimulationTask?.cancel()` — le code après la boucle `while` s'exécute quand même une fois la tâche annulée, ce qui garantit la réinitialisation de la couleur.
-5. **Régénérer le projet Xcode après avoir ajouté `VisioOneBridge.swift`** : `xcodegen generate` (le fichier est repris automatiquement par le glob `sources: VisioOneMeet` de `project.yml`, mais Xcode ne le voit qu'après régénération).
+## Learn more
 
-## Points d'attention
-
-- **`JSONSerialization.data(withJSONObject:)` refuse un `nil` Swift brut** dans un dictionnaire/tableau — utiliser `NSNull()` explicitement pour encoder un `color` absent en `null` JSON, sinon la sérialisation échoue silencieusement (`try?` renvoie `nil`, la commande JS n'est jamais envoyée).
-- **`weak var webView`** : le bridge ne doit pas garder une référence forte vers le `WKWebView`, qui est possédé par le cycle de vie SwiftUI/`UIViewRepresentable` — une référence forte créerait un cycle de rétention potentiel.
-- **Aucun canal JS → natif n'existe encore** (pas de `WKScriptMessageHandler`) — cette feature n'en a pas besoin (`updateOccupancy` est purement natif → JS), mais toute feature future qui a besoin d'un retour du SDK (ex. `poiclick`) devra l'ajouter, en suivant le pattern déjà documenté dans `docs/APP_SDK_COMMUNICATION.md` (un objet-pont `window.MapBridge` côté JS existe déjà comme point d'ancrage).
-- **`planId` doit être un vrai ID de POI de la carte chargée** — `venue.pois.find(...)` échoue silencieusement côté JS si l'ID ne correspond à rien.
-- Ceci démontre la **mécanique** de mise à jour temps réel, pas une vraie intégration IoT — pour un cas client réel, remplacer la `Task`/boucle simulée par un abonnement à la vraie source (websocket, polling d'API) sans toucher au pont ni au SDK.
-
-## Pour aller plus loin
-
-- Ce pont natif→JS (`window.MapBridge` + `evaluateJavaScript`) est le point de départ pour câbler les autres fondamentaux encore ❌ sur cette plateforme (aller à un POI, changer d'étage, itinéraire) — voir `ROADMAP.md` du hub (`VisioOneHub`), Phase 0.
-- Version "vrai capteur" : voir le `ROADMAP.md` du hub, feature "Suivi d'actifs connectés (IoT)" — hors scope tant qu'aucun flux IoT réel n'est disponible.
+- `venue.updateSurface()` accepts other style overrides beyond `color` — see the SDK's `Surface`/`SurfaceStyle` types.
