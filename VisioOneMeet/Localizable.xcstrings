@@ -1,6 +1,40 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "feature.camera_lock_on_position.description" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Recenter the camera on a simulated tracked position, GPS-app style."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Recentre la caméra sur une position simulée suivie, comme une app GPS."
+          }
+        }
+      }
+    },
+    "feature.camera_lock_on_position.title" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Camera lock on position"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Verrouillage caméra sur la position"
+          }
+        }
+      }
+    },
     "feature.compute_navigation.description" : {
       "extractionState" : "manual",
       "localizations" : {

@@ -112,6 +112,8 @@ struct FeatureMapView: View {
             UIPartVisibilityOverlay(bridge: bridge)
         case .simulatedPosition:
             SimulatedPositionOverlay(bridge: bridge)
+        case .cameraLockOnPosition:
+            CameraLockOnPositionOverlay(bridge: bridge)
         }
     }
 }
