@@ -254,9 +254,50 @@
           );
         });
       },
+      // Reads a POI's business CustomData (free key/value strings such as
+      // price, opening hours, product reference), set in VisioMapEditor.
+      // venue.refreshCustomData() is never called automatically on load --
+      // the cache starts empty ({}) until this resolves at least once, so
+      // it's awaited here before every lookup. venue.getPOICustomData() is
+      // synchronous and always returns an object (never null/undefined),
+      // {} when the POI has no CustomData. This is the only MapBridge
+      // method that awaits a promise before returning, so it's called from
+      // Swift via callAsyncJavaScript rather than a plain
+      // evaluateJavaScript string. See docs/features/custom-data.md.
+      //
+      // refreshCustomData() rejects (rather than resolving) when the venue
+      // has no CustomData published yet -- e.g. a 404 on its customData.json
+      // surfaces here as an "Error: Hash not found" rejection, confirmed
+      // live against this repo's demo map. That's a normal "nothing to
+      // load yet" outcome, not a real failure, so it's swallowed here and
+      // the lookup proceeds against whatever the (possibly still-empty)
+      // cache holds, rather than propagating as a WKJavaScriptExceptionMessage
+      // failure to the Swift side. See docs/features/custom-data.md.
+      loadCustomData: async function (poiId) {
+        if (!venue) return { found: false };
+        try {
+          await venue.refreshCustomData();
+        } catch (e) {
+          // Intentionally ignored -- see comment above.
+        }
+        var poi = venue.pois.find(function (p) { return p.id === poiId; });
+        if (!poi) return { found: false };
+        return { found: true, data: venue.getPOICustomData(poi) };
+      },
     };
 
-    visioOne.loadVenue({ hash: 'kbae8e6c066cca4b02c2afac2bc963a643d87437a' }, container)
+    // Optional override so a single feature screen (custom-data, which
+    // needs a map with published CustomData the shared demo map doesn't
+    // have) can point this same bundled page at a different map without
+    // touching the default used by every other feature. Mirrors the
+    // `?hash=` query-param pattern already used by the Android sibling app
+    // (see web/src/main.js there) -- MapWebView.swift appends it to the
+    // file:// URL only when instantiated for that feature, nil/omitted
+    // otherwise. See docs/features/custom-data.md.
+    var DEFAULT_HASH = 'kbae8e6c066cca4b02c2afac2bc963a643d87437a';
+    var hash = new URLSearchParams(window.location.search).get('hash') || DEFAULT_HASH;
+
+    visioOne.loadVenue({ hash: hash }, container)
       .then(function (v) {
         venue = v;
         return visioOne.createView(container, venue);

@@ -7,7 +7,7 @@ struct FeatureMapView: View {
 
     var body: some View {
         ZStack(alignment: .bottomTrailing) {
-            MapWebView(bridge: bridge)
+            MapWebView(bridge: bridge, hashOverride: feature.mapHashOverride)
                 .ignoresSafeArea()
 
             switch bridge.loadState {
@@ -116,6 +116,8 @@ struct FeatureMapView: View {
             CameraLockOnPositionOverlay(bridge: bridge)
         case .clickableSurface:
             ClickableSurfaceOverlay(bridge: bridge)
+        case .customData:
+            CustomDataOverlay(bridge: bridge)
         }
     }
 }

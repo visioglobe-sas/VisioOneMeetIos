@@ -103,6 +103,40 @@
         }
       }
     },
+    "feature.custom_data.description" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Read custom business data (price, hours, reference) attached to a POI in VisioMapEditor."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lire des données métier (prix, horaires, référence) attachées à un POI dans VisioMapEditor."
+          }
+        }
+      }
+    },
+    "feature.custom_data.title" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Custom data"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Données personnalisées"
+          }
+        }
+      }
+    },
     "feature.floor_selector.description" : {
       "extractionState" : "manual",
       "localizations" : {
