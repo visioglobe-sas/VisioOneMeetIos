@@ -35,6 +35,40 @@
         }
       }
     },
+    "feature.clickable_surface.description" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Make a place's surface interactive so the SDK swaps its color on hover/tap."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rend la surface d'un lieu interactive : le SDK change sa couleur au survol/tap."
+          }
+        }
+      }
+    },
+    "feature.clickable_surface.title" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Clickable surface"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Surface cliquable"
+          }
+        }
+      }
+    },
     "feature.compute_navigation.description" : {
       "extractionState" : "manual",
       "localizations" : {

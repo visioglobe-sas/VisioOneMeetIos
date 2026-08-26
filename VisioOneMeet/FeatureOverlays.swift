@@ -524,6 +524,43 @@ struct CameraLockOnPositionOverlay: View {
     }
 }
 
+/// Lets the user type a Place ID and toggle its surface(s)' interactivity
+/// via `venue.updateSurface()`'s `isInteractive` option. Once enabled, the
+/// SDK itself handles the hover/tap color swap directly on the 3D map — no
+/// click listener is wired up on this side, unlike `goto-poi`'s
+/// `selectionColor` highlight which is set once and never changes on its
+/// own. See docs/features/clickable-surface.md.
+struct ClickableSurfaceOverlay: View {
+    @ObservedObject var bridge: VisioOneBridge
+    @State private var placeId = ""
+
+    var body: some View {
+        HStack {
+            TextField("Place ID", text: $placeId)
+                .textFieldStyle(.roundedBorder)
+                .autocorrectionDisabled()
+                .textInputAutocapitalization(.never)
+
+            Button("Enable") {
+                setInteractive(true)
+            }
+            .disabled(placeId.trimmingCharacters(in: .whitespaces).isEmpty)
+
+            Button("Disable") {
+                setInteractive(false)
+            }
+            .disabled(placeId.trimmingCharacters(in: .whitespaces).isEmpty)
+        }
+        .padding()
+    }
+
+    private func setInteractive(_ isInteractive: Bool) {
+        let targetPlaceId = placeId.trimmingCharacters(in: .whitespaces)
+        guard !targetPlaceId.isEmpty else { return }
+        bridge.setSurfaceInteractive(targetPlaceId, isInteractive: isInteractive)
+    }
+}
+
 /// Content of the panel shown when a POI is tapped on the map. Unlike the
 /// other overlays, this one is never opened by a FAB — `FeatureMapView`
 /// presents it automatically when `bridge.tappedPOI` goes non-nil, reacting

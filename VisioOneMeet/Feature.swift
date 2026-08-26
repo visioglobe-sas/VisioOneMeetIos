@@ -10,6 +10,7 @@ enum Feature: String, CaseIterable, Identifiable, Hashable {
     case uiPartVisibility
     case simulatedPosition
     case cameraLockOnPosition
+    case clickableSurface
 
     var id: String { slug }
 
@@ -33,6 +34,8 @@ enum Feature: String, CaseIterable, Identifiable, Hashable {
             return "simulated-position"
         case .cameraLockOnPosition:
             return "camera-lock-on-position"
+        case .clickableSurface:
+            return "clickable-surface"
         }
     }
 
@@ -56,6 +59,8 @@ enum Feature: String, CaseIterable, Identifiable, Hashable {
             return "feature.simulated_position.title"
         case .cameraLockOnPosition:
             return "feature.camera_lock_on_position.title"
+        case .clickableSurface:
+            return "feature.clickable_surface.title"
         }
     }
 
@@ -79,6 +84,8 @@ enum Feature: String, CaseIterable, Identifiable, Hashable {
             return "feature.simulated_position.description"
         case .cameraLockOnPosition:
             return "feature.camera_lock_on_position.description"
+        case .clickableSurface:
+            return "feature.clickable_surface.description"
         }
     }
 }

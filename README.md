@@ -63,6 +63,7 @@ Each feature below is a self-contained screen demonstrating one part of the Visi
 - [Selective UI visibility](docs/features/ui-part-visibility.md) — toggles each of the SDK's 5 default UI parts independently via `view.setUIPartVisible()`.
 - [Simulated position](docs/features/simulated-position.md) — animates a simulated tracked position (with precision circle) moving between two POIs via `view.injectTrackedPosition()`.
 - [Camera lock on position](docs/features/camera-lock-on-position.md) — locks the camera's focus on the currently tracked position via `view.lockCameraPositionOnTracking`.
+- [Clickable surface](docs/features/clickable-surface.md) — makes a POI's surface(s) interactive via `venue.updateSurface()`, letting the SDK swap its color on hover/tap on its own.
 
 ## Architecture
 

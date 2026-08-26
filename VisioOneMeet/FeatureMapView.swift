@@ -114,6 +114,8 @@ struct FeatureMapView: View {
             SimulatedPositionOverlay(bridge: bridge)
         case .cameraLockOnPosition:
             CameraLockOnPositionOverlay(bridge: bridge)
+        case .clickableSurface:
+            ClickableSurfaceOverlay(bridge: bridge)
         }
     }
 }
