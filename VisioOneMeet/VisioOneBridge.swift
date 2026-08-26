@@ -60,6 +60,17 @@ enum CustomDataLookup: Equatable {
     case data([String: String])
 }
 
+/// One entry of `venue.categories` (`Category = { readonly id: string }`),
+/// pushed by `window.MapBridge.getCategories`. `id` is the raw identifier
+/// used for filtering/highlighting (a numeric string on this app's shared
+/// demo map, e.g. `"9"`) — not itself human-readable — while `label` is the
+/// display name resolved JS-side via `venue.translator.translateCategory()`
+/// (e.g. `"Shops"`). See `docs/features/category-highlight.md`.
+struct MapCategory: Equatable, Identifiable {
+    let id: String
+    let label: String
+}
+
 /// Two-way bridge to the SDK running inside `MapWebView`.
 ///
 /// - Native -> JS: calls into `window.MapBridge`, defined in `map.html`, via
@@ -80,6 +91,15 @@ final class VisioOneBridge: NSObject, WKScriptMessageHandler, ObservableObject {
     /// active, pushed by the JS side on `ready` and on every SDK
     /// `currentfloorchanged` event (see `docs/features/floor-selector.md`).
     @Published private(set) var floorSelection: FloorSelection = .empty
+
+    /// Category id (`venue.categories[].id`) currently highlighted via
+    /// `highlightCategory`, `nil` when no category is highlighted. Set
+    /// optimistically from the Swift side (these are fire-and-forget one-way
+    /// calls, see below) rather than round-tripped from JS, and kept on the
+    /// bridge itself — not local view state — so it survives the control
+    /// sheet being dismissed and reopened. See
+    /// `docs/features/category-highlight.md`.
+    @Published private(set) var highlightedCategoryId: String?
 
     /// Set by `MapWebView.makeUIView` once the underlying `WKWebView` exists.
     weak var webView: WKWebView?
@@ -395,6 +415,82 @@ final class VisioOneBridge: NSObject, WKScriptMessageHandler, ObservableObject {
                     print("VisioOneBridge: loadCustomData failed: \(error.localizedDescription)")
                     continuation.resume(returning: nil)
                 }
+            }
+        }
+    }
+
+    /// Reads the venue's full category list via `window.MapBridge.getCategories`
+    /// (see `docs/features/category-highlight.md`). Like `resolvePoiPosition`,
+    /// this reads a synchronous JS computation straight from
+    /// `evaluateJavaScript`'s own return value rather than through
+    /// `WKScriptMessageHandler` — `venue.categories` is data the SDK already
+    /// holds once the venue is loaded, no promise involved — so a plain
+    /// `evaluateJavaScript` call (wrapped here in `withCheckedContinuation`
+    /// purely so callers can `await` it) is the cleanest fit, unlike
+    /// `loadCustomData` above which genuinely awaits a JS `Promise` and needs
+    /// `callAsyncJavaScript`. Returns `nil` on a bridge/JS failure; an empty
+    /// array is a normal (if unlikely) "no categories on this venue" result,
+    /// not an error.
+    func getCategories() async -> [MapCategory]? {
+        guard let webView else { return nil }
+
+        return await withCheckedContinuation { continuation in
+            webView.evaluateJavaScript("window.MapBridge.getCategories()") { result, error in
+                if let error {
+                    print("VisioOneBridge: getCategories failed: \(error.localizedDescription)")
+                    continuation.resume(returning: nil)
+                    return
+                }
+                guard let payload = result as? [[String: Any]] else {
+                    continuation.resume(returning: nil)
+                    return
+                }
+                let categories = payload.compactMap { entry -> MapCategory? in
+                    guard let id = entry["id"] as? String else { return nil }
+                    return MapCategory(id: id, label: entry["label"] as? String ?? id)
+                }
+                continuation.resume(returning: categories)
+            }
+        }
+    }
+
+    /// Highlights every POI belonging to `categoryId` via
+    /// `venue.pois.filter(...)` + `venue.updateSurface()`, reverting whatever
+    /// category was previously highlighted first so only one is ever
+    /// highlighted at a time (see `docs/features/category-highlight.md`).
+    /// Fire-and-forget, like `setSurfaceInteractive` above — no response is
+    /// needed, so `highlightedCategoryId` is updated optimistically here
+    /// rather than waiting on a round trip.
+    ///
+    /// `categoryId` is JSON-encoded before being interpolated into the
+    /// generated script, same rule as the other bridge methods that take a
+    /// caller-provided string.
+    func highlightCategory(_ categoryId: String) {
+        guard let webView else { return }
+
+        guard let data = try? JSONSerialization.data(withJSONObject: categoryId, options: [.fragmentsAllowed]),
+              let json = String(data: data, encoding: .utf8) else {
+            return
+        }
+
+        highlightedCategoryId = categoryId
+        webView.evaluateJavaScript("window.MapBridge.highlightCategory(\(json))") { _, error in
+            if let error {
+                print("VisioOneBridge: highlightCategory failed: \(error.localizedDescription)")
+            }
+        }
+    }
+
+    /// Reverts whatever `highlightCategory` last applied (see
+    /// `docs/features/category-highlight.md`). Fire-and-forget, same as
+    /// `highlightCategory` above.
+    func clearCategoryHighlight() {
+        guard let webView else { return }
+
+        highlightedCategoryId = nil
+        webView.evaluateJavaScript("window.MapBridge.clearCategoryHighlight()") { _, error in
+            if let error {
+                print("VisioOneBridge: clearCategoryHighlight failed: \(error.localizedDescription)")
             }
         }
     }

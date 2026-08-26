@@ -682,6 +682,89 @@ struct CustomDataOverlay: View {
     }
 }
 
+/// Lets the user pick one of the venue's categories (`venue.categories`) and
+/// highlight every POI belonging to it in one action, via
+/// `venue.pois.filter(poi => poi.categories.some(...))` +
+/// `venue.updateSurface()`. Rows show each category's translated display
+/// name (`MapCategory.label`), while selection/highlighting is keyed off its
+/// raw `id` — the two differ on this app's shared demo map (see
+/// docs/features/category-highlight.md). Picking a different category
+/// automatically reverts the previous one first (enforced JS-side, see
+/// `map.html`); picking the already-selected category, or tapping "Clear",
+/// reverts to no highlight.
+struct CategoryHighlightOverlay: View {
+    @ObservedObject var bridge: VisioOneBridge
+    @State private var categories: [MapCategory] = []
+    @State private var isLoading = true
+    @State private var loadFailed = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            if isLoading {
+                ProgressView()
+                    .frame(maxWidth: .infinity, alignment: .center)
+                    .padding()
+            } else if loadFailed {
+                Text("Could not load categories")
+                    .foregroundStyle(.red)
+                    .padding()
+            } else if categories.isEmpty {
+                Text("No categories on this map")
+                    .foregroundStyle(.secondary)
+                    .padding()
+            } else {
+                List(categories) { category in
+                    Button {
+                        select(category)
+                    } label: {
+                        HStack {
+                            Text(category.label)
+                            Spacer()
+                            if category.id == bridge.highlightedCategoryId {
+                                Image(systemName: "checkmark")
+                            }
+                        }
+                    }
+                    .foregroundStyle(.primary)
+                }
+                .listStyle(.plain)
+
+                if bridge.highlightedCategoryId != nil {
+                    Button("Clear") {
+                        bridge.clearCategoryHighlight()
+                    }
+                    .frame(maxWidth: .infinity)
+                    .buttonStyle(.bordered)
+                    .padding()
+                }
+            }
+        }
+        .task {
+            await loadCategories()
+        }
+    }
+
+    private func loadCategories() async {
+        isLoading = true
+        loadFailed = false
+        let result = await bridge.getCategories()
+        isLoading = false
+        if let result {
+            categories = result
+        } else {
+            loadFailed = true
+        }
+    }
+
+    private func select(_ category: MapCategory) {
+        if bridge.highlightedCategoryId == category.id {
+            bridge.clearCategoryHighlight()
+        } else {
+            bridge.highlightCategory(category.id)
+        }
+    }
+}
+
 /// Content of the panel shown when a POI is tapped on the map. Unlike the
 /// other overlays, this one is never opened by a FAB — `FeatureMapView`
 /// presents it automatically when `bridge.tappedPOI` goes non-nil, reacting

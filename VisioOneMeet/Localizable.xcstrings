@@ -35,6 +35,40 @@
         }
       }
     },
+    "feature.category_highlight.description" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Highlight every place belonging to a chosen category in one tap."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mettre en surbrillance tous les lieux d'une catégorie choisie en un tap."
+          }
+        }
+      }
+    },
+    "feature.category_highlight.title" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Category highlight"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Highlight par catégorie"
+          }
+        }
+      }
+    },
     "feature.clickable_surface.description" : {
       "extractionState" : "manual",
       "localizations" : {
