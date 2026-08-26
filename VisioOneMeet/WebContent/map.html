@@ -33,6 +33,10 @@
     // Last POI targeted via goToPOI, so clearPOI knows which surfaces to
     // reset. See docs/features/goto-poi.md.
     var selectedPoi = null;
+    // Category id currently highlighted by highlightCategory, so a later
+    // call knows which POIs' surfaces to revert first, and clearCategoryHighlight
+    // knows what to undo. See docs/features/category-highlight.md.
+    var highlightedCategoryId = null;
 
     // Finds a floor by ID across every building of the venue (floor IDs are
     // unique venue-wide, unlike POI IDs). See docs/features/floor-selector.md.
@@ -283,6 +287,66 @@
         var poi = venue.pois.find(function (p) { return p.id === poiId; });
         if (!poi) return { found: false };
         return { found: true, data: venue.getPOICustomData(poi) };
+      },
+      // Returns the venue's full category list (venue.categories: Category[],
+      // Category = { readonly id: string }) so the native side can render a
+      // picker. A synchronous read of data the SDK already loaded with the
+      // venue -- no promise involved, unlike loadCustomData above -- so this
+      // is read straight from evaluateJavaScript's return value on the Swift
+      // side, same idiom as resolvePoiPosition. See
+      // docs/features/category-highlight.md.
+      //
+      // category.id is a raw internal identifier (a numeric string on this
+      // demo's shared map, e.g. "1".."11"), not itself human-readable --
+      // confirmed live, contrary to what's assumed elsewhere. The
+      // human-readable name comes from venue.translator.translateCategory(),
+      // same idiom sendFloorsState() already uses for building/floor labels
+      // above. Both id (used for filtering/highlighting) and label (used for
+      // display only) are returned so the native side never needs to
+      // highlight by a translated string.
+      getCategories: function () {
+        if (!venue) return [];
+        var locale = venue.currentLocale;
+        return venue.categories.map(function (c) {
+          var translated = venue.translator.translateCategory(c, locale);
+          return { id: c.id, label: (translated && translated.name) || c.id };
+        });
+      },
+      // Highlights every POI belonging to categoryId by setting its
+      // surface(s)' color, built from venue.pois.filter() (no dedicated
+      // "highlight by category" SDK method exists) + venue.updateSurface().
+      // Only one category is highlighted at a time: whatever was highlighted
+      // before (tracked in highlightedCategoryId) is reverted to 'initial'
+      // first. POIs with no surfaces (point/marker-only) are filtered in but
+      // simply produce no visible change, since poi.surfaces is []. See
+      // docs/features/category-highlight.md.
+      highlightCategory: function (categoryId) {
+        if (!venue) return;
+        if (highlightedCategoryId) {
+          venue.pois
+            .filter(function (p) { return p.categories.some(function (c) { return c.id === highlightedCategoryId; }); })
+            .forEach(function (poi) {
+              poi.surfaces.forEach(function (surface) { venue.updateSurface(surface, { color: 'initial' }); });
+            });
+        }
+        highlightedCategoryId = categoryId;
+        venue.pois
+          .filter(function (p) { return p.categories.some(function (c) { return c.id === categoryId; }); })
+          .forEach(function (poi) {
+            poi.surfaces.forEach(function (surface) { venue.updateSurface(surface, { color: '#FF6B00' }); });
+          });
+      },
+      // Reverts whatever highlightCategory last applied. Passing 'initial'
+      // (not undefined) is required to actually restore the bundle-defined
+      // color -- see docs/features/category-highlight.md.
+      clearCategoryHighlight: function () {
+        if (!venue || !highlightedCategoryId) return;
+        venue.pois
+          .filter(function (p) { return p.categories.some(function (c) { return c.id === highlightedCategoryId; }); })
+          .forEach(function (poi) {
+            poi.surfaces.forEach(function (surface) { venue.updateSurface(surface, { color: 'initial' }); });
+          });
+        highlightedCategoryId = null;
       },
     };
 

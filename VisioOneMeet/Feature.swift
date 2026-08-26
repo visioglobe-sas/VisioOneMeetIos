@@ -12,6 +12,7 @@ enum Feature: String, CaseIterable, Identifiable, Hashable {
     case cameraLockOnPosition
     case clickableSurface
     case customData
+    case categoryHighlight
 
     var id: String { slug }
 
@@ -54,6 +55,8 @@ enum Feature: String, CaseIterable, Identifiable, Hashable {
             return "clickable-surface"
         case .customData:
             return "custom-data"
+        case .categoryHighlight:
+            return "category-highlight"
         }
     }
 
@@ -81,6 +84,8 @@ enum Feature: String, CaseIterable, Identifiable, Hashable {
             return "feature.clickable_surface.title"
         case .customData:
             return "feature.custom_data.title"
+        case .categoryHighlight:
+            return "feature.category_highlight.title"
         }
     }
 
@@ -108,6 +113,8 @@ enum Feature: String, CaseIterable, Identifiable, Hashable {
             return "feature.clickable_surface.description"
         case .customData:
             return "feature.custom_data.description"
+        case .categoryHighlight:
+            return "feature.category_highlight.description"
         }
     }
 }

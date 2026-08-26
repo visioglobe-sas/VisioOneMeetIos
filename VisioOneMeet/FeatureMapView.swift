@@ -118,6 +118,8 @@ struct FeatureMapView: View {
             ClickableSurfaceOverlay(bridge: bridge)
         case .customData:
             CustomDataOverlay(bridge: bridge)
+        case .categoryHighlight:
+            CategoryHighlightOverlay(bridge: bridge)
         }
     }
 }
