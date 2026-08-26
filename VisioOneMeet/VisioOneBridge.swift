@@ -52,6 +52,14 @@ struct GeoPosition: Equatable {
     let longitude: Double
 }
 
+/// Result of `loadCustomData`, distinguishing a POI that doesn't exist from
+/// one that exists but has no business CustomData (an empty dictionary) —
+/// both are normal, non-error states (see `docs/features/custom-data.md`).
+enum CustomDataLookup: Equatable {
+    case poiNotFound
+    case data([String: String])
+}
+
 /// Two-way bridge to the SDK running inside `MapWebView`.
 ///
 /// - Native -> JS: calls into `window.MapBridge`, defined in `map.html`, via
@@ -341,6 +349,52 @@ final class VisioOneBridge: NSObject, WKScriptMessageHandler, ObservableObject {
         webView.evaluateJavaScript("window.MapBridge.setSurfaceInteractive(\(json), \(isInteractive))") { _, error in
             if let error {
                 print("VisioOneBridge: setSurfaceInteractive failed: \(error.localizedDescription)")
+            }
+        }
+    }
+
+    /// Refreshes the venue's CustomData cache via `venue.refreshCustomData()`,
+    /// then reads the given POI's data via `venue.getPOICustomData()` in the
+    /// same JS call (see `docs/features/custom-data.md`). Unlike the other
+    /// bridge methods, `refreshCustomData()` is an SDK call that awaits a
+    /// network round trip, so `window.MapBridge.loadCustomData` is itself an
+    /// `async` function — this is the only bridge method that needs to wait
+    /// for a JS `Promise` to settle before reading a value back, hence
+    /// `WKWebView.callAsyncJavaScript` rather than a plain
+    /// `evaluateJavaScript` string (see `docs/APP_SDK_COMMUNICATION.md`,
+    /// section 1.2, for why `evaluateJavaScript` alone doesn't wait on a
+    /// returned promise).
+    ///
+    /// Returns `nil` on a bridge/JS failure (logged, not surfaced further);
+    /// `.poiNotFound` when `poiId` doesn't resolve to a POI in the loaded
+    /// venue; `.data(_)` otherwise, where the dictionary is `{}` (never
+    /// `nil`) when the POI has no CustomData.
+    func loadCustomData(_ poiId: String) async -> CustomDataLookup? {
+        guard let webView else { return nil }
+
+        return await withCheckedContinuation { continuation in
+            webView.callAsyncJavaScript(
+                "return await window.MapBridge.loadCustomData(poiId);",
+                arguments: ["poiId": poiId],
+                in: nil,
+                in: .page
+            ) { result in
+                switch result {
+                case .success(let value):
+                    guard let payload = value as? [String: Any],
+                          let found = payload["found"] as? Bool else {
+                        continuation.resume(returning: nil)
+                        return
+                    }
+                    guard found else {
+                        continuation.resume(returning: .poiNotFound)
+                        return
+                    }
+                    continuation.resume(returning: .data(payload["data"] as? [String: String] ?? [:]))
+                case .failure(let error):
+                    print("VisioOneBridge: loadCustomData failed: \(error.localizedDescription)")
+                    continuation.resume(returning: nil)
+                }
             }
         }
     }

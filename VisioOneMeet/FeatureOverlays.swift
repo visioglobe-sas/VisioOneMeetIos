@@ -561,6 +561,93 @@ struct ClickableSurfaceOverlay: View {
     }
 }
 
+/// Lets the user type a POI ID and load its business CustomData (free
+/// key/value strings such as price, opening hours, product reference), via
+/// `venue.refreshCustomData()` + `venue.getPOICustomData()`. A single "Load"
+/// button runs both SDK calls in sequence — this repo's `goto-poi`/
+/// `clickable-surface` idiom of one field + one action, rather than
+/// splitting "refresh" and "look up" into two separate buttons, since the
+/// cache almost always needs refreshing right before a lookup anyway. See
+/// docs/features/custom-data.md.
+struct CustomDataOverlay: View {
+    @ObservedObject var bridge: VisioOneBridge
+    @State private var placeId = ""
+    @State private var isLoading = false
+    @State private var lookup: CustomDataLookup?
+    @State private var loadFailed = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                TextField("Place ID", text: $placeId)
+                    .textFieldStyle(.roundedBorder)
+                    .autocorrectionDisabled()
+                    .textInputAutocapitalization(.never)
+                    .disabled(isLoading)
+
+                Button("Load") {
+                    load()
+                }
+                .disabled(isLoading || placeId.trimmingCharacters(in: .whitespaces).isEmpty)
+            }
+
+            resultView
+        }
+        .padding()
+    }
+
+    @ViewBuilder
+    private var resultView: some View {
+        if isLoading {
+            ProgressView()
+                .frame(maxWidth: .infinity, alignment: .center)
+        } else if loadFailed {
+            Text("Could not load custom data")
+                .foregroundStyle(.red)
+        } else if let lookup {
+            switch lookup {
+            case .poiNotFound:
+                Text("POI not found")
+                    .foregroundStyle(.secondary)
+            case .data(let data) where data.isEmpty:
+                Text("No custom data for this POI")
+                    .foregroundStyle(.secondary)
+            case .data(let data):
+                VStack(alignment: .leading, spacing: 6) {
+                    ForEach(data.sorted(by: { $0.key < $1.key }), id: \.key) { key, value in
+                        HStack(alignment: .top) {
+                            Text(key)
+                                .fontWeight(.semibold)
+                            Spacer()
+                            Text(value)
+                                .multilineTextAlignment(.trailing)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private func load() {
+        let targetPlaceId = placeId.trimmingCharacters(in: .whitespaces)
+        guard !targetPlaceId.isEmpty else { return }
+
+        isLoading = true
+        loadFailed = false
+        lookup = nil
+
+        Task {
+            let result = await bridge.loadCustomData(targetPlaceId)
+            isLoading = false
+            if let result {
+                lookup = result
+            } else {
+                loadFailed = true
+            }
+        }
+    }
+}
+
 /// Content of the panel shown when a POI is tapped on the map. Unlike the
 /// other overlays, this one is never opened by a FAB — `FeatureMapView`
 /// presents it automatically when `bridge.tappedPOI` goes non-nil, reacting
