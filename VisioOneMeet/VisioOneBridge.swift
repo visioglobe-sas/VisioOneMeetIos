@@ -317,6 +317,34 @@ final class VisioOneBridge: NSObject, WKScriptMessageHandler, ObservableObject {
         }
     }
 
+    /// Makes a POI's surface(s) clickable via `venue.updateSurface()`'s
+    /// `isInteractive` option, letting the SDK itself swap the displayed
+    /// color on hover/tap (`hoverColor`/`selectionColor`) — no click
+    /// listener is needed on either side of the bridge for that part (see
+    /// `docs/features/clickable-surface.md`). Disabling resets the base
+    /// color to `'initial'` so the surface doesn't stay stuck on the custom
+    /// color set while enabled.
+    ///
+    /// `placeId` is JSON-encoded before being interpolated into the
+    /// generated script, same rule as `goToPOI` above; `isInteractive` is a
+    /// plain `Bool` computed on the Swift side (never raw user text), so
+    /// it's interpolated directly, same as the boolean in
+    /// `setUIPartVisible`.
+    func setSurfaceInteractive(_ placeId: String, isInteractive: Bool) {
+        guard let webView else { return }
+
+        guard let data = try? JSONSerialization.data(withJSONObject: placeId, options: [.fragmentsAllowed]),
+              let json = String(data: data, encoding: .utf8) else {
+            return
+        }
+
+        webView.evaluateJavaScript("window.MapBridge.setSurfaceInteractive(\(json), \(isInteractive))") { _, error in
+            if let error {
+                print("VisioOneBridge: setSurfaceInteractive failed: \(error.localizedDescription)")
+            }
+        }
+    }
+
     /// Resets to `.loading` and reloads the page, rather than leaving the UI
     /// stuck on `.error` until the next JS message arrives.
     func reload() {
