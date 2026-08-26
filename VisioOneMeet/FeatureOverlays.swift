@@ -569,7 +569,21 @@ struct ClickableSurfaceOverlay: View {
 /// splitting "refresh" and "look up" into two separate buttons, since the
 /// cache almost always needs refreshing right before a lookup anyway. See
 /// docs/features/custom-data.md.
+///
+/// This screen loads a dedicated map (`Feature.customData.mapHashOverride`,
+/// threaded through by `FeatureMapView`/`MapWebView`) rather than the app's
+/// shared demo map, because the shared map has no CustomData published —
+/// looking up any POI there would always land on the empty state. The 3
+/// `knownPlaceIds` below are confirmed to carry real CustomData on that
+/// dedicated map (see docs/features/custom-data.md), offered as quick-select
+/// chips so opening this screen and tapping one + "Load" shows real,
+/// non-empty data with minimal effort, while the text field still accepts
+/// any other POI ID.
 struct CustomDataOverlay: View {
+    /// POI IDs confirmed to carry real CustomData on the dedicated map this
+    /// screen loads. See docs/features/custom-data.md.
+    private static let knownPlaceIds = ["B1", "B3-UL00-ID0065", "B3-UL00-ID0064"]
+
     @ObservedObject var bridge: VisioOneBridge
     @State private var placeId = ""
     @State private var isLoading = false
@@ -578,6 +592,8 @@ struct CustomDataOverlay: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
+            knownPlaceIdChips
+
             HStack {
                 TextField("Place ID", text: $placeId)
                     .textFieldStyle(.roundedBorder)
@@ -594,6 +610,24 @@ struct CustomDataOverlay: View {
             resultView
         }
         .padding()
+    }
+
+    private var knownPlaceIdChips: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                ForEach(Self.knownPlaceIds, id: \.self) { knownPlaceId in
+                    Button(knownPlaceId) {
+                        placeId = knownPlaceId
+                        load()
+                    }
+                    .font(.footnote)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 6)
+                    .background(Capsule().fill(Color.accentColor.opacity(0.15)))
+                    .disabled(isLoading)
+                }
+            }
+        }
     }
 
     @ViewBuilder

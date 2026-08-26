@@ -15,6 +15,21 @@ enum Feature: String, CaseIterable, Identifiable, Hashable {
 
     var id: String { slug }
 
+    /// Map hash to load instead of `map.html`'s hardcoded default, or `nil`
+    /// to keep that default. Only `.customData` overrides it today: the
+    /// shared demo map has no CustomData published, so that feature alone
+    /// points at a dedicated map known to have some (see
+    /// `docs/features/custom-data.md`). Every other feature stays `nil` and
+    /// is completely unaffected.
+    var mapHashOverride: String? {
+        switch self {
+        case .customData:
+            return "kd9426d8cb3f1c532f22b5bcbd325c280bd351feb"
+        default:
+            return nil
+        }
+    }
+
     var slug: String {
         switch self {
         case .resetView:

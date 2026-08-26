@@ -7,7 +7,7 @@ struct FeatureMapView: View {
 
     var body: some View {
         ZStack(alignment: .bottomTrailing) {
-            MapWebView(bridge: bridge)
+            MapWebView(bridge: bridge, hashOverride: feature.mapHashOverride)
                 .ignoresSafeArea()
 
             switch bridge.loadState {

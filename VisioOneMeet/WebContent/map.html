@@ -286,7 +286,18 @@
       },
     };
 
-    visioOne.loadVenue({ hash: 'kbae8e6c066cca4b02c2afac2bc963a643d87437a' }, container)
+    // Optional override so a single feature screen (custom-data, which
+    // needs a map with published CustomData the shared demo map doesn't
+    // have) can point this same bundled page at a different map without
+    // touching the default used by every other feature. Mirrors the
+    // `?hash=` query-param pattern already used by the Android sibling app
+    // (see web/src/main.js there) -- MapWebView.swift appends it to the
+    // file:// URL only when instantiated for that feature, nil/omitted
+    // otherwise. See docs/features/custom-data.md.
+    var DEFAULT_HASH = 'kbae8e6c066cca4b02c2afac2bc963a643d87437a';
+    var hash = new URLSearchParams(window.location.search).get('hash') || DEFAULT_HASH;
+
+    visioOne.loadVenue({ hash: hash }, container)
       .then(function (v) {
         venue = v;
         return visioOne.createView(container, venue);
