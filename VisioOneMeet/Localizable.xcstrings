@@ -35,6 +35,40 @@
         }
       }
     },
+    "feature.dynamic_poi_crud.description" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Create, edit, and remove a place at runtime, without republishing the map."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Créer, modifier et supprimer un lieu à la volée, sans republier la carte."
+          }
+        }
+      }
+    },
+    "feature.dynamic_poi_crud.title" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dynamic POI CRUD"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CRUD de POI dynamique"
+          }
+        }
+      }
+    },
     "feature.category_highlight.description" : {
       "extractionState" : "manual",
       "localizations" : {

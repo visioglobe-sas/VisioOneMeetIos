@@ -795,3 +795,137 @@ struct PoiClickOverlay: View {
         .padding()
     }
 }
+
+/// Lets the user create, edit the label text of, and remove a single
+/// "dynamic" POI at runtime, without republishing the map in VisioMapEditor
+/// -- see docs/features/dynamic-poi-crud.md. Three fields (New POI ID,
+/// Anchor POI ID, Label text) plus Create/Update text/Remove actions.
+///
+/// Only one dynamic POI is tracked at a time (`bridge.dynamicPOI`, see
+/// `VisioOneBridge.swift`) -- the simplest demo state, same choice as
+/// `goto-poi`'s `selectedPoi` and `category-highlight`'s
+/// `highlightedCategoryId`. Create is disabled whenever one is already
+/// tracked; a duplicate id (`POIAlreadyExistsError` on the SDK side) and an
+/// unresolved/position-less anchor POI are shown as plain inline states,
+/// not crashes.
+struct DynamicPoiCrudOverlay: View {
+    @ObservedObject var bridge: VisioOneBridge
+    @State private var newPoiId = ""
+    @State private var anchorPoiId = ""
+    @State private var labelText: String
+    @State private var isCreating = false
+    @State private var createError: String?
+
+    init(bridge: VisioOneBridge) {
+        self.bridge = bridge
+        // Seeds the field from whatever's already tracked, so reopening this
+        // sheet after a previous Create still shows (and can re-submit) the
+        // current label text via "Update text" -- this view is recreated
+        // fresh every time the sheet opens (see FeatureMapView.swift), while
+        // `bridge.dynamicPOI` itself persists across that.
+        _labelText = State(initialValue: bridge.dynamicPOI?.labelText ?? "")
+    }
+
+    private var hasDynamicPOI: Bool { bridge.dynamicPOI != nil }
+
+    private var trimmedNewPoiId: String { newPoiId.trimmingCharacters(in: .whitespaces) }
+    private var trimmedAnchorPoiId: String { anchorPoiId.trimmingCharacters(in: .whitespaces) }
+    private var trimmedLabelText: String { labelText.trimmingCharacters(in: .whitespaces) }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            statusText
+
+            TextField("New POI ID", text: $newPoiId)
+                .textFieldStyle(.roundedBorder)
+                .autocorrectionDisabled()
+                .textInputAutocapitalization(.never)
+                .disabled(hasDynamicPOI || isCreating)
+
+            TextField("Anchor POI ID", text: $anchorPoiId)
+                .textFieldStyle(.roundedBorder)
+                .autocorrectionDisabled()
+                .textInputAutocapitalization(.never)
+                .disabled(hasDynamicPOI || isCreating)
+
+            TextField("Label text", text: $labelText)
+                .textFieldStyle(.roundedBorder)
+                .disabled(isCreating)
+
+            if let createError {
+                Text(createError)
+                    .font(.footnote)
+                    .foregroundStyle(.red)
+            }
+
+            HStack {
+                Button("Create") {
+                    create()
+                }
+                .disabled(hasDynamicPOI || isCreating || trimmedNewPoiId.isEmpty || trimmedAnchorPoiId.isEmpty || trimmedLabelText.isEmpty)
+
+                Button("Update text") {
+                    bridge.updateDynamicLabelText(trimmedLabelText)
+                }
+                .disabled(!hasDynamicPOI || trimmedLabelText.isEmpty)
+
+                Button("Remove", role: .destructive) {
+                    remove()
+                }
+                .disabled(!hasDynamicPOI)
+            }
+            .buttonStyle(.bordered)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding()
+    }
+
+    @ViewBuilder
+    private var statusText: some View {
+        if let dynamicPOI = bridge.dynamicPOI {
+            Text("Created: `\(dynamicPOI.id)` — \"\(dynamicPOI.labelText)\"")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+        } else {
+            Text("No dynamic POI created yet")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    private func create() {
+        let id = trimmedNewPoiId
+        let anchor = trimmedAnchorPoiId
+        let text = trimmedLabelText
+        guard !id.isEmpty, !anchor.isEmpty, !text.isEmpty else { return }
+
+        isCreating = true
+        createError = nil
+
+        Task {
+            let result = await bridge.createDynamicPOI(newId: id, anchorId: anchor, labelText: text)
+            isCreating = false
+            switch result {
+            case .created:
+                newPoiId = ""
+                anchorPoiId = ""
+            case .duplicate:
+                createError = "A POI with id \"\(id)\" already exists"
+            case .anchorNotFound:
+                createError = "Anchor POI \"\(anchor)\" not found"
+            case .noPosition:
+                createError = "Anchor POI has no position to copy"
+            case .bridgeFailure:
+                createError = "Could not create the POI"
+            }
+        }
+    }
+
+    private func remove() {
+        bridge.removeDynamicPOI()
+        newPoiId = ""
+        anchorPoiId = ""
+        labelText = ""
+        createError = nil
+    }
+}

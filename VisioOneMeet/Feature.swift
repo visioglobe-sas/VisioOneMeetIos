@@ -13,6 +13,7 @@ enum Feature: String, CaseIterable, Identifiable, Hashable {
     case clickableSurface
     case customData
     case categoryHighlight
+    case dynamicPoiCrud
 
     var id: String { slug }
 
@@ -57,6 +58,8 @@ enum Feature: String, CaseIterable, Identifiable, Hashable {
             return "custom-data"
         case .categoryHighlight:
             return "category-highlight"
+        case .dynamicPoiCrud:
+            return "dynamic-poi-crud"
         }
     }
 
@@ -86,6 +89,8 @@ enum Feature: String, CaseIterable, Identifiable, Hashable {
             return "feature.custom_data.title"
         case .categoryHighlight:
             return "feature.category_highlight.title"
+        case .dynamicPoiCrud:
+            return "feature.dynamic_poi_crud.title"
         }
     }
 
@@ -115,6 +120,8 @@ enum Feature: String, CaseIterable, Identifiable, Hashable {
             return "feature.custom_data.description"
         case .categoryHighlight:
             return "feature.category_highlight.description"
+        case .dynamicPoiCrud:
+            return "feature.dynamic_poi_crud.description"
         }
     }
 }

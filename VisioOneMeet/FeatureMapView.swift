@@ -120,6 +120,8 @@ struct FeatureMapView: View {
             CustomDataOverlay(bridge: bridge)
         case .categoryHighlight:
             CategoryHighlightOverlay(bridge: bridge)
+        case .dynamicPoiCrud:
+            DynamicPoiCrudOverlay(bridge: bridge)
         }
     }
 }
