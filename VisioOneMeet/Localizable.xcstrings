@@ -205,6 +205,40 @@
         }
       }
     },
+    "feature.explore_mode.description" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Switch between the global, building carousel, and floor views."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Basculer entre la vue globale, la vue éclatée par bâtiment et la vue étage."
+          }
+        }
+      }
+    },
+    "feature.explore_mode.title" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Explore mode"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mode d'exploration"
+          }
+        }
+      }
+    },
     "feature.floor_selector.description" : {
       "extractionState" : "manual",
       "localizations" : {

@@ -59,6 +59,7 @@ Each feature below is a self-contained screen demonstrating one part of the Visi
 - [React to a POI tap](docs/features/poi-click.md) — shows a native panel with a POI's name and ID by subscribing to the SDK's `poiclick` event.
 - [Go to a POI](docs/features/goto-poi.md) — centers and zooms the camera on a POI given its ID via `view.goToPOI()`, with a surface highlight.
 - [Floor/building selector](docs/features/floor-selector.md) — changes floor/building via `view.goToFloor()`/`view.goToBuilding()`, driven from a native list built from `venue.venueLayout`.
+- [Explore mode](docs/features/explore-mode.md) — switches between the SDK's 3 building-exploration modes (global / exploded building carousel / floor) via `view.currentExploreMode`, kept in sync with the SDK's own state via the `exploremodechanged` event.
 - [Compute a route](docs/features/compute-navigation.md) — computes and displays a route between two POIs via `venue.computeNavigation()` → `venue.createNavigationTrace()` → `view.setCurrentNavigationTrace()`.
 - [Selective UI visibility](docs/features/ui-part-visibility.md) — toggles each of the SDK's 5 default UI parts independently via `view.setUIPartVisible()`.
 - [Native UI replacement](docs/features/native-ui-replacement.md) — hides the SDK's default floor-selector widget via `view.setUIPartVisible()` and shows the app's own native floor picker as a complete, fully-functional replacement.

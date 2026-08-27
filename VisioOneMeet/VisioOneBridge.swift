@@ -45,6 +45,15 @@ struct FloorSelection: Equatable {
     static let empty = FloorSelection(buildings: [], currentBuildingId: nil, currentFloorId: nil)
 }
 
+/// The SDK's 3 building-exploration modes, mirrored from `view.currentExploreMode`.
+/// Raw values match the JS SDK's `ExploreMode` type exactly (case-sensitive). See
+/// `docs/features/explore-mode.md`.
+enum MapExploreMode: String, Equatable {
+    case global
+    case building
+    case floor
+}
+
 /// A WGS84 point, as returned by `resolvePoiPosition` for a POI's marker,
 /// label, or image position (see `docs/features/simulated-position.md`).
 struct GeoPosition: Equatable {
@@ -110,6 +119,17 @@ final class VisioOneBridge: NSObject, WKScriptMessageHandler, ObservableObject {
     /// active, pushed by the JS side on `ready` and on every SDK
     /// `currentfloorchanged` event (see `docs/features/floor-selector.md`).
     @Published private(set) var floorSelection: FloorSelection = .empty
+
+    /// The venue's current building-exploration mode, mirrored from
+    /// `view.currentExploreMode`. Pushed by the JS side once on `ready` and
+    /// again on every SDK `exploremodechanged` event -- including changes
+    /// triggered by direct camera/map interaction, not just `setExploreMode`
+    /// calls from this app (e.g. a click while in `.building` mode
+    /// auto-switches the SDK to `.floor`) -- same "SDK event can move state
+    /// out from under the app" idiom as `floorSelection` above. Defaults to
+    /// `.global` (the SDK's own resting state) until the first push arrives.
+    /// See `docs/features/explore-mode.md`.
+    @Published private(set) var currentExploreMode: MapExploreMode = .global
 
     /// Category id (`venue.categories[].id`) currently highlighted via
     /// `highlightCategory`, `nil` when no category is highlighted. Set
@@ -251,6 +271,26 @@ final class VisioOneBridge: NSObject, WKScriptMessageHandler, ObservableObject {
         webView.evaluateJavaScript("window.MapBridge.goToBuilding(\(json))") { _, error in
             if let error {
                 print("VisioOneBridge: goToBuilding failed: \(error.localizedDescription)")
+            }
+        }
+    }
+
+    /// Sets the venue's building-exploration mode via `view.currentExploreMode`
+    /// (see `docs/features/explore-mode.md`). `mode` is a Swift enum value
+    /// computed on this side (never raw user text), so its raw value is
+    /// interpolated directly into the generated script rather than
+    /// JSON-encoded, same rule as the plain booleans elsewhere in this file
+    /// (e.g. `setCameraLockOnPosition`). Fire-and-forget: `currentExploreMode`
+    /// itself is only ever updated from the JS side's `exploreModeChanged`
+    /// bridge message (see `userContentController` below), never
+    /// optimistically here, since the SDK can auto-switch out of `.building`
+    /// mode on its own (a click switches it to `.floor`) and the native UI
+    /// must reflect whatever the SDK actually lands on, not what was
+    /// requested.
+    func setExploreMode(_ mode: MapExploreMode) {
+        webView?.evaluateJavaScript("window.MapBridge.setExploreMode('\(mode.rawValue)')") { _, error in
+            if let error {
+                print("VisioOneBridge: setExploreMode failed: \(error.localizedDescription)")
             }
         }
     }
@@ -740,6 +780,11 @@ final class VisioOneBridge: NSObject, WKScriptMessageHandler, ObservableObject {
         case "floorsChanged":
             guard let payload = body["message"] as? [String: Any] else { return }
             floorSelection = Self.parseFloorSelection(payload)
+        case "exploreModeChanged":
+            guard let payload = body["message"] as? [String: Any],
+                  let rawMode = payload["currentExploreMode"] as? String,
+                  let mode = MapExploreMode(rawValue: rawMode) else { return }
+            currentExploreMode = mode
         default:
             break
         }

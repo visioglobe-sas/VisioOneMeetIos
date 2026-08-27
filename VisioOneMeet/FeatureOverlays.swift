@@ -212,6 +212,58 @@ struct FloorSelectorOverlay: View {
     }
 }
 
+/// Lets the user switch the venue's building-exploration mode among the
+/// SDK's 3 states (Global / Building / Floor) via `view.currentExploreMode`,
+/// and keeps the active segment synced with the live SDK state even when it
+/// changes from direct camera/map interaction rather than a tap here --
+/// e.g. a click while in "Building" mode auto-switches the SDK to "Floor"
+/// on its own, exactly the same "SDK event can move state out from under
+/// the app" situation `FloorSelectorList` above already solves for
+/// `currentfloorchanged`, reused here for `exploremodechanged`
+/// (`bridge.currentExploreMode`). "Building" mode is the flagship visual
+/// effect this feature exists to show off: every opened building's floors
+/// exploded into a cross-section-like carousel -- the hint text below is
+/// there to make that easy to trigger for a demo audience, not just
+/// technically reachable. See docs/features/explore-mode.md.
+struct ExploreModeOverlay: View {
+    @ObservedObject var bridge: VisioOneBridge
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Picker("Explore mode", selection: exploreModeBinding) {
+                Text("Global").tag(MapExploreMode.global)
+                Text("Building").tag(MapExploreMode.building)
+                Text("Floor").tag(MapExploreMode.floor)
+            }
+            .pickerStyle(.segmented)
+
+            Text(hint)
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding()
+    }
+
+    private var hint: String {
+        switch bridge.currentExploreMode {
+        case .global:
+            return "Normal outside view. Fly the camera into a building to open it, or tap \"Building\" now for the exploded floor carousel."
+        case .building:
+            return "Every opened building's floors are shown exploded, cross-section style. Tap a floor on the map to jump straight to it (switches to Floor mode automatically)."
+        case .floor:
+            return "Only the current floor is shown. Tap \"Building\" to go back to the exploded carousel."
+        }
+    }
+
+    private var exploreModeBinding: Binding<MapExploreMode> {
+        Binding(
+            get: { bridge.currentExploreMode },
+            set: { bridge.setExploreMode($0) }
+        )
+    }
+}
+
 /// Demonstrates that the app's own native floor/building picker — reused
 /// verbatim via `FloorSelectorList` above, not reimplemented — is a
 /// complete, fully-functional replacement for the SDK's own default
