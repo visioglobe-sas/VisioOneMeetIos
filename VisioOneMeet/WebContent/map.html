@@ -85,6 +85,17 @@
       });
     }
 
+    // JS -> native: pushes the current building-exploration mode. Sent once
+    // after createView (mirroring sendFloorsState()'s idiom), then again on
+    // every `exploremodechanged` event -- including changes triggered by
+    // direct camera/map interaction, not just the setExploreMode command
+    // below (e.g. a click while in 'building' mode auto-switches the SDK to
+    // 'floor'). See docs/features/explore-mode.md.
+    function sendExploreModeState() {
+      if (!view) return;
+      sendToNative('exploreModeChanged', { currentExploreMode: view.currentExploreMode });
+    }
+
     // JS -> native: forward the loading lifecycle so the SwiftUI layer can
     // show a spinner/error instead of a screen frozen on a black rectangle.
     // See docs/APP_SDK_COMMUNICATION.md for the pattern.
@@ -167,6 +178,17 @@
         var building = venue.venueLayout.buildings.find(function (b) { return b.id === buildingId; });
         if (!building) return;
         view.goToBuilding(building);
+      },
+      // Sets the venue's building-exploration mode via
+      // view.currentExploreMode ('global' | 'building' | 'floor'). The
+      // resulting exploremodechanged event (listened to below) is what
+      // actually pushes the new state back to native -- not this call
+      // itself -- since the SDK can also change mode on its own (e.g. a
+      // click while in 'building' mode auto-switches to 'floor'). See
+      // docs/features/explore-mode.md.
+      setExploreMode: function (mode) {
+        if (!view) return;
+        view.currentExploreMode = mode;
       },
       // Computes a route between two POIs (by ID) and displays it via
       // view.setCurrentNavigationTrace(). That call replaces whatever route
@@ -477,8 +499,18 @@
           sendFloorsState();
         });
 
+        // JS -> native: refresh the explore-mode state whenever it changes,
+        // whichever triggered it (the setExploreMode command above, or
+        // direct camera/map interaction -- e.g. moving the camera in/out of
+        // a building in 'global' mode, or a click auto-switching 'building'
+        // to 'floor'). See docs/features/explore-mode.md.
+        view.addEventListener('exploremodechanged', function (event) {
+          sendToNative('exploreModeChanged', { currentExploreMode: event.currentExploreMode });
+        });
+
         sendToNative('ready');
         sendFloorsState();
+        sendExploreModeState();
       })
       .catch(function (error) {
         visioOne.showError(error, container);

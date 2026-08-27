@@ -6,6 +6,7 @@ enum Feature: String, CaseIterable, Identifiable, Hashable {
     case poiClick
     case goToPoi
     case floorSelector
+    case exploreMode
     case computeNavigation
     case uiPartVisibility
     case nativeUiReplacement
@@ -46,6 +47,8 @@ enum Feature: String, CaseIterable, Identifiable, Hashable {
             return "goto-poi"
         case .floorSelector:
             return "floor-selector"
+        case .exploreMode:
+            return "explore-mode"
         case .computeNavigation:
             return "compute-navigation"
         case .uiPartVisibility:
@@ -81,6 +84,8 @@ enum Feature: String, CaseIterable, Identifiable, Hashable {
             return "feature.goto_poi.title"
         case .floorSelector:
             return "feature.floor_selector.title"
+        case .exploreMode:
+            return "feature.explore_mode.title"
         case .computeNavigation:
             return "feature.compute_navigation.title"
         case .uiPartVisibility:
@@ -116,6 +121,8 @@ enum Feature: String, CaseIterable, Identifiable, Hashable {
             return "feature.goto_poi.description"
         case .floorSelector:
             return "feature.floor_selector.description"
+        case .exploreMode:
+            return "feature.explore_mode.description"
         case .computeNavigation:
             return "feature.compute_navigation.description"
         case .uiPartVisibility:
