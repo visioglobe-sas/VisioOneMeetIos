@@ -416,6 +416,25 @@
         dynamicPoi = null;
         dynamicLabel = null;
       },
+      // Reads the venue's current locale (venue.currentLocale: string,
+      // readonly). A synchronous read of data the SDK already holds once the
+      // venue is loaded, no promise involved -- same idiom as getCategories/
+      // resolvePoiPosition above. See docs/features/runtime-locale.md.
+      getCurrentLocale: function () {
+        if (!venue) return null;
+        return venue.currentLocale;
+      },
+      // Switches the map's displayed locale via venue.setCurrentLocale(),
+      // which re-renders every POI/label's text -- and any current View UI --
+      // for the new locale on its own; no manual re-fetch of POI data is
+      // needed here. Returns the SDK's own Promise directly so the native
+      // side awaits the exact same settlement (see callAsyncJavaScript on
+      // the Swift side), same idiom as loadCustomData's refreshCustomData()
+      // above. See docs/features/runtime-locale.md.
+      setCurrentLocale: function (locale) {
+        if (!venue) return Promise.reject(new Error('venue not loaded'));
+        return venue.setCurrentLocale(locale);
+      },
     };
 
     // Optional override so a single feature screen (custom-data, which
