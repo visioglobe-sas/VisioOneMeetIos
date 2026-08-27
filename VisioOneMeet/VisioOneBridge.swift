@@ -127,6 +127,19 @@ final class VisioOneBridge: NSObject, WKScriptMessageHandler, ObservableObject {
     /// See `docs/features/dynamic-poi-crud.md`.
     @Published private(set) var dynamicPOI: DynamicPOI?
 
+    /// Whether the SDK's own default floor-selector widget is currently
+    /// shown alongside the app's native one, driven by the "Show SDK's own
+    /// floor selector" toggle on the `native-ui-replacement` screen. Starts
+    /// `false` (SDK widget hidden) — the opposite of the SDK's own default —
+    /// which `FeatureMapView` enforces with an explicit `setUIPartVisible`
+    /// call once the map turns `.ready`, since simply defaulting this
+    /// property to `false` wouldn't by itself change anything on the SDK
+    /// side. Kept on the bridge itself, not local view state, so it survives
+    /// the control sheet being dismissed and reopened, same idiom as
+    /// `highlightedCategoryId`/`currentLocale`. See
+    /// `docs/features/native-ui-replacement.md`.
+    @Published private(set) var isSdkFloorSelectorVisible = false
+
     /// The venue's current locale (`venue.currentLocale`), `nil` until first
     /// read via `refreshCurrentLocale()`. Kept on the bridge itself -- not
     /// local view state -- so it survives the control sheet being dismissed
@@ -289,6 +302,19 @@ final class VisioOneBridge: NSObject, WKScriptMessageHandler, ObservableObject {
                 print("VisioOneBridge: setUIPartVisible failed: \(error.localizedDescription)")
             }
         }
+    }
+
+    /// Shows/hides the SDK's own default floor-selector widget by delegating
+    /// to `setUIPartVisible('floorSelector', isVisible:)` above, additionally
+    /// mirroring the result into `isSdkFloorSelectorVisible` so the
+    /// `native-ui-replacement` toggle reflects the current state after the
+    /// control sheet is dismissed and reopened. The only caller of
+    /// `setUIPartVisible` for that specific part outside of
+    /// `UIPartVisibilityOverlay`'s generic 5-switch panel. See
+    /// `docs/features/native-ui-replacement.md`.
+    func setSdkFloorSelectorVisible(_ isVisible: Bool) {
+        isSdkFloorSelectorVisible = isVisible
+        setUIPartVisible("floorSelector", isVisible: isVisible)
     }
 
     /// Resolves a POI's WGS84 position by ID via `window.MapBridge.resolvePoiPosition`

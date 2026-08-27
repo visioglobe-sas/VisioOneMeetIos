@@ -61,6 +61,7 @@ Each feature below is a self-contained screen demonstrating one part of the Visi
 - [Floor/building selector](docs/features/floor-selector.md) — changes floor/building via `view.goToFloor()`/`view.goToBuilding()`, driven from a native list built from `venue.venueLayout`.
 - [Compute a route](docs/features/compute-navigation.md) — computes and displays a route between two POIs via `venue.computeNavigation()` → `venue.createNavigationTrace()` → `view.setCurrentNavigationTrace()`.
 - [Selective UI visibility](docs/features/ui-part-visibility.md) — toggles each of the SDK's 5 default UI parts independently via `view.setUIPartVisible()`.
+- [Native UI replacement](docs/features/native-ui-replacement.md) — hides the SDK's default floor-selector widget via `view.setUIPartVisible()` and shows the app's own native floor picker as a complete, fully-functional replacement.
 - [Simulated position](docs/features/simulated-position.md) — animates a simulated tracked position (with precision circle) moving between two POIs via `view.injectTrackedPosition()`.
 - [Camera lock on position](docs/features/camera-lock-on-position.md) — locks the camera's focus on the currently tracked position via `view.lockCameraPositionOnTracking`.
 - [Clickable surface](docs/features/clickable-surface.md) — makes a POI's surface(s) interactive via `venue.updateSurface()`, letting the SDK swap its color on hover/tap on its own.

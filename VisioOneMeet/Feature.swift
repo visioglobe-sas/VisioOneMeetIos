@@ -8,6 +8,7 @@ enum Feature: String, CaseIterable, Identifiable, Hashable {
     case floorSelector
     case computeNavigation
     case uiPartVisibility
+    case nativeUiReplacement
     case simulatedPosition
     case cameraLockOnPosition
     case clickableSurface
@@ -49,6 +50,8 @@ enum Feature: String, CaseIterable, Identifiable, Hashable {
             return "compute-navigation"
         case .uiPartVisibility:
             return "ui-part-visibility"
+        case .nativeUiReplacement:
+            return "native-ui-replacement"
         case .simulatedPosition:
             return "simulated-position"
         case .cameraLockOnPosition:
@@ -82,6 +85,8 @@ enum Feature: String, CaseIterable, Identifiable, Hashable {
             return "feature.compute_navigation.title"
         case .uiPartVisibility:
             return "feature.ui_part_visibility.title"
+        case .nativeUiReplacement:
+            return "feature.native_ui_replacement.title"
         case .simulatedPosition:
             return "feature.simulated_position.title"
         case .cameraLockOnPosition:
@@ -115,6 +120,8 @@ enum Feature: String, CaseIterable, Identifiable, Hashable {
             return "feature.compute_navigation.description"
         case .uiPartVisibility:
             return "feature.ui_part_visibility.description"
+        case .nativeUiReplacement:
+            return "feature.native_ui_replacement.description"
         case .simulatedPosition:
             return "feature.simulated_position.description"
         case .cameraLockOnPosition:
