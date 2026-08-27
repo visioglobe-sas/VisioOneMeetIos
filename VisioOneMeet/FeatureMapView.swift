@@ -122,6 +122,8 @@ struct FeatureMapView: View {
             CategoryHighlightOverlay(bridge: bridge)
         case .dynamicPoiCrud:
             DynamicPoiCrudOverlay(bridge: bridge)
+        case .runtimeLocale:
+            RuntimeLocaleOverlay(bridge: bridge)
         }
     }
 }

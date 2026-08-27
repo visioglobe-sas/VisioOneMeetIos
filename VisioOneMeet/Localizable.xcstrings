@@ -511,6 +511,40 @@
         }
       }
     },
+    "feature.runtime_locale.description" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Switch the language of place names shown on the map at runtime, without reloading."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Change la langue des noms de lieux affichés sur la carte, à la volée, sans recharger."
+          }
+        }
+      }
+    },
+    "feature.runtime_locale.title" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Runtime locale"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Langue à la volée"
+          }
+        }
+      }
+    },
     "feature.ui_part_visibility.title" : {
       "extractionState" : "manual",
       "localizations" : {

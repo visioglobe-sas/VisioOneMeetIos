@@ -929,3 +929,63 @@ struct DynamicPoiCrudOverlay: View {
         createError = nil
     }
 }
+
+/// One switchable locale option offered by `RuntimeLocaleOverlay` below.
+/// The shared demo map's `venue.translator.allLocales` is `['en', 'fr']`;
+/// `'default'` isn't even listed there, yet it's still a working locale
+/// value that renders byte-identical POI/label text to `'fr'` on this map
+/// (both French) -- confirmed live. It's deliberately not offered here as a
+/// third, meaningfully-different choice. See docs/features/runtime-locale.md.
+struct MapLocaleOption: Identifiable {
+    let code: String
+    let label: String
+    var id: String { code }
+}
+
+private let runtimeLocaleOptions = [
+    MapLocaleOption(code: "en", label: "English"),
+    MapLocaleOption(code: "fr", label: "Français"),
+]
+
+/// Lets the user switch the map's displayed language (POI/label text) at
+/// runtime via `venue.setCurrentLocale()`, no reload/republish needed --
+/// see docs/features/runtime-locale.md. Reads the venue's current locale
+/// once (`bridge.currentLocale`, kept on the bridge so it survives the
+/// sheet being dismissed and reopened, same idiom as
+/// `CategoryHighlightOverlay`'s `highlightedCategoryId`), then shows a
+/// checkmark next to whichever of the two offered options matches it.
+struct RuntimeLocaleOverlay: View {
+    @ObservedObject var bridge: VisioOneBridge
+    @State private var isSwitching = false
+
+    var body: some View {
+        List(runtimeLocaleOptions) { option in
+            Button {
+                switchLocale(to: option.code)
+            } label: {
+                HStack {
+                    Text(option.label)
+                    Spacer()
+                    if option.code == bridge.currentLocale {
+                        Image(systemName: "checkmark")
+                    }
+                }
+            }
+            .foregroundStyle(.primary)
+            .disabled(isSwitching || option.code == bridge.currentLocale)
+        }
+        .listStyle(.plain)
+        .task {
+            guard bridge.currentLocale == nil else { return }
+            await bridge.refreshCurrentLocale()
+        }
+    }
+
+    private func switchLocale(to code: String) {
+        isSwitching = true
+        Task {
+            await bridge.setCurrentLocale(code)
+            isSwitching = false
+        }
+    }
+}

@@ -127,6 +127,15 @@ final class VisioOneBridge: NSObject, WKScriptMessageHandler, ObservableObject {
     /// See `docs/features/dynamic-poi-crud.md`.
     @Published private(set) var dynamicPOI: DynamicPOI?
 
+    /// The venue's current locale (`venue.currentLocale`), `nil` until first
+    /// read via `refreshCurrentLocale()`. Kept on the bridge itself -- not
+    /// local view state -- so it survives the control sheet being dismissed
+    /// and reopened, same as `highlightedCategoryId`/`dynamicPOI` above.
+    /// Unlike those two, this is never set optimistically: `setCurrentLocale`
+    /// only updates it once the SDK's own `venue.setCurrentLocale()` promise
+    /// resolves. See `docs/features/runtime-locale.md`.
+    @Published private(set) var currentLocale: String?
+
     /// Set by `MapWebView.makeUIView` once the underlying `WKWebView` exists.
     weak var webView: WKWebView?
 
@@ -612,6 +621,64 @@ final class VisioOneBridge: NSObject, WKScriptMessageHandler, ObservableObject {
         webView.evaluateJavaScript("window.MapBridge.removeDynamicPOI()") { _, error in
             if let error {
                 print("VisioOneBridge: removeDynamicPOI failed: \(error.localizedDescription)")
+            }
+        }
+    }
+
+    /// Reads the venue's current locale via `window.MapBridge.getCurrentLocale`
+    /// and stores it in `currentLocale` (see `docs/features/runtime-locale.md`).
+    /// Like `getCategories`/`resolvePoiPosition`, this reads a synchronous JS
+    /// property straight from `evaluateJavaScript`'s own return value, no
+    /// promise involved.
+    func refreshCurrentLocale() async {
+        guard let webView else { return }
+
+        let result: String? = await withCheckedContinuation { continuation in
+            webView.evaluateJavaScript("window.MapBridge.getCurrentLocale()") { result, error in
+                if let error {
+                    print("VisioOneBridge: getCurrentLocale failed: \(error.localizedDescription)")
+                    continuation.resume(returning: nil)
+                    return
+                }
+                continuation.resume(returning: result as? String)
+            }
+        }
+        if let result {
+            currentLocale = result
+        }
+    }
+
+    /// Switches the map's displayed locale via `venue.setCurrentLocale()`,
+    /// which returns a Promise the SDK itself awaits before re-rendering
+    /// every POI/label's text (and any current View UI) for the new locale --
+    /// no manual re-fetch of POI data is needed on this side (see
+    /// `docs/features/runtime-locale.md`). Unlike the fire-and-forget bridge
+    /// calls above (`highlightCategory`, `setSurfaceInteractive`, ...),
+    /// `currentLocale` is only updated here once that promise actually
+    /// resolves, via `callAsyncJavaScript` -- same idiom as `loadCustomData`/
+    /// `createDynamicPOI` -- rather than optimistically before the call.
+    ///
+    /// Returns `false` on a bridge/JS failure (logged, not surfaced further),
+    /// leaving `currentLocale` untouched.
+    @discardableResult
+    func setCurrentLocale(_ locale: String) async -> Bool {
+        guard let webView else { return false }
+
+        return await withCheckedContinuation { continuation in
+            webView.callAsyncJavaScript(
+                "return await window.MapBridge.setCurrentLocale(locale);",
+                arguments: ["locale": locale],
+                in: nil,
+                in: .page
+            ) { [weak self] result in
+                switch result {
+                case .success:
+                    self?.currentLocale = locale
+                    continuation.resume(returning: true)
+                case .failure(let error):
+                    print("VisioOneBridge: setCurrentLocale failed: \(error.localizedDescription)")
+                    continuation.resume(returning: false)
+                }
             }
         }
     }
