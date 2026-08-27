@@ -66,6 +66,7 @@ Each feature below is a self-contained screen demonstrating one part of the Visi
 - [Clickable surface](docs/features/clickable-surface.md) — makes a POI's surface(s) interactive via `venue.updateSurface()`, letting the SDK swap its color on hover/tap on its own.
 - [Custom data](docs/features/custom-data.md) — reads business CustomData (price, hours, reference) attached to a POI via `venue.refreshCustomData()` + `venue.getPOICustomData()`.
 - [Category highlight](docs/features/category-highlight.md) — highlights every POI of a chosen category (e.g. all shops) in one action, via `venue.categories`/`poi.categories` + `venue.updateSurface()`.
+- [Dynamic POI CRUD](docs/features/dynamic-poi-crud.md) — creates, edits, and removes a POI at runtime without republishing the map, via `venue.createPOI()`/`venue.createLabel()`/`venue.updateLabel()`/`venue.removePOI()`.
 
 ## Architecture
 

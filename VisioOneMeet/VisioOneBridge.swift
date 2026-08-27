@@ -71,6 +71,25 @@ struct MapCategory: Equatable, Identifiable {
     let label: String
 }
 
+/// The single dynamic POI tracked at a time by `createDynamicPOI`/
+/// `updateDynamicLabelText`/`removeDynamicPOI`, `nil` when none exists.
+/// Mirrors the JS side's own `dynamicPoi`/`dynamicLabel` variables in
+/// `map.html`. See `docs/features/dynamic-poi-crud.md`.
+struct DynamicPOI: Equatable {
+    let id: String
+    var labelText: String
+}
+
+/// Outcome of `createDynamicPOI`, one variant per discriminated result the
+/// JS side can report -- see `docs/features/dynamic-poi-crud.md`.
+enum CreateDynamicPOIResult: Equatable {
+    case created(id: String)
+    case duplicate
+    case anchorNotFound
+    case noPosition
+    case bridgeFailure
+}
+
 /// Two-way bridge to the SDK running inside `MapWebView`.
 ///
 /// - Native -> JS: calls into `window.MapBridge`, defined in `map.html`, via
@@ -100,6 +119,13 @@ final class VisioOneBridge: NSObject, WKScriptMessageHandler, ObservableObject {
     /// sheet being dismissed and reopened. See
     /// `docs/features/category-highlight.md`.
     @Published private(set) var highlightedCategoryId: String?
+
+    /// The single dynamic POI currently tracked (created via
+    /// `createDynamicPOI`), `nil` when none exists. Kept on the bridge
+    /// itself -- not local view state -- so it survives the control sheet
+    /// being dismissed and reopened, same as `highlightedCategoryId` above.
+    /// See `docs/features/dynamic-poi-crud.md`.
+    @Published private(set) var dynamicPOI: DynamicPOI?
 
     /// Set by `MapWebView.makeUIView` once the underlying `WKWebView` exists.
     weak var webView: WKWebView?
@@ -491,6 +517,101 @@ final class VisioOneBridge: NSObject, WKScriptMessageHandler, ObservableObject {
         webView.evaluateJavaScript("window.MapBridge.clearCategoryHighlight()") { _, error in
             if let error {
                 print("VisioOneBridge: clearCategoryHighlight failed: \(error.localizedDescription)")
+            }
+        }
+    }
+
+    /// Creates a bare POI (id/floor/categories only) via `venue.createPOI()`
+    /// and attaches a visible `Label` to it via `venue.createLabel()`,
+    /// copying its position from an existing "anchor" POI's first label or
+    /// marker (see `docs/features/dynamic-poi-crud.md`). Like
+    /// `loadCustomData` above, this is called via `WKWebView.callAsyncJavaScript`
+    /// rather than a plain `evaluateJavaScript` string, so the result --
+    /// success, a duplicate id (`venue.createPOI` throws `POIAlreadyExistsError`),
+    /// an unresolved anchor, or an anchor with no position to copy -- comes
+    /// back as a normal, awaited value rather than a thrown JS exception.
+    ///
+    /// On success, updates `dynamicPOI` so the UI reflects the newly tracked
+    /// POI; every other outcome leaves `dynamicPOI` untouched.
+    func createDynamicPOI(newId: String, anchorId: String, labelText: String) async -> CreateDynamicPOIResult {
+        guard let webView else { return .bridgeFailure }
+
+        return await withCheckedContinuation { continuation in
+            webView.callAsyncJavaScript(
+                "return await window.MapBridge.createDynamicPOI(newId, anchorId, labelText);",
+                arguments: ["newId": newId, "anchorId": anchorId, "labelText": labelText],
+                in: nil,
+                in: .page
+            ) { [weak self] result in
+                switch result {
+                case .success(let value):
+                    guard let payload = value as? [String: Any], let status = payload["status"] as? String else {
+                        continuation.resume(returning: .bridgeFailure)
+                        return
+                    }
+                    switch status {
+                    case "created":
+                        guard let id = payload["id"] as? String else {
+                            continuation.resume(returning: .bridgeFailure)
+                            return
+                        }
+                        self?.dynamicPOI = DynamicPOI(id: id, labelText: labelText)
+                        continuation.resume(returning: .created(id: id))
+                    case "duplicate":
+                        continuation.resume(returning: .duplicate)
+                    case "anchorNotFound":
+                        continuation.resume(returning: .anchorNotFound)
+                    case "noPosition":
+                        continuation.resume(returning: .noPosition)
+                    default:
+                        continuation.resume(returning: .bridgeFailure)
+                    }
+                case .failure(let error):
+                    print("VisioOneBridge: createDynamicPOI failed: \(error.localizedDescription)")
+                    continuation.resume(returning: .bridgeFailure)
+                }
+            }
+        }
+    }
+
+    /// Updates the tracked dynamic POI's label text via `venue.updateLabel()`
+    /// -- the real "edit" story for a dynamic POI, since `venue.updatePOI()`
+    /// itself can only ever touch categories (see
+    /// `docs/features/dynamic-poi-crud.md`). Updates `dynamicPOI` optimistically,
+    /// same fire-and-forget idiom as `highlightCategory` above. No-op if
+    /// nothing is currently tracked.
+    ///
+    /// `text` is JSON-encoded before being interpolated into the generated
+    /// script, same rule as the other bridge methods that take a
+    /// caller-provided string.
+    func updateDynamicLabelText(_ text: String) {
+        guard let webView, dynamicPOI != nil else { return }
+
+        guard let data = try? JSONSerialization.data(withJSONObject: text, options: [.fragmentsAllowed]),
+              let json = String(data: data, encoding: .utf8) else {
+            return
+        }
+
+        dynamicPOI?.labelText = text
+        webView.evaluateJavaScript("window.MapBridge.updateDynamicLabelText(\(json))") { _, error in
+            if let error {
+                print("VisioOneBridge: updateDynamicLabelText failed: \(error.localizedDescription)")
+            }
+        }
+    }
+
+    /// Removes the tracked dynamic POI via `venue.removePOI()`, which
+    /// cascades to remove its attached label automatically -- no separate
+    /// label removal call is needed (see `docs/features/dynamic-poi-crud.md`).
+    /// Clears `dynamicPOI` optimistically. No-op if nothing is currently
+    /// tracked.
+    func removeDynamicPOI() {
+        guard let webView, dynamicPOI != nil else { return }
+
+        dynamicPOI = nil
+        webView.evaluateJavaScript("window.MapBridge.removeDynamicPOI()") { _, error in
+            if let error {
+                print("VisioOneBridge: removeDynamicPOI failed: \(error.localizedDescription)")
             }
         }
     }
