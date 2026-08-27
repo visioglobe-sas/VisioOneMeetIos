@@ -48,6 +48,17 @@ struct FeatureMapView: View {
             guard feature == .poiClick else { return }
             isControlPresented = newValue != nil
         }
+        .onChange(of: bridge.loadState) { newValue in
+            // native-ui-replacement's whole point is that the SDK's own
+            // floor-selector widget starts hidden, unlike ui-part-visibility
+            // (whose 5 switches leave the SDK's default alone until
+            // toggled). That deviation from the SDK's own default has to be
+            // enforced explicitly once `view` exists, not just implied by
+            // `isSdkFloorSelectorVisible`'s initial value on the bridge —
+            // see docs/features/native-ui-replacement.md.
+            guard feature == .nativeUiReplacement, newValue == .ready else { return }
+            bridge.setSdkFloorSelectorVisible(false)
+        }
     }
 
     private var poiClickHint: some View {
@@ -110,6 +121,8 @@ struct FeatureMapView: View {
             ComputeNavigationOverlay(bridge: bridge)
         case .uiPartVisibility:
             UIPartVisibilityOverlay(bridge: bridge)
+        case .nativeUiReplacement:
+            NativeUiReplacementOverlay(bridge: bridge)
         case .simulatedPosition:
             SimulatedPositionOverlay(bridge: bridge)
         case .cameraLockOnPosition:

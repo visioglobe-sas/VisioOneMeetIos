@@ -107,12 +107,14 @@ struct GoToPoiOverlay: View {
     }
 }
 
-/// Lets the user switch floor (and building, when the venue has more than
-/// one) by tapping a native list, via `view.goToFloor()`/`view.goToBuilding()`.
-/// See docs/features/floor-selector.md — this is deliberately separate from
-/// the SDK's own default floor-selector widget, which keeps working
-/// alongside this one.
-struct FloorSelectorOverlay: View {
+/// The native building/floor list itself, factored out of
+/// `FloorSelectorOverlay` so `native-ui-replacement`'s
+/// `NativeUiReplacementOverlay` below can reuse the exact same picker rather
+/// than reimplementing it — the whole point of that feature is demonstrating
+/// this existing native UI as a drop-in replacement for the SDK's own
+/// floor-selector widget, not building a second one. See
+/// docs/features/floor-selector.md and docs/features/native-ui-replacement.md.
+struct FloorSelectorList: View {
     @ObservedObject var bridge: VisioOneBridge
 
     private var buildings: [VenueBuilding] { bridge.floorSelection.buildings }
@@ -194,6 +196,56 @@ struct FloorSelectorOverlay: View {
             )
         }
         .buttonStyle(.plain)
+    }
+}
+
+/// Lets the user switch floor (and building, when the venue has more than
+/// one) by tapping a native list, via `view.goToFloor()`/`view.goToBuilding()`.
+/// See docs/features/floor-selector.md — this is deliberately separate from
+/// the SDK's own default floor-selector widget, which keeps working
+/// alongside this one.
+struct FloorSelectorOverlay: View {
+    @ObservedObject var bridge: VisioOneBridge
+
+    var body: some View {
+        FloorSelectorList(bridge: bridge)
+    }
+}
+
+/// Demonstrates that the app's own native floor/building picker — reused
+/// verbatim via `FloorSelectorList` above, not reimplemented — is a
+/// complete, fully-functional replacement for the SDK's own default
+/// floor-selector widget, via `view.setUIPartVisible('floorSelector', ...)`.
+/// The SDK widget starts hidden (`FeatureMapView` enforces
+/// `bridge.setSdkFloorSelectorVisible(false)` once the map turns `.ready`),
+/// so only the app's picker is visible/functional by default; the "Show
+/// SDK's own floor selector" toggle below reveals the SDK's widget alongside
+/// it, both driven by the exact same `currentfloorchanged` event, so a
+/// visitor can compare the two live rather than take the replacement on
+/// faith. The native picker above stays fully functional regardless of the
+/// toggle's state — that's the actual point being demonstrated. See
+/// docs/features/native-ui-replacement.md.
+struct NativeUiReplacementOverlay: View {
+    @ObservedObject var bridge: VisioOneBridge
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            FloorSelectorList(bridge: bridge)
+
+            Divider()
+
+            Toggle(isOn: sdkWidgetVisibleBinding) {
+                Text("feature.native_ui_replacement.toggle")
+            }
+            .padding()
+        }
+    }
+
+    private var sdkWidgetVisibleBinding: Binding<Bool> {
+        Binding(
+            get: { bridge.isSdkFloorSelectorVisible },
+            set: { bridge.setSdkFloorSelectorVisible($0) }
+        )
     }
 }
 

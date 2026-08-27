@@ -273,6 +273,57 @@
         }
       }
     },
+    "feature.native_ui_replacement.description" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Replace the SDK's floor selector with a fully native one."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Remplacer le sélecteur d'étage du SDK par un équivalent 100% natif."
+          }
+        }
+      }
+    },
+    "feature.native_ui_replacement.title" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Native UI replacement"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Remplacement d'UI natif"
+          }
+        }
+      }
+    },
+    "feature.native_ui_replacement.toggle" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Show SDK's own floor selector"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Afficher le sélecteur d'étage natif du SDK"
+          }
+        }
+      }
+    },
     "feature.occupancy_simulated.description" : {
       "extractionState" : "manual",
       "localizations" : {
