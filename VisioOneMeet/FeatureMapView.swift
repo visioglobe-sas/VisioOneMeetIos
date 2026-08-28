@@ -141,6 +141,8 @@ struct FeatureMapView: View {
             RuntimeLocaleOverlay(bridge: bridge)
         case .addLocale:
             AddLocaleOverlay(bridge: bridge)
+        case .geofencing:
+            GeofencingOverlay(bridge: bridge)
         }
     }
 }

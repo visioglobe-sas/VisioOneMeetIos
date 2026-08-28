@@ -680,6 +680,40 @@
           }
         }
       }
+    },
+    "feature.geofencing.description" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Highlight a zone when a simulated tracked position enters it, via a point-in-polygon check against its surface."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Met en avant une zone quand une position simulée y entre, via un test de contenance sur sa surface."
+          }
+        }
+      }
+    },
+    "feature.geofencing.title" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Geofencing"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Geofencing contextuel"
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

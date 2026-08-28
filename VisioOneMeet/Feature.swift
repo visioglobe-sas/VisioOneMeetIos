@@ -18,6 +18,7 @@ enum Feature: String, CaseIterable, Identifiable, Hashable {
     case dynamicPoiCrud
     case runtimeLocale
     case addLocale
+    case geofencing
 
     var id: String { slug }
 
@@ -72,6 +73,8 @@ enum Feature: String, CaseIterable, Identifiable, Hashable {
             return "runtime-locale"
         case .addLocale:
             return "add-locale"
+        case .geofencing:
+            return "geofencing"
         }
     }
 
@@ -111,6 +114,8 @@ enum Feature: String, CaseIterable, Identifiable, Hashable {
             return "feature.runtime_locale.title"
         case .addLocale:
             return "feature.add_locale.title"
+        case .geofencing:
+            return "feature.geofencing.title"
         }
     }
 
@@ -150,6 +155,8 @@ enum Feature: String, CaseIterable, Identifiable, Hashable {
             return "feature.runtime_locale.description"
         case .addLocale:
             return "feature.add_locale.description"
+        case .geofencing:
+            return "feature.geofencing.description"
         }
     }
 }
