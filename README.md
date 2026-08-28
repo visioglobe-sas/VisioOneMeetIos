@@ -70,6 +70,7 @@ Each feature below is a self-contained screen demonstrating one part of the Visi
 - [Category highlight](docs/features/category-highlight.md) — highlights every POI of a chosen category (e.g. all shops) in one action, via `venue.categories`/`poi.categories` + `venue.updateSurface()`.
 - [Dynamic POI CRUD](docs/features/dynamic-poi-crud.md) — creates, edits, and removes a POI at runtime without republishing the map, via `venue.createPOI()`/`venue.createLabel()`/`venue.updateLabel()`/`venue.removePOI()`.
 - [Runtime locale](docs/features/runtime-locale.md) — switches the map's displayed language (POI/label names) at runtime without reloading, via `venue.currentLocale`/`venue.setCurrentLocale()`.
+- [Add locale](docs/features/add-locale.md) — adds a brand-new locale never authored in VisioMapEditor via `venue.translator.addLocale()`, then reads it back via `venue.translator.translate()`.
 
 ## Architecture
 

@@ -139,6 +139,8 @@ struct FeatureMapView: View {
             DynamicPoiCrudOverlay(bridge: bridge)
         case .runtimeLocale:
             RuntimeLocaleOverlay(bridge: bridge)
+        case .addLocale:
+            AddLocaleOverlay(bridge: bridge)
         }
     }
 }

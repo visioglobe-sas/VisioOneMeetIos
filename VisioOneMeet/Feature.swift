@@ -17,6 +17,7 @@ enum Feature: String, CaseIterable, Identifiable, Hashable {
     case categoryHighlight
     case dynamicPoiCrud
     case runtimeLocale
+    case addLocale
 
     var id: String { slug }
 
@@ -69,6 +70,8 @@ enum Feature: String, CaseIterable, Identifiable, Hashable {
             return "dynamic-poi-crud"
         case .runtimeLocale:
             return "runtime-locale"
+        case .addLocale:
+            return "add-locale"
         }
     }
 
@@ -106,6 +109,8 @@ enum Feature: String, CaseIterable, Identifiable, Hashable {
             return "feature.dynamic_poi_crud.title"
         case .runtimeLocale:
             return "feature.runtime_locale.title"
+        case .addLocale:
+            return "feature.add_locale.title"
         }
     }
 
@@ -143,6 +148,8 @@ enum Feature: String, CaseIterable, Identifiable, Hashable {
             return "feature.dynamic_poi_crud.description"
         case .runtimeLocale:
             return "feature.runtime_locale.description"
+        case .addLocale:
+            return "feature.add_locale.description"
         }
     }
 }
