@@ -169,6 +169,34 @@ final class VisioOneBridge: NSObject, WKScriptMessageHandler, ObservableObject {
     /// resolves. See `docs/features/runtime-locale.md`.
     @Published private(set) var currentLocale: String?
 
+    /// The two keys `addSpanishLocale()` adds and reads back via `translate`,
+    /// in display order: `'search-for-anything'` is one of the SDK's own
+    /// predefined UI keys (see `addLocale`'s TSDoc in the SDK's
+    /// `Translator.ts`), showing `addLocale` can override the SDK's own
+    /// built-in UI text; `'welcome-message'` is a key the SDK itself has no
+    /// built-in meaning for, showing this is a general-purpose key/value
+    /// store also usable for the app's own strings. See
+    /// `docs/features/add-locale.md`.
+    static let addLocaleKeys = ["search-for-anything", "welcome-message"]
+
+    /// Fixed Spanish resources for `addLocaleKeys`, added at runtime via
+    /// `venue.translator.addLocale('es', ...)`. See
+    /// `docs/features/add-locale.md`.
+    private static let spanishResources: [String: String] = [
+        "search-for-anything": "Busca lo que quieras",
+        "welcome-message": "¡Bienvenido a VisioOne!",
+    ]
+
+    /// `nil` until `addSpanishLocale()` succeeds; then one entry per
+    /// `addLocaleKeys`, holding `venue.translator.translate(key, 'es')`'s
+    /// value -- the primary, always-working proof the round trip succeeded,
+    /// regardless of whether any of the SDK's own default UI parts happen to
+    /// be visible. Kept on the bridge itself, not local view state, so it
+    /// survives the control sheet being dismissed and reopened, same idiom
+    /// as `currentLocale`/`highlightedCategoryId`. See
+    /// `docs/features/add-locale.md`.
+    @Published private(set) var spanishTranslations: [String: String]?
+
     /// Set by `MapWebView.makeUIView` once the underlying `WKWebView` exists.
     weak var webView: WKWebView?
 
@@ -745,6 +773,66 @@ final class VisioOneBridge: NSObject, WKScriptMessageHandler, ObservableObject {
                     print("VisioOneBridge: setCurrentLocale failed: \(error.localizedDescription)")
                     continuation.resume(returning: false)
                 }
+            }
+        }
+    }
+
+    /// Adds the `'es'` locale at runtime via
+    /// `window.MapBridge.addLocale`/`venue.translator.addLocale()` -- a
+    /// locale never authored in VisioMapEditor for this map -- using the
+    /// fixed `spanishResources` dictionary, then reads each of
+    /// `addLocaleKeys` back via `translate(_:)` below to populate
+    /// `spanishTranslations`. Both `addLocale` and `translate` are
+    /// synchronous SDK calls (no `Promise` involved, unlike
+    /// `setCurrentLocale`), but this is still `async` so the second step
+    /// only runs once `addLocale`'s own `evaluateJavaScript` completion has
+    /// actually returned. See `docs/features/add-locale.md`.
+    func addSpanishLocale() async {
+        guard let webView else { return }
+
+        guard let data = try? JSONSerialization.data(withJSONObject: Self.spanishResources),
+              let resourcesJson = String(data: data, encoding: .utf8) else {
+            return
+        }
+
+        let didAdd: Bool = await withCheckedContinuation { continuation in
+            webView.evaluateJavaScript("window.MapBridge.addLocale('es', \(resourcesJson))") { _, error in
+                if let error {
+                    print("VisioOneBridge: addLocale failed: \(error.localizedDescription)")
+                    continuation.resume(returning: false)
+                    return
+                }
+                continuation.resume(returning: true)
+            }
+        }
+        guard didAdd else { return }
+
+        var results: [String: String] = [:]
+        for key in Self.addLocaleKeys {
+            results[key] = await translateSpanish(key)
+        }
+        spanishTranslations = results
+    }
+
+    /// Reads a single key back via `window.MapBridge.translate`/
+    /// `venue.translator.translate(key, 'es')`. See
+    /// `docs/features/add-locale.md`.
+    private func translateSpanish(_ key: String) async -> String {
+        guard let webView else { return "" }
+
+        guard let data = try? JSONSerialization.data(withJSONObject: key, options: [.fragmentsAllowed]),
+              let json = String(data: data, encoding: .utf8) else {
+            return ""
+        }
+
+        return await withCheckedContinuation { continuation in
+            webView.evaluateJavaScript("window.MapBridge.translate(\(json), 'es')") { result, error in
+                if let error {
+                    print("VisioOneBridge: translate failed: \(error.localizedDescription)")
+                    continuation.resume(returning: "")
+                    return
+                }
+                continuation.resume(returning: result as? String ?? "")
             }
         }
     }

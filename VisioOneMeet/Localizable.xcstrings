@@ -646,6 +646,40 @@
           }
         }
       }
+    },
+    "feature.add_locale.description" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add a brand-new Spanish locale to the map at runtime and read its translations back, via addLocale()."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ajoute une nouvelle langue espagnole à la carte à la volée et relit ses traductions, via addLocale()."
+          }
+        }
+      }
+    },
+    "feature.add_locale.title" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add locale"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ajout de langue"
+          }
+        }
+      }
     }
   },
   "version" : "1.0"
