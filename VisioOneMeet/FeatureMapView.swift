@@ -7,8 +7,13 @@ struct FeatureMapView: View {
 
     var body: some View {
         ZStack(alignment: .bottomTrailing) {
-            MapWebView(bridge: bridge, hashOverride: feature.mapHashOverride)
-                .ignoresSafeArea()
+            MapWebView(
+                bridge: bridge,
+                hashOverride: feature.mapHashOverride,
+                baseURLOverride: feature == .customBaseUrl ? bridge.baseURL : nil
+            )
+            .id(bridge.baseURL)
+            .ignoresSafeArea()
 
             switch bridge.loadState {
             case .loading:
@@ -143,6 +148,8 @@ struct FeatureMapView: View {
             AddLocaleOverlay(bridge: bridge)
         case .geofencing:
             GeofencingOverlay(bridge: bridge)
+        case .customBaseUrl:
+            CustomBaseUrlOverlay(bridge: bridge)
         }
     }
 }

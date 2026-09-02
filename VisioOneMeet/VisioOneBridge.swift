@@ -206,6 +206,14 @@ final class VisioOneBridge: NSObject, WKScriptMessageHandler, ObservableObject {
     /// `docs/features/add-locale.md`.
     @Published private(set) var spanishTranslations: [String: String]?
 
+    /// The SDK's own default `baseURL` (`LoadOptions.baseURL`'s default) --
+    /// the root every other feature implicitly loads map data from. Kept
+    /// here (rather than local view state) so it survives the control sheet
+    /// being dismissed and reopened, same idiom as `currentLocale`/
+    /// `highlightedCategoryId`. Only the `custom-base-url` feature reads or
+    /// changes this -- see `docs/features/custom-base-url.md`.
+    @Published private(set) var baseURL = "https://mapserver.visioglobe.com/"
+
     /// Set by `MapWebView.makeUIView` once the underlying `WKWebView` exists.
     weak var webView: WKWebView?
 
@@ -919,6 +927,28 @@ final class VisioOneBridge: NSObject, WKScriptMessageHandler, ObservableObject {
     func reload() {
         loadState = .loading
         webView?.reload()
+    }
+
+    /// Re-loads the venue against a caller-supplied `baseURL` -- unlike every
+    /// other bridge method, `baseURL` is a `loadVenue` option, not a property
+    /// on an already-loaded venue/view, so this can't just call into the
+    /// existing page; it has to redo the whole page load. When `newBaseURL`
+    /// differs from the current one, updating `baseURL` changes
+    /// `FeatureMapView`'s `.id(bridge.baseURL)` on `MapWebView`, which makes
+    /// SwiftUI tear down and recreate the underlying `WKWebView` from
+    /// scratch (a fresh `loadFileURL` call with the new `?baseURL=` query
+    /// item, see `MapWebView.swift`) -- otherwise (retrying the exact same
+    /// value) the `.id()` wouldn't change, so this falls back to a plain
+    /// `webView.reload()` instead. Either way `loadState` resets to
+    /// `.loading` first so the UI doesn't sit on a stale `.ready`/`.error`
+    /// while the new load is in flight. See `docs/features/custom-base-url.md`.
+    func reloadWithBaseURL(_ newBaseURL: String) {
+        loadState = .loading
+        if newBaseURL == baseURL {
+            webView?.reload()
+        } else {
+            baseURL = newBaseURL
+        }
     }
 
     /// Resets the reaction panel's source of truth, e.g. once the user

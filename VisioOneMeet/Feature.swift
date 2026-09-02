@@ -19,6 +19,7 @@ enum Feature: String, CaseIterable, Identifiable, Hashable {
     case runtimeLocale
     case addLocale
     case geofencing
+    case customBaseUrl
 
     var id: String { slug }
 
@@ -75,6 +76,8 @@ enum Feature: String, CaseIterable, Identifiable, Hashable {
             return "add-locale"
         case .geofencing:
             return "geofencing"
+        case .customBaseUrl:
+            return "custom-base-url"
         }
     }
 
@@ -116,6 +119,8 @@ enum Feature: String, CaseIterable, Identifiable, Hashable {
             return "feature.add_locale.title"
         case .geofencing:
             return "feature.geofencing.title"
+        case .customBaseUrl:
+            return "feature.custom_base_url.title"
         }
     }
 
@@ -157,6 +162,8 @@ enum Feature: String, CaseIterable, Identifiable, Hashable {
             return "feature.add_locale.description"
         case .geofencing:
             return "feature.geofencing.description"
+        case .customBaseUrl:
+            return "feature.custom_base_url.description"
         }
     }
 }
