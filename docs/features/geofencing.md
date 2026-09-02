@@ -24,7 +24,7 @@ setZoneAlert: function (placeId, active) {
   var poi = venue.pois.find(function (p) { return p.id === placeId; });
   if (!poi) return;
   poi.surfaces.forEach(function (surface) {
-    venue.updateSurface(surface, { color: active ? '#FF3B30' : 'initial' });
+    venue.updateSurface(surface, { color: active ? '#E74C3C' : 'initial' });
   });
 },
 ```
