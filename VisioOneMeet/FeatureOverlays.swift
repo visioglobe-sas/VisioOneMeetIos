@@ -432,6 +432,15 @@ final class PositionTrackingController: ObservableObject {
     private let bridge: VisioOneBridge
     private var simulationTask: Task<Void, Never>?
 
+    /// Optional per-tick hook, invoked with the same interpolated position
+    /// just sent to `injectTrackedPosition`. Added for
+    /// `GeofencingOverlay`/`GeofencingViewModel` (see
+    /// `docs/features/geofencing.md`) so it can run its own point-in-polygon
+    /// check on every tick without a second timer duplicating this loop;
+    /// `nil` (the default) leaves every other caller of this controller
+    /// unaffected.
+    var onTick: ((GeoPosition) -> Void)?
+
     init(bridge: VisioOneBridge) {
         self.bridge = bridge
     }
@@ -471,11 +480,16 @@ final class PositionTrackingController: ObservableObject {
             var progress = 0.0
             var direction = 1.0
             while !Task.isCancelled {
-                bridge.injectTrackedPosition(
+                let currentPosition = GeoPosition(
                     latitude: originPos.latitude + (destPos.latitude - originPos.latitude) * progress,
-                    longitude: originPos.longitude + (destPos.longitude - originPos.longitude) * progress,
+                    longitude: originPos.longitude + (destPos.longitude - originPos.longitude) * progress
+                )
+                bridge.injectTrackedPosition(
+                    latitude: currentPosition.latitude,
+                    longitude: currentPosition.longitude,
                     precisionCircleRadius: precisionCircleRadius
                 )
+                onTick?(currentPosition)
 
                 progress += direction * simulatedPositionStepFraction
                 if progress >= 1 {
@@ -625,6 +639,156 @@ struct CameraLockOnPositionOverlay: View {
                 bridge.setCameraLockOnPosition(newValue)
             }
         )
+    }
+}
+
+/// Drives the point-in-polygon check for `GeofencingOverlay` against the
+/// zone POI's boundary (`VisioOneBridge.resolveZonePolygon`, backed by
+/// `Surface.positions` -- the SDK has no geofencing primitive of its own),
+/// and the visual alert (`VisioOneBridge.setZoneAlert`) when the tracked
+/// position driven by `PositionTrackingController` crosses in/out of it. See
+/// `docs/features/geofencing.md`.
+@MainActor
+final class GeofencingViewModel: ObservableObject {
+    @Published var zonePlaceId = ""
+    @Published private(set) var zoneErrorMessage: String?
+    @Published private(set) var zonePolygon: [GeoPosition]?
+    @Published private(set) var isInsideZone = false
+
+    private let bridge: VisioOneBridge
+    private var alertPlaceId: String?
+
+    init(bridge: VisioOneBridge) {
+        self.bridge = bridge
+    }
+
+    var canSetZone: Bool {
+        !zonePlaceId.trimmingCharacters(in: .whitespaces).isEmpty
+    }
+
+    func resolveZone() {
+        let id = zonePlaceId.trimmingCharacters(in: .whitespaces)
+        guard !id.isEmpty else { return }
+
+        resetAlert()
+        zonePolygon = nil
+        zoneErrorMessage = nil
+
+        Task {
+            switch await bridge.resolveZonePolygon(id) {
+            case .notFound:
+                zoneErrorMessage = "Zone POI not found"
+            case .noSurface:
+                zoneErrorMessage = "Zone POI has no surface geometry"
+            case .zone(let positions):
+                zonePolygon = positions
+            case .bridgeFailure:
+                zoneErrorMessage = "Zone POI not found"
+            }
+        }
+    }
+
+    /// Called on every tracked-position tick (`PositionTrackingController.onTick`)
+    /// -- there's no dedicated tracked-position-changed SDK event, so this
+    /// piggybacks the existing simulation loop rather than polling
+    /// separately. Runs a hand-rolled ray-casting point-in-polygon check
+    /// (lat/lng treated as planar x/y, accurate enough at building scale --
+    /// the SDK exposes no containment primitive) and only calls
+    /// `setZoneAlert` on an actual inside/outside transition.
+    func handleTrackedPosition(_ position: GeoPosition) {
+        guard let polygon = zonePolygon else { return }
+        let inside = Self.contains(polygon: polygon, point: position)
+        guard inside != isInsideZone else { return }
+
+        isInsideZone = inside
+        let id = zonePlaceId.trimmingCharacters(in: .whitespaces)
+        alertPlaceId = id
+        bridge.setZoneAlert(id, active: inside)
+    }
+
+    /// Reverts whatever alert is currently applied. Called when the position
+    /// simulation stops (Stop button, a resolution error, or leaving the
+    /// screen tears down the `WKWebView` entirely -- same three cases
+    /// `CameraLockOnPositionOverlay` handles for its own toggle) and before
+    /// resolving a new zone, so a stale alert never lingers on the map.
+    func resetAlert() {
+        if isInsideZone, let alertPlaceId {
+            bridge.setZoneAlert(alertPlaceId, active: false)
+        }
+        isInsideZone = false
+    }
+
+    private static func contains(polygon: [GeoPosition], point: GeoPosition) -> Bool {
+        guard polygon.count >= 3 else { return false }
+
+        var inside = false
+        var j = polygon.count - 1
+        for i in 0..<polygon.count {
+            let vi = polygon[i]
+            let vj = polygon[j]
+            let intersects = (vi.latitude > point.latitude) != (vj.latitude > point.latitude)
+                && point.longitude < (vj.longitude - vi.longitude) * (point.latitude - vi.latitude)
+                    / (vj.latitude - vi.latitude) + vi.longitude
+            if intersects { inside.toggle() }
+            j = i
+        }
+        return inside
+    }
+}
+
+/// Lets the user set a "zone" (an existing POI's surface boundary) and a
+/// simulated tracked position (the same Origin/Destination POI ID +
+/// accuracy + Start/Stop controls as `SimulatedPositionOverlay`, via the
+/// shared `PositionTrackingController`/`PositionTrackingControls`), then
+/// highlights that zone's surface(s) whenever the simulated position enters
+/// it, and clears the highlight on exit -- the base pattern for contextual
+/// indoor notifications (e.g. "you're near a promo"). See
+/// `docs/features/geofencing.md`.
+struct GeofencingOverlay: View {
+    @StateObject private var trackingController: PositionTrackingController
+    @StateObject private var geofence: GeofencingViewModel
+
+    init(bridge: VisioOneBridge) {
+        _trackingController = StateObject(wrappedValue: PositionTrackingController(bridge: bridge))
+        _geofence = StateObject(wrappedValue: GeofencingViewModel(bridge: bridge))
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            TextField("Zone POI ID", text: $geofence.zonePlaceId)
+                .textFieldStyle(.roundedBorder)
+                .autocorrectionDisabled()
+                .textInputAutocapitalization(.never)
+
+            Button("Set zone") {
+                geofence.resolveZone()
+            }
+            .disabled(!geofence.canSetZone)
+
+            if let errorMessage = geofence.zoneErrorMessage {
+                Text(errorMessage)
+                    .font(.footnote)
+                    .foregroundStyle(.red)
+            } else if geofence.zonePolygon != nil {
+                Text(geofence.isInsideZone ? "Inside zone" : "Outside zone")
+                    .font(.footnote)
+                    .foregroundStyle(geofence.isInsideZone ? .red : .secondary)
+            }
+
+            Divider()
+
+            PositionTrackingControls(controller: trackingController)
+        }
+        .padding()
+        .onAppear {
+            trackingController.onTick = { [weak geofence] position in
+                geofence?.handleTrackedPosition(position)
+            }
+        }
+        .onChange(of: trackingController.isSimulating) { simulating in
+            guard !simulating else { return }
+            geofence.resetAlert()
+        }
     }
 }
 

@@ -99,6 +99,15 @@ enum CreateDynamicPOIResult: Equatable {
     case bridgeFailure
 }
 
+/// Outcome of `resolveZonePolygon`, one variant per discriminated result the
+/// JS side can report -- see `docs/features/geofencing.md`.
+enum ResolveZoneResult: Equatable {
+    case notFound
+    case noSurface
+    case zone(positions: [GeoPosition])
+    case bridgeFailure
+}
+
 /// Two-way bridge to the SDK running inside `MapWebView`.
 ///
 /// - Native -> JS: calls into `window.MapBridge`, defined in `map.html`, via
@@ -620,6 +629,74 @@ final class VisioOneBridge: NSObject, WKScriptMessageHandler, ObservableObject {
         webView.evaluateJavaScript("window.MapBridge.clearCategoryHighlight()") { _, error in
             if let error {
                 print("VisioOneBridge: clearCategoryHighlight failed: \(error.localizedDescription)")
+            }
+        }
+    }
+
+    /// Resolves a zone POI's boundary via `window.MapBridge.resolveZonePolygon`
+    /// so the caller can run its own point-in-polygon check against a
+    /// simulated tracked position -- the SDK has no geofencing/containment
+    /// primitive itself (see `docs/features/geofencing.md`). Like
+    /// `resolvePoiPosition`, this is a synchronous JS lookup read straight
+    /// from `evaluateJavaScript`'s return value.
+    func resolveZonePolygon(_ poiId: String) async -> ResolveZoneResult {
+        guard let webView else { return .bridgeFailure }
+
+        guard let data = try? JSONSerialization.data(withJSONObject: poiId, options: [.fragmentsAllowed]),
+              let json = String(data: data, encoding: .utf8) else {
+            return .bridgeFailure
+        }
+
+        return await withCheckedContinuation { continuation in
+            webView.evaluateJavaScript("window.MapBridge.resolveZonePolygon(\(json))") { result, error in
+                if let error {
+                    print("VisioOneBridge: resolveZonePolygon failed: \(error.localizedDescription)")
+                    continuation.resume(returning: .bridgeFailure)
+                    return
+                }
+                guard let payload = result as? [String: Any], let status = payload["status"] as? String else {
+                    continuation.resume(returning: .bridgeFailure)
+                    return
+                }
+                switch status {
+                case "notFound":
+                    continuation.resume(returning: .notFound)
+                case "noSurface":
+                    continuation.resume(returning: .noSurface)
+                case "ok":
+                    guard let rawPositions = payload["positions"] as? [[String: Any]] else {
+                        continuation.resume(returning: .bridgeFailure)
+                        return
+                    }
+                    let positions = rawPositions.compactMap { entry -> GeoPosition? in
+                        guard let latitude = entry["latitude"] as? Double,
+                              let longitude = entry["longitude"] as? Double else { return nil }
+                        return GeoPosition(latitude: latitude, longitude: longitude)
+                    }
+                    continuation.resume(returning: .zone(positions: positions))
+                default:
+                    continuation.resume(returning: .bridgeFailure)
+                }
+            }
+        }
+    }
+
+    /// Colors/reverts a zone POI's surface(s) as the "inside the geofence"
+    /// alert, via `window.MapBridge.setZoneAlert` (same `venue.updateSurface()`
+    /// + `'initial'`-to-revert idiom as `highlightCategory`). Fire-and-forget,
+    /// called whenever the caller's point-in-polygon check flips the
+    /// inside/outside state. See `docs/features/geofencing.md`.
+    func setZoneAlert(_ placeId: String, active: Bool) {
+        guard let webView else { return }
+
+        guard let data = try? JSONSerialization.data(withJSONObject: placeId, options: [.fragmentsAllowed]),
+              let json = String(data: data, encoding: .utf8) else {
+            return
+        }
+
+        webView.evaluateJavaScript("window.MapBridge.setZoneAlert(\(json), \(active))") { _, error in
+            if let error {
+                print("VisioOneBridge: setZoneAlert failed: \(error.localizedDescription)")
             }
         }
     }
