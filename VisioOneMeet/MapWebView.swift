@@ -13,6 +13,13 @@ struct MapWebView: UIViewRepresentable {
     /// behavior changes.
     var hashOverride: String?
 
+    /// Optional `baseURL` to pass to `loadVenue`, same override mechanism as
+    /// `hashOverride` above but for the custom-base-url feature: appended as
+    /// a second `?baseURL=` query item, read back in `map.html`. `nil` (the
+    /// default) leaves the SDK's own built-in `baseURL` default in effect.
+    /// See `docs/features/custom-base-url.md`.
+    var baseURLOverride: String?
+
     func makeUIView(context: Context) -> WKWebView {
         let contentController = WKUserContentController()
         contentController.add(WeakScriptMessageHandler(target: bridge), name: VisioOneBridge.messageHandlerName)
@@ -35,8 +42,16 @@ struct MapWebView: UIViewRepresentable {
 
         if let url = Bundle.main.url(forResource: "map", withExtension: "html", subdirectory: "WebContent") {
             let urlToLoad: URL
-            if let hashOverride, var components = URLComponents(url: url, resolvingAgainstBaseURL: false) {
-                components.queryItems = [URLQueryItem(name: "hash", value: hashOverride)]
+            if (hashOverride != nil || baseURLOverride != nil),
+               var components = URLComponents(url: url, resolvingAgainstBaseURL: false) {
+                var queryItems: [URLQueryItem] = []
+                if let hashOverride {
+                    queryItems.append(URLQueryItem(name: "hash", value: hashOverride))
+                }
+                if let baseURLOverride {
+                    queryItems.append(URLQueryItem(name: "baseURL", value: baseURLOverride))
+                }
+                components.queryItems = queryItems
                 urlToLoad = components.url ?? url
             } else {
                 urlToLoad = url

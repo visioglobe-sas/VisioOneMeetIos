@@ -72,6 +72,7 @@ Each feature below is a self-contained screen demonstrating one part of the Visi
 - [Runtime locale](docs/features/runtime-locale.md) — switches the map's displayed language (POI/label names) at runtime without reloading, via `venue.currentLocale`/`venue.setCurrentLocale()`.
 - [Add locale](docs/features/add-locale.md) — adds a brand-new locale never authored in VisioMapEditor via `venue.translator.addLocale()`, then reads it back via `venue.translator.translate()`.
 - [Geofencing](docs/features/geofencing.md) — highlights a zone POI's surface whenever a simulated tracked position enters it, via a point-in-polygon check against `Surface.positions`.
+- [Custom base URL](docs/features/custom-base-url.md) — points the SDK at a different map server via `loadVenue`'s `baseURL` option, reloading the venue against whatever value is typed.
 
 ## Architecture
 

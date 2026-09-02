@@ -171,6 +171,40 @@
         }
       }
     },
+    "feature.custom_base_url.description" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Point the SDK at a different map server via loadVenue's baseURL option."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pointe le SDK vers un autre serveur de cartes via l'option baseURL de loadVenue."
+          }
+        }
+      }
+    },
+    "feature.custom_base_url.title" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Custom Base URL"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Serveur de carte configurable"
+          }
+        }
+      }
+    },
     "feature.custom_data.description" : {
       "extractionState" : "manual",
       "localizations" : {

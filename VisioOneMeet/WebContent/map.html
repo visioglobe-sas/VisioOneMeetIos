@@ -526,7 +526,15 @@
     var DEFAULT_HASH = 'kbae8e6c066cca4b02c2afac2bc963a643d87437a';
     var hash = new URLSearchParams(window.location.search).get('hash') || DEFAULT_HASH;
 
-    visioOne.loadVenue({ hash: hash }, container)
+    // Same override mechanism as `hash` above, for the custom-base-url
+    // feature: lets that one screen point loadVenue at a caller-supplied
+    // baseURL (the root the SDK fetches all map data -- config/tiles/icons --
+    // from, defaulting to the SDK's own https://mapserver.visioglobe.com/)
+    // instead of always relying on the SDK's built-in default. See
+    // docs/features/custom-base-url.md.
+    var baseURL = new URLSearchParams(window.location.search).get('baseURL');
+
+    visioOne.loadVenue(baseURL ? { hash: hash, baseURL: baseURL } : { hash: hash }, container)
       .then(function (v) {
         venue = v;
         return visioOne.createView(container, venue);
