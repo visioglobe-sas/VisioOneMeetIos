@@ -150,6 +150,8 @@ struct FeatureMapView: View {
             GeofencingOverlay(bridge: bridge)
         case .customBaseUrl:
             CustomBaseUrlOverlay(bridge: bridge)
+        case .customNavigationTrace:
+            CustomNavigationTraceOverlay(bridge: bridge)
         }
     }
 }

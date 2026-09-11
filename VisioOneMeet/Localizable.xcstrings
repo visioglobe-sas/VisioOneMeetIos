@@ -239,6 +239,40 @@
         }
       }
     },
+    "feature.custom_navigation_trace.description" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Restyle a computed route with a custom color palette."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Personnalise la couleur d'un itinéraire calculé."
+          }
+        }
+      }
+    },
+    "feature.custom_navigation_trace.title" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Custom navigation trace"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Trace de navigation personnalisée"
+          }
+        }
+      }
+    },
     "feature.explore_mode.description" : {
       "extractionState" : "manual",
       "localizations" : {

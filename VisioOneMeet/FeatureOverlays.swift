@@ -347,6 +347,180 @@ struct ComputeNavigationOverlay: View {
     }
 }
 
+/// The 4 fixed color palettes `custom-navigation-trace` lets a visitor pick
+/// for the currently displayed route, applied via
+/// `VisioOneBridge.updateNavigationTrace`. `visioglobeBlue` restates the
+/// SDK's own documented defaults (`Line.color` `'#0094F0'`, the inactive/
+/// preview segment `'#C5C5C5'`) as an explicit preset -- there is no SDK
+/// "reset to default" call, see `docs/features/custom-navigation-trace.md` --
+/// rather than a fake no-op. Same 4 presets as the Vue sibling app's
+/// `TRACE_PRESETS`, so the catalogue stays consistent across platforms.
+enum NavigationTracePreset: String, CaseIterable, Identifiable {
+    case visioglobeBlue
+    case brandRed
+    case brandGreen
+    case brandPurple
+
+    var id: String { rawValue }
+
+    var colors: NavigationTraceColors {
+        switch self {
+        case .visioglobeBlue:
+            return NavigationTraceColors(
+                progressColor: "#0094F0",
+                progressOutlineColor: "#FFFFFF",
+                progressFutureColor: "#C5C5C5",
+                previewColor: "#C5C5C5",
+                previewOutlineColor: "#FFFFFF"
+            )
+        case .brandRed:
+            return NavigationTraceColors(
+                progressColor: "#E53935",
+                progressOutlineColor: "#FFFFFF",
+                progressFutureColor: "#F8C9C7",
+                previewColor: "#F8C9C7",
+                previewOutlineColor: "#FFFFFF"
+            )
+        case .brandGreen:
+            return NavigationTraceColors(
+                progressColor: "#2E7D32",
+                progressOutlineColor: "#FFFFFF",
+                progressFutureColor: "#C8E6C9",
+                previewColor: "#C8E6C9",
+                previewOutlineColor: "#FFFFFF"
+            )
+        case .brandPurple:
+            return NavigationTraceColors(
+                progressColor: "#6A1B9A",
+                progressOutlineColor: "#FFFFFF",
+                progressFutureColor: "#E1BEE7",
+                previewColor: "#E1BEE7",
+                previewOutlineColor: "#FFFFFF"
+            )
+        }
+    }
+
+    /// Swatch fill color -- the same `progressColor` used in `colors`, the
+    /// most visually distinctive part of each preset.
+    var swatchColor: Color { Color(hex: colors.progressColor) }
+
+    var label: String {
+        switch self {
+        case .visioglobeBlue: return "VisioGlobe blue"
+        case .brandRed: return "Brand red"
+        case .brandGreen: return "Brand green"
+        case .brandPurple: return "Brand purple"
+        }
+    }
+}
+
+private extension Color {
+    /// Minimal `#RRGGBB` parser for the fixed swatch colors above -- every
+    /// value in `NavigationTracePreset` is a known-good hex string, so this
+    /// doesn't need to handle shorthand/alpha forms.
+    init(hex: String) {
+        var sanitized = hex.trimmingCharacters(in: .whitespacesAndNewlines)
+        if sanitized.hasPrefix("#") { sanitized.removeFirst() }
+        var value: UInt64 = 0
+        Scanner(string: sanitized).scanHexInt64(&value)
+        self.init(
+            red: Double((value & 0xFF0000) >> 16) / 255,
+            green: Double((value & 0x00FF00) >> 8) / 255,
+            blue: Double(value & 0x0000FF) / 255
+        )
+    }
+}
+
+/// Restyles the route drawn by `compute-navigation` with a fixed color
+/// palette via `venue.updateNavigationTrace()`
+/// (`VisioOneBridge.updateNavigationTrace`), reusing the same
+/// origin/destination itinerary fields and `Itinerary` action as
+/// `ComputeNavigationOverlay` above rather than duplicating that logic --
+/// same idiom as `CameraLockOnPositionOverlay` reusing
+/// `SimulatedPositionOverlay`'s tracking loop. See
+/// `docs/features/custom-navigation-trace.md`.
+///
+/// `selectedPreset` is remembered on this screen so the next computed
+/// itinerary is immediately styled with it too (`computeNavigation()`
+/// below), and tapping a swatch re-applies it to whatever trace is already
+/// displayed (`applyPreset(_:)`) -- mirroring the Vue sibling's
+/// `applyTracePreset`/`computeStyledItinerary`. Tapping a swatch before any
+/// itinerary has been computed is a harmless no-op: `updateNavigationTrace`
+/// is a no-op JS-side when no trace exists yet (see `map.html`), so no extra
+/// state is needed here to guard against it.
+struct CustomNavigationTraceOverlay: View {
+    @ObservedObject var bridge: VisioOneBridge
+    @State private var originPlaceId = ""
+    @State private var destinationPlaceId = ""
+    @State private var selectedPreset: NavigationTracePreset = .visioglobeBlue
+
+    private var canComputeNavigation: Bool {
+        !originPlaceId.trimmingCharacters(in: .whitespaces).isEmpty
+            && !destinationPlaceId.trimmingCharacters(in: .whitespaces).isEmpty
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            TextField("From (Place ID)", text: $originPlaceId)
+                .textFieldStyle(.roundedBorder)
+                .autocorrectionDisabled()
+                .textInputAutocapitalization(.never)
+
+            TextField("To (Place ID)", text: $destinationPlaceId)
+                .textFieldStyle(.roundedBorder)
+                .autocorrectionDisabled()
+                .textInputAutocapitalization(.never)
+
+            Button("Itinerary") {
+                computeNavigation()
+            }
+            .frame(maxWidth: .infinity)
+            .buttonStyle(.borderedProminent)
+            .disabled(!canComputeNavigation)
+
+            Divider()
+
+            Text("Trace color")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+
+            HStack(spacing: 12) {
+                ForEach(NavigationTracePreset.allCases) { preset in
+                    swatch(for: preset)
+                }
+            }
+        }
+        .padding()
+    }
+
+    private func swatch(for preset: NavigationTracePreset) -> some View {
+        Button {
+            applyPreset(preset)
+        } label: {
+            Circle()
+                .fill(preset.swatchColor)
+                .frame(width: 36, height: 36)
+                .overlay(
+                    Circle().stroke(Color.primary, lineWidth: preset == selectedPreset ? 3 : 0)
+                )
+        }
+        .accessibilityLabel(preset.label)
+    }
+
+    private func computeNavigation() {
+        let origin = originPlaceId.trimmingCharacters(in: .whitespaces)
+        let destination = destinationPlaceId.trimmingCharacters(in: .whitespaces)
+        guard !origin.isEmpty, !destination.isEmpty else { return }
+        bridge.computeNavigation(origin: origin, destination: destination, isAccessible: false)
+        bridge.updateNavigationTrace(selectedPreset.colors)
+    }
+
+    private func applyPreset(_ preset: NavigationTracePreset) {
+        selectedPreset = preset
+        bridge.updateNavigationTrace(preset.colors)
+    }
+}
+
 /// The 5 UI parts the SDK's `view.setUIPartVisible()` can individually
 /// show/hide. Raw values match the JS SDK's `UIPart` type exactly
 /// (case-sensitive) — see docs/features/ui-part-visibility.md.
