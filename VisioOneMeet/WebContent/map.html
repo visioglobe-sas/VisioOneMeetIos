@@ -44,6 +44,13 @@
     // docs/features/dynamic-poi-crud.md.
     var dynamicPoi = null;
     var dynamicLabel = null;
+    // The single NavigationTrace created by computeNavigation (null until
+    // then), kept here so a later updateNavigationTrace call has something
+    // to restyle -- NavigationTrace isn't JSON-serializable, same reason
+    // dynamicPoi/dynamicLabel above are kept module-side rather than passed
+    // back and forth across the bridge. See
+    // docs/features/custom-navigation-trace.md.
+    var currentNavigationTrace = null;
 
     // Finds a floor by ID across every building of the venue (floor IDs are
     // unique venue-wide, unlike POI IDs). See docs/features/floor-selector.md.
@@ -208,7 +215,34 @@
           mergeFloorChangeInstructions: false,
         });
         var navigationTrace = venue.createNavigationTrace(navigation);
+        currentNavigationTrace = navigationTrace;
         view.setCurrentNavigationTrace(navigationTrace);
+      },
+      // Restyles the currently displayed navigation trace via
+      // venue.updateNavigationTrace(trace, options) -- colors only
+      // (NavigationTraceUpdateOptions also has textureRepeat/animationSpeed,
+      // relevant only to the 'textured' displayMode, which can't be changed
+      // after createNavigationTrace()). No-op if computeNavigation hasn't
+      // created a trace yet. See docs/features/custom-navigation-trace.md.
+      //
+      // venue.updateNavigationTrace() throws an internal TypeError ("Cannot
+      // read properties of undefined (reading 'material')", deep in the
+      // SDK's own line-rendering pipeline) when called right after creating
+      // a fresh trace on this app's own vendored SDK bundle + shared demo
+      // venue -- reproduced live, 4/4 times, via a standalone browser
+      // harness driving this exact map.html/visioone.umd.cjs pair (see
+      // docs/features/custom-navigation-trace.md). The Vue sibling app,
+      // which hit the same error on the same venue, additionally confirmed
+      // every color in `options` is still applied correctly before it
+      // throws. Caught here either way so it never surfaces as a
+      // WKJavaScriptExceptionMessage failure on the Swift side.
+      updateNavigationTrace: function (options) {
+        if (!venue || !currentNavigationTrace) return;
+        try {
+          venue.updateNavigationTrace(currentNavigationTrace, options);
+        } catch (error) {
+          console.warn('[VisioOne:web] updateNavigationTrace threw (trace styling still applied):', error);
+        }
       },
       // Shows/hides one of the SDK's own default UI overlays via
       // view.setUIPartVisible(). uiPart is one of exactly 5 case-sensitive

@@ -108,6 +108,20 @@ enum ResolveZoneResult: Equatable {
     case bridgeFailure
 }
 
+/// Colors applicable to an already-displayed navigation trace via
+/// `venue.updateNavigationTrace()`. Mirrors the SDK's
+/// `NavigationTraceUpdateOptions` colors-only surface -- `textureRepeat`/
+/// `animationSpeed` are omitted since they only affect the `'textured'`
+/// `displayMode`, which can't be changed after `createNavigationTrace()`.
+/// See `docs/features/custom-navigation-trace.md`.
+struct NavigationTraceColors: Equatable {
+    let progressColor: String
+    let progressOutlineColor: String
+    let progressFutureColor: String
+    let previewColor: String
+    let previewOutlineColor: String
+}
+
 /// Two-way bridge to the SDK running inside `MapWebView`.
 ///
 /// - Native -> JS: calls into `window.MapBridge`, defined in `map.html`, via
@@ -362,6 +376,43 @@ final class VisioOneBridge: NSObject, WKScriptMessageHandler, ObservableObject {
         webView.evaluateJavaScript("window.MapBridge.computeNavigation(\(json))") { _, error in
             if let error {
                 print("VisioOneBridge: computeNavigation failed: \(error.localizedDescription)")
+            }
+        }
+    }
+
+    /// Restyles the currently displayed navigation trace (if any) via
+    /// `venue.updateNavigationTrace()` (see
+    /// `docs/features/custom-navigation-trace.md`). Colors only -- there is
+    /// no way to change `displayMode`/`thickness` after
+    /// `createNavigationTrace()`. No-op JS-side if `computeNavigation`
+    /// hasn't created a trace yet (see `map.html`).
+    ///
+    /// `colors` is JSON-encoded via `JSONSerialization` before being
+    /// interpolated into the generated script, same rule as the other
+    /// bridge methods above.
+    ///
+    /// The JS side swallows an internal SDK `TypeError` this call is known
+    /// to throw against this app's shared demo venue (see `map.html`), so
+    /// the completion handler here only ever reports an actual bridge/JSON
+    /// failure, never that quirk.
+    func updateNavigationTrace(_ colors: NavigationTraceColors) {
+        guard let webView else { return }
+
+        let options: [String: Any] = [
+            "progressColor": colors.progressColor,
+            "progressOutlineColor": colors.progressOutlineColor,
+            "progressFutureColor": colors.progressFutureColor,
+            "previewColor": colors.previewColor,
+            "previewOutlineColor": colors.previewOutlineColor,
+        ]
+        guard let data = try? JSONSerialization.data(withJSONObject: options),
+              let json = String(data: data, encoding: .utf8) else {
+            return
+        }
+
+        webView.evaluateJavaScript("window.MapBridge.updateNavigationTrace(\(json))") { _, error in
+            if let error {
+                print("VisioOneBridge: updateNavigationTrace failed: \(error.localizedDescription)")
             }
         }
     }

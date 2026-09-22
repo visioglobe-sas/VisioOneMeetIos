@@ -73,6 +73,7 @@ Each feature below is a self-contained screen demonstrating one part of the Visi
 - [Add locale](docs/features/add-locale.md) — adds a brand-new locale never authored in VisioMapEditor via `venue.translator.addLocale()`, then reads it back via `venue.translator.translate()`.
 - [Geofencing](docs/features/geofencing.md) — highlights a zone POI's surface whenever a simulated tracked position enters it, via a point-in-polygon check against `Surface.positions`.
 - [Custom base URL](docs/features/custom-base-url.md) — points the SDK at a different map server via `loadVenue`'s `baseURL` option, reloading the venue against whatever value is typed.
+- [Custom navigation trace](docs/features/custom-navigation-trace.md) — restyles a computed route with a color preset via `venue.updateNavigationTrace()`, applied immediately to the current trace and remembered for the next one.
 
 ## Architecture
 
