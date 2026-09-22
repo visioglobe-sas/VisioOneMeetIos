@@ -244,6 +244,56 @@
           console.warn('[VisioOne:web] updateNavigationTrace threw (trace styling still applied):', error);
         }
       },
+      // Computes a route like computeNavigation above, but additionally
+      // excludes one or more segment "particularities" (e.g. elevators,
+      // stairs) via venue.computeNavigation()'s excludedAttributes option.
+      // Added as its own handler rather than a param on computeNavigation,
+      // same "new method, not a signature change" idiom as
+      // updateNavigationTrace above.
+      //
+      // On this app's shared demo venue, the attribute string for an
+      // elevator hop is 'lift' -- not 'elevator', despite the SDK's own
+      // JSDoc comment on excludedAttributes (confirmed live: excluding
+      // 'lift' reroutes a route that otherwise takes a single elevator hop
+      // through stairways instead; excluding 'elevator' has no effect). See
+      // docs/features/navigation-exclude-modalities.md.
+      //
+      // Errors thrown by computeNavigation (e.g. no route survives the
+      // exclusion) propagate to the evaluateJavaScript completion handler on
+      // the Swift side rather than being caught here, same as
+      // computeNavigation above.
+      computeNavigationExcludingModalities: function (request) {
+        if (!venue || !view) return;
+        var navigation = venue.computeNavigation({
+          origin: request.origin,
+          destination: request.destination,
+          isAccessible: request.isAccessible,
+          type: 'fastest',
+          firstNodeAsIntersection: false,
+          mergeFloorChangeInstructions: false,
+          excludedAttributes: request.excludedAttributes,
+        });
+        var navigationTrace = venue.createNavigationTrace(navigation);
+        currentNavigationTrace = navigationTrace;
+        view.setCurrentNavigationTrace(navigationTrace);
+      },
+      // Clears whatever navigation trace is currently displayed via
+      // view.removeCurrentNavigationTrace(), so
+      // navigation-exclude-modalities' "Clear" button has something real to
+      // act on. That call throws when nothing is currently running --
+      // caught here and swallowed, same try/catch idiom as
+      // updateNavigationTrace above, since "nothing to clear" is a normal
+      // state, not a bridge failure. See
+      // docs/features/navigation-exclude-modalities.md.
+      clearNavigationTrace: function () {
+        if (!view) return;
+        try {
+          view.removeCurrentNavigationTrace();
+        } catch (error) {
+          console.warn('[VisioOne:web] removeCurrentNavigationTrace threw (nothing to clear):', error);
+        }
+        currentNavigationTrace = null;
+      },
       // Shows/hides one of the SDK's own default UI overlays via
       // view.setUIPartVisible(). uiPart is one of exactly 5 case-sensitive
       // string values ('floorSelector', 'navigation', 'poiDetails',

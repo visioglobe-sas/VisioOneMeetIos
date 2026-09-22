@@ -417,6 +417,72 @@ final class VisioOneBridge: NSObject, WKScriptMessageHandler, ObservableObject {
         }
     }
 
+    /// Computes a route like `computeNavigation` above, but additionally
+    /// excludes one or more segment "particularities" (e.g. elevators,
+    /// stairs) from consideration via `venue.computeNavigation()`'s
+    /// `excludedAttributes` option (see
+    /// `docs/features/navigation-exclude-modalities.md`). Added as its own
+    /// bridge method rather than an `excludedAttributes` parameter on
+    /// `computeNavigation` itself -- same "new method, not a signature
+    /// change" idiom as `updateNavigationTrace` above.
+    ///
+    /// On this app's shared demo venue, the attribute string for an elevator
+    /// hop is `'lift'` -- *not* `'elevator'`, despite the SDK's own JSDoc
+    /// comment on `excludedAttributes` (confirmed live, see the feature doc).
+    /// This method takes the raw attribute strings as-is; resolving
+    /// "Avoid elevator" to `'lift'` is `NavigationExcludeModalitiesOverlay`'s
+    /// job, not this bridge method's.
+    ///
+    /// Errors thrown by `venue.computeNavigation()` (e.g. no route survives
+    /// the exclusion) are not caught JS-side, same as plain
+    /// `computeNavigation` -- they propagate to this call's completion
+    /// handler, same error path as an ordinary unreachable origin/destination
+    /// pair.
+    ///
+    /// The request is JSON-encoded via `JSONSerialization` before being
+    /// interpolated into the generated script, same rule as the other bridge
+    /// methods above.
+    func computeNavigationExcludingModalities(
+        origin: String,
+        destination: String,
+        isAccessible: Bool,
+        excludedAttributes: [String]
+    ) {
+        guard let webView else { return }
+
+        let request: [String: Any] = [
+            "origin": origin,
+            "destination": destination,
+            "isAccessible": isAccessible,
+            "excludedAttributes": excludedAttributes,
+        ]
+        guard let data = try? JSONSerialization.data(withJSONObject: request),
+              let json = String(data: data, encoding: .utf8) else {
+            return
+        }
+
+        webView.evaluateJavaScript("window.MapBridge.computeNavigationExcludingModalities(\(json))") { _, error in
+            if let error {
+                print("VisioOneBridge: computeNavigationExcludingModalities failed: \(error.localizedDescription)")
+            }
+        }
+    }
+
+    /// Clears whatever navigation trace is currently displayed (from either
+    /// `computeNavigation` or `computeNavigationExcludingModalities`) via
+    /// `view.removeCurrentNavigationTrace()`, so the "Clear" button on
+    /// `NavigationExcludeModalitiesOverlay` has something real to act on
+    /// beyond just resetting its own text fields. No-op JS-side if nothing is
+    /// currently displayed -- see `map.html`. See
+    /// `docs/features/navigation-exclude-modalities.md`.
+    func clearNavigationTrace() {
+        webView?.evaluateJavaScript("window.MapBridge.clearNavigationTrace()") { _, error in
+            if let error {
+                print("VisioOneBridge: clearNavigationTrace failed: \(error.localizedDescription)")
+            }
+        }
+    }
+
     /// Shows/hides one of the SDK's own default UI overlays via
     /// `view.setUIPartVisible()` (see `docs/features/ui-part-visibility.md`).
     ///
