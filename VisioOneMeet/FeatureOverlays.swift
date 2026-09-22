@@ -521,6 +521,80 @@ struct CustomNavigationTraceOverlay: View {
     }
 }
 
+/// Lets the user type two Place IDs and compute/display a route between
+/// them like `ComputeNavigationOverlay` above, but additionally exposes an
+/// "Avoid elevator" toggle that excludes the `'lift'` segment attribute via
+/// `VisioOneBridge.computeNavigationExcludingModalities`. See
+/// `docs/features/navigation-exclude-modalities.md`. `isAccessible` is
+/// hardcoded to `false`, same choice as `ComputeNavigationOverlay`.
+///
+/// The toggle is only read when "Itinerary" is pressed -- flipping it alone
+/// does not recompute an already-displayed route, same "read on submit, not
+/// on every change" idiom as the origin/destination fields themselves.
+struct NavigationExcludeModalitiesOverlay: View {
+    @ObservedObject var bridge: VisioOneBridge
+    @State private var originPlaceId = ""
+    @State private var destinationPlaceId = ""
+    @State private var avoidElevator = false
+
+    /// The real SDK attribute string for an elevator hop on this app's
+    /// shared demo venue -- *not* `'elevator'`, despite the SDK's own
+    /// `excludedAttributes` JSDoc comment suggesting otherwise (confirmed
+    /// live: excluding `'lift'` reroutes a route that otherwise takes a
+    /// single elevator hop through stairways instead; excluding `'elevator'`
+    /// has no effect). See `docs/features/navigation-exclude-modalities.md`.
+    private static let elevatorAttribute = "lift"
+
+    private var canComputeNavigation: Bool {
+        !originPlaceId.trimmingCharacters(in: .whitespaces).isEmpty
+            && !destinationPlaceId.trimmingCharacters(in: .whitespaces).isEmpty
+    }
+
+    var body: some View {
+        VStack(spacing: 12) {
+            TextField("From (Place ID)", text: $originPlaceId)
+                .textFieldStyle(.roundedBorder)
+                .autocorrectionDisabled()
+                .textInputAutocapitalization(.never)
+
+            TextField("To (Place ID)", text: $destinationPlaceId)
+                .textFieldStyle(.roundedBorder)
+                .autocorrectionDisabled()
+                .textInputAutocapitalization(.never)
+
+            HStack {
+                Button("Itinerary") {
+                    computeNavigation()
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(!canComputeNavigation)
+
+                Button("Clear") {
+                    originPlaceId = ""
+                    destinationPlaceId = ""
+                    bridge.clearNavigationTrace()
+                }
+            }
+            .frame(maxWidth: .infinity)
+
+            Toggle("Avoid elevator", isOn: $avoidElevator)
+        }
+        .padding()
+    }
+
+    private func computeNavigation() {
+        let origin = originPlaceId.trimmingCharacters(in: .whitespaces)
+        let destination = destinationPlaceId.trimmingCharacters(in: .whitespaces)
+        guard !origin.isEmpty, !destination.isEmpty else { return }
+        bridge.computeNavigationExcludingModalities(
+            origin: origin,
+            destination: destination,
+            isAccessible: false,
+            excludedAttributes: avoidElevator ? [Self.elevatorAttribute] : []
+        )
+    }
+}
+
 /// The 5 UI parts the SDK's `view.setUIPartVisible()` can individually
 /// show/hide. Raw values match the JS SDK's `UIPart` type exactly
 /// (case-sensitive) — see docs/features/ui-part-visibility.md.

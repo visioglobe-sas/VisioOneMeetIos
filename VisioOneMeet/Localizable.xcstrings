@@ -273,6 +273,40 @@
         }
       }
     },
+    "feature.navigation_exclude_modalities.description" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Compute a route while excluding a segment modality such as elevators."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Calcule un itinéraire en excluant une modalité de segment comme les ascenseurs."
+          }
+        }
+      }
+    },
+    "feature.navigation_exclude_modalities.title" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Exclude modalities"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Exclusion de modalités"
+          }
+        }
+      }
+    },
     "feature.explore_mode.description" : {
       "extractionState" : "manual",
       "localizations" : {

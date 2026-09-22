@@ -21,6 +21,7 @@ enum Feature: String, CaseIterable, Identifiable, Hashable {
     case geofencing
     case customBaseUrl
     case customNavigationTrace
+    case navigationExcludeModalities
 
     var id: String { slug }
 
@@ -81,6 +82,8 @@ enum Feature: String, CaseIterable, Identifiable, Hashable {
             return "custom-base-url"
         case .customNavigationTrace:
             return "custom-navigation-trace"
+        case .navigationExcludeModalities:
+            return "navigation-exclude-modalities"
         }
     }
 
@@ -126,6 +129,8 @@ enum Feature: String, CaseIterable, Identifiable, Hashable {
             return "feature.custom_base_url.title"
         case .customNavigationTrace:
             return "feature.custom_navigation_trace.title"
+        case .navigationExcludeModalities:
+            return "feature.navigation_exclude_modalities.title"
         }
     }
 
@@ -171,6 +176,8 @@ enum Feature: String, CaseIterable, Identifiable, Hashable {
             return "feature.custom_base_url.description"
         case .customNavigationTrace:
             return "feature.custom_navigation_trace.description"
+        case .navigationExcludeModalities:
+            return "feature.navigation_exclude_modalities.description"
         }
     }
 }
