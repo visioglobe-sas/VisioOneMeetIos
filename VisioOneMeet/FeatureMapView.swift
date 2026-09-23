@@ -154,6 +154,8 @@ struct FeatureMapView: View {
             CustomNavigationTraceOverlay(bridge: bridge)
         case .navigationExcludeModalities:
             NavigationExcludeModalitiesOverlay(bridge: bridge)
+        case .accessibleMode:
+            AccessibleModeOverlay(bridge: bridge)
         }
     }
 }

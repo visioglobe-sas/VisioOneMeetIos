@@ -595,6 +595,82 @@ struct NavigationExcludeModalitiesOverlay: View {
     }
 }
 
+/// Lets the user type two Place IDs and compute/display a route between
+/// them like `ComputeNavigationOverlay` above, but additionally exposes an
+/// "Accessible route" toggle that forwards `isAccessible` to
+/// `VisioOneBridge.computeNavigation` -- the exact same bridge method
+/// `ComputeNavigationOverlay` already calls with `isAccessible` hardcoded to
+/// `false`. No new bridge/JS method was needed: `computeNavigation` already
+/// threads `isAccessible` all the way to `venue.computeNavigation()` (see
+/// `map.html`) -- this overlay is the first screen in this repo that
+/// actually flips it. See `docs/features/accessible-mode.md`.
+///
+/// `isAccessible: true` is the opposite direction from
+/// `navigation-exclude-modalities`'s "Avoid elevator" toggle: instead of
+/// manually excluding `'lift'` to force a stairway detour, it excludes the
+/// venue's own published accessible-route exclusions (stairs-only segments
+/// on this venue) to force a lift/ramp route.
+///
+/// Reuses `VisioOneBridge.clearNavigationTrace()` (added for
+/// `navigation-exclude-modalities`) for the "Clear" button, same as that
+/// overlay -- it clears whatever trace is current regardless of which
+/// bridge method created it.
+///
+/// The toggle is only read when "Itinerary" is pressed -- flipping it alone
+/// does not recompute an already-displayed route, same "read on submit, not
+/// on every change" idiom as the origin/destination fields themselves and
+/// as `NavigationExcludeModalitiesOverlay`'s "Avoid elevator" toggle.
+struct AccessibleModeOverlay: View {
+    @ObservedObject var bridge: VisioOneBridge
+    @State private var originPlaceId = ""
+    @State private var destinationPlaceId = ""
+    @State private var isAccessible = false
+
+    private var canComputeNavigation: Bool {
+        !originPlaceId.trimmingCharacters(in: .whitespaces).isEmpty
+            && !destinationPlaceId.trimmingCharacters(in: .whitespaces).isEmpty
+    }
+
+    var body: some View {
+        VStack(spacing: 12) {
+            TextField("From (Place ID)", text: $originPlaceId)
+                .textFieldStyle(.roundedBorder)
+                .autocorrectionDisabled()
+                .textInputAutocapitalization(.never)
+
+            TextField("To (Place ID)", text: $destinationPlaceId)
+                .textFieldStyle(.roundedBorder)
+                .autocorrectionDisabled()
+                .textInputAutocapitalization(.never)
+
+            HStack {
+                Button("Itinerary") {
+                    computeNavigation()
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(!canComputeNavigation)
+
+                Button("Clear") {
+                    originPlaceId = ""
+                    destinationPlaceId = ""
+                    bridge.clearNavigationTrace()
+                }
+            }
+            .frame(maxWidth: .infinity)
+
+            Toggle("Accessible route", isOn: $isAccessible)
+        }
+        .padding()
+    }
+
+    private func computeNavigation() {
+        let origin = originPlaceId.trimmingCharacters(in: .whitespaces)
+        let destination = destinationPlaceId.trimmingCharacters(in: .whitespaces)
+        guard !origin.isEmpty, !destination.isEmpty else { return }
+        bridge.computeNavigation(origin: origin, destination: destination, isAccessible: isAccessible)
+    }
+}
+
 /// The 5 UI parts the SDK's `view.setUIPartVisible()` can individually
 /// show/hide. Raw values match the JS SDK's `UIPart` type exactly
 /// (case-sensitive) — see docs/features/ui-part-visibility.md.

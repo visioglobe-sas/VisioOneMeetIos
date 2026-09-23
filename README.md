@@ -75,6 +75,7 @@ Each feature below is a self-contained screen demonstrating one part of the Visi
 - [Custom base URL](docs/features/custom-base-url.md) — points the SDK at a different map server via `loadVenue`'s `baseURL` option, reloading the venue against whatever value is typed.
 - [Custom navigation trace](docs/features/custom-navigation-trace.md) — restyles a computed route with a color preset via `venue.updateNavigationTrace()`, applied immediately to the current trace and remembered for the next one.
 - [Exclude modalities](docs/features/navigation-exclude-modalities.md) — computes a route while avoiding a segment modality (e.g. elevators) via `venue.computeNavigation()`'s `excludedAttributes` option.
+- [Accessible route](docs/features/accessible-mode.md) — computes a route that only uses the venue's own accessible path via `venue.computeNavigation()`'s `isAccessible` option.
 
 ## Architecture
 
