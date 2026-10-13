@@ -156,6 +156,8 @@ struct FeatureMapView: View {
             NavigationExcludeModalitiesOverlay(bridge: bridge)
         case .accessibleMode:
             AccessibleModeOverlay(bridge: bridge)
+        case .iconMarker3D:
+            IconMarkerOverlay(bridge: bridge)
         }
     }
 }

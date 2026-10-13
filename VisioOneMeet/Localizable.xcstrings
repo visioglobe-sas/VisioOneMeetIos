@@ -850,6 +850,40 @@
           }
         }
       }
+    },
+    "feature.3d_icon_marker.title" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "3D icon marker"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Icône 3D positionnée"
+          }
+        }
+      }
+    },
+    "feature.3d_icon_marker.description" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Place a custom image at a spot on the 3D map"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Placer une image personnalisée à un endroit de la carte 3D"
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

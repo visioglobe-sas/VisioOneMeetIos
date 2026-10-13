@@ -51,6 +51,24 @@
     // back and forth across the bridge. See
     // docs/features/custom-navigation-trace.md.
     var currentNavigationTrace = null;
+    // Images created by placeIconImage, keyed by the id the native side
+    // chose for them -- Image isn't JSON-serializable either, same reason
+    // as dynamicPoi/dynamicLabel above, so the native side only ever holds
+    // the key. See docs/features/3d-icon-marker.md.
+    var iconImages = {};
+
+    // Reads a WGS84 position off an "anchor" POI's first label or marker --
+    // POIs have no direct lat/lng field of their own. Shared by
+    // createDynamicPOI and placeIconImage below, so both features accept
+    // exactly the same anchor POIs. Returns null when the POI has neither.
+    // See docs/features/dynamic-poi-crud.md.
+    function anchorPositionOf(poi) {
+      var position =
+        (poi.labels && poi.labels[0] && poi.labels[0].position) ||
+        (poi.markers && poi.markers[0] && poi.markers[0].position);
+      if (!position) return null;
+      return { latitude: position.latitude, longitude: position.longitude, altitude: position.altitude };
+    }
 
     // Finds a floor by ID across every building of the venue (floor IDs are
     // unique venue-wide, unlike POI IDs). See docs/features/floor-selector.md.
@@ -516,9 +534,7 @@
         if (!venue) return { status: 'anchorNotFound' };
         var anchor = venue.pois.find(function (p) { return p.id === anchorId; });
         if (!anchor) return { status: 'anchorNotFound' };
-        var position =
-          (anchor.labels && anchor.labels[0] && anchor.labels[0].position) ||
-          (anchor.markers && anchor.markers[0] && anchor.markers[0].position);
+        var position = anchorPositionOf(anchor);
         if (!position) return { status: 'noPosition' };
 
         var poi;
@@ -531,7 +547,7 @@
         dynamicPoi = poi;
         dynamicLabel = venue.createLabel({
           poi: poi,
-          position: { latitude: position.latitude, longitude: position.longitude, altitude: position.altitude },
+          position: position,
           width: 2,
           text: labelText,
         });
@@ -555,6 +571,62 @@
         venue.removePOI(dynamicPoi);
         dynamicPoi = null;
         dynamicLabel = null;
+      },
+      // Places an image (an icon here) in the 3D scene via venue.createImage(),
+      // owned by an existing "anchor" POI and positioned at that POI's own
+      // label/marker position (anchorPositionOf above, shared with
+      // createDynamicPOI). width/height are in meters; url can be any image
+      // URL, including a data: URL. Any image already stored under imageId
+      // is removed first, so a key never holds two images. Returns a
+      // discriminated result rather than throwing, same shape as
+      // createDynamicPOI:
+      //   { status: 'placed', id }       on success
+      //   { status: 'poiNotFound' }      anchorId doesn't resolve to a POI
+      //   { status: 'noPosition' }       anchor POI has no label/marker
+      //   { status: 'error', message }   venue.createImage threw
+      // See docs/features/3d-icon-marker.md.
+      placeIconImage: async function (imageId, anchorId, url, orientationType) {
+        if (!venue) return { status: 'poiNotFound' };
+        var anchor = venue.pois.find(function (p) { return p.id === anchorId; });
+        if (!anchor) return { status: 'poiNotFound' };
+        var position = anchorPositionOf(anchor);
+        if (!position) return { status: 'noPosition' };
+
+        if (iconImages[imageId]) {
+          venue.removeImage(iconImages[imageId]);
+          delete iconImages[imageId];
+        }
+
+        try {
+          iconImages[imageId] = venue.createImage({
+            poi: anchor,
+            position: position,
+            width: 6,
+            height: 6,
+            url: url,
+            orientationType: orientationType,
+          });
+        } catch (e) {
+          return { status: 'error', message: e && e.message ? e.message : String(e) };
+        }
+        return { status: 'placed', id: imageId };
+      },
+      // Switches an already-placed image's orientation live via
+      // venue.updateImage() -- 'fixed' (flat on the ground, fixed heading),
+      // 'flat' (flat on the ground, turning to face the camera) or 'facing'
+      // (billboard, always facing the camera). No-op if nothing is stored
+      // under imageId. See docs/features/3d-icon-marker.md.
+      updateIconImageOrientation: function (imageId, orientationType) {
+        if (!venue || !iconImages[imageId]) return;
+        venue.updateImage(iconImages[imageId], { orientationType: orientationType });
+      },
+      // Removes the image stored under imageId via venue.removeImage(); the
+      // anchor POI itself is untouched. No-op if nothing is stored there.
+      // See docs/features/3d-icon-marker.md.
+      removeIconImage: function (imageId) {
+        if (!venue || !iconImages[imageId]) return;
+        venue.removeImage(iconImages[imageId]);
+        delete iconImages[imageId];
       },
       // Reads the venue's current locale (venue.currentLocale: string,
       // readonly). A synchronous read of data the SDK already holds once the

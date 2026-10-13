@@ -1562,6 +1562,118 @@ struct DynamicPoiCrudOverlay: View {
     }
 }
 
+/// Places a custom image (a fixed demo icon) at an anchor POI's position in
+/// the 3D scene via `venue.createImage()`, switches its orientation live via
+/// `venue.updateImage()`, and removes it via `venue.removeImage()` -- see
+/// docs/features/3d-icon-marker.md. After a successful place, the camera
+/// moves to the anchor POI via goto-poi's `bridge.goToPOI`. One icon at a
+/// time (`bridge.placedIconAnchorId`);
+/// an unknown or position-less anchor POI is shown as a plain status line,
+/// not a crash.
+struct IconMarkerOverlay: View {
+    /// "Restaurant", ground floor of the shared demo map's building B4: has
+    /// a label to read a position from, unlike surface-only POIs such as
+    /// `B3-UL00-ID0065` (which reports "This POI has no position").
+    private static let defaultAnchorPoiId = "B4-UL00-ID0009"
+
+    @ObservedObject var bridge: VisioOneBridge
+    @State private var anchorPoiId: String
+    @State private var isPlacing = false
+    @State private var errorMessage: String?
+
+    init(bridge: VisioOneBridge) {
+        self.bridge = bridge
+        _anchorPoiId = State(initialValue: bridge.placedIconAnchorId ?? Self.defaultAnchorPoiId)
+    }
+
+    private var trimmedAnchorPoiId: String { anchorPoiId.trimmingCharacters(in: .whitespaces) }
+
+    private var orientation: Binding<IconOrientation> {
+        Binding(get: { bridge.iconOrientation }, set: { bridge.setIconOrientation($0) })
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            TextField("Anchor POI ID", text: $anchorPoiId)
+                .textFieldStyle(.roundedBorder)
+                .autocorrectionDisabled()
+                .textInputAutocapitalization(.never)
+                .disabled(isPlacing)
+
+            Text("Orientation")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+            Picker("Orientation", selection: orientation) {
+                Text("Fixed").tag(IconOrientation.fixed)
+                Text("Flat").tag(IconOrientation.flat)
+                Text("Facing camera").tag(IconOrientation.facing)
+            }
+            .pickerStyle(.segmented)
+
+            HStack {
+                Button("Place icon") {
+                    place()
+                }
+                .disabled(isPlacing || trimmedAnchorPoiId.isEmpty)
+
+                Button("Remove icon", role: .destructive) {
+                    errorMessage = nil
+                    bridge.removeIcon()
+                }
+                .disabled(bridge.placedIconAnchorId == nil)
+            }
+            .buttonStyle(.bordered)
+
+            statusText
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding()
+    }
+
+    @ViewBuilder
+    private var statusText: some View {
+        if let errorMessage {
+            Text(errorMessage)
+                .font(.footnote)
+                .foregroundStyle(.red)
+        } else if let anchorId = bridge.placedIconAnchorId {
+            Text("Icon placed on \(anchorId)")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+        } else {
+            Text("No icon placed")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    private func place() {
+        let anchor = trimmedAnchorPoiId
+        guard !anchor.isEmpty else { return }
+
+        isPlacing = true
+        errorMessage = nil
+
+        Task {
+            let result = await bridge.placeIcon(anchorId: anchor)
+            isPlacing = false
+            switch result {
+            case .placed:
+                // The anchor sits on an indoor floor, not drawn in the
+                // default whole-venue view: reuse goto-poi's camera move
+                // (floor switch + view.goToPOI) so the icon is on screen.
+                bridge.goToPOI(anchor)
+            case .poiNotFound:
+                errorMessage = "POI not found"
+            case .noPosition:
+                errorMessage = "This POI has no position"
+            case .failure(let message):
+                errorMessage = "Could not place the icon: \(message)"
+            }
+        }
+    }
+}
+
 /// One switchable locale option offered by `RuntimeLocaleOverlay` below.
 /// The shared demo map's `venue.translator.allLocales` is `['en', 'fr']`;
 /// `'default'` isn't even listed there, yet it's still a working locale
