@@ -158,6 +158,8 @@ struct FeatureMapView: View {
             AccessibleModeOverlay(bridge: bridge)
         case .iconMarker3D:
             IconMarkerOverlay(bridge: bridge)
+        case .customTextLabel:
+            CustomTextLabelOverlay(bridge: bridge)
         }
     }
 }

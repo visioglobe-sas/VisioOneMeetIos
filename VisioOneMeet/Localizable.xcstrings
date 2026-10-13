@@ -884,6 +884,40 @@
           }
         }
       }
+    },
+    "feature.custom_text_label.title" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Custom text label"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Label texte personnalisé"
+          }
+        }
+      }
+    },
+    "feature.custom_text_label.description" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Place your own text on the map and restyle it live"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Placez votre propre texte sur la carte et modifiez son style en direct"
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

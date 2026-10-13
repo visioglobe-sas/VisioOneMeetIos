@@ -123,6 +123,59 @@ enum PlaceIconResult: Equatable {
     case failure(String)
 }
 
+/// Color choices offered for the custom text label. Raw values are the hex
+/// strings passed as-is to `venue.createLabel`/`venue.updateLabel`'s
+/// `color` (hex, `rgb()` or `hsl()` only -- anything else throws). See
+/// `docs/features/custom-text-label.md`.
+enum TextLabelColor: String, CaseIterable, Identifiable {
+    case red = "#E53935"
+    case green = "#43A047"
+    case blue = "#1E88E5"
+    case dark = "#212121"
+
+    var id: String { rawValue }
+}
+
+/// Size presets for the custom text label, in meters. Width and height are
+/// always sent together: the SDK defaults `height` to `width` on create, and
+/// `updateLabel(label, { width })` alone also resets `height` to `width`.
+/// See `docs/features/custom-text-label.md`.
+enum TextLabelSize: String, CaseIterable, Identifiable {
+    case small
+    case medium
+    case large
+
+    var id: String { rawValue }
+
+    var width: Double {
+        switch self {
+        case .small: return 10
+        case .medium: return 16
+        case .large: return 22
+        }
+    }
+
+    var height: Double {
+        switch self {
+        case .small: return 2
+        case .medium: return 3
+        case .large: return 4
+        }
+    }
+}
+
+/// Outcome of `placeTextLabel`/`updateTextLabelText`, one variant per
+/// discriminated result the JS side can report -- see
+/// `docs/features/custom-text-label.md`.
+enum TextLabelResult: Equatable {
+    case success
+    case textRequired
+    case poiNotFound
+    case noPosition
+    case noLabel
+    case failure(String)
+}
+
 /// Outcome of `resolveZonePolygon`, one variant per discriminated result the
 /// JS side can report -- see `docs/features/geofencing.md`.
 enum ResolveZoneResult: Equatable {
@@ -204,6 +257,20 @@ final class VisioOneBridge: NSObject, WKScriptMessageHandler, ObservableObject {
     /// `placeIcon` and live (via `venue.updateImage`) to an already placed
     /// one. Defaults to `.facing`. See `docs/features/3d-icon-marker.md`.
     @Published private(set) var iconOrientation: IconOrientation = .facing
+
+    /// Anchor POI id the custom text label is currently placed on, `nil`
+    /// when none is placed, plus that label's current text. Kept on the
+    /// bridge itself -- not local view state -- so they survive the control
+    /// sheet being dismissed and reopened, same as `placedIconAnchorId`
+    /// above. See `docs/features/custom-text-label.md`.
+    @Published private(set) var placedTextLabelAnchorId: String?
+    @Published private(set) var placedTextLabelText: String?
+
+    /// Style currently selected for the custom text label, applied on the
+    /// next `placeTextLabel` and live to an already placed one.
+    @Published private(set) var textLabelColor: TextLabelColor = .red
+    @Published private(set) var textLabelSize: TextLabelSize = .medium
+    @Published private(set) var textLabelRotation: Int = 0
 
     /// Key under which the JS side stores the single `Image` this demo
     /// places (`iconImages` in `map.html`) -- `Image` isn't
@@ -1048,6 +1115,173 @@ final class VisioOneBridge: NSObject, WKScriptMessageHandler, ObservableObject {
         ) { result in
             if case .failure(let error) = result {
                 print("VisioOneBridge: removeIconImage failed: \(error.localizedDescription)")
+            }
+        }
+    }
+
+    /// Places free text on the map via `venue.createLabel()`, owned by the
+    /// anchor POI `anchorId` and positioned ~4 m off that POI's own
+    /// label/marker position -- the same anchor-position lookup
+    /// `createDynamicPOI`/`placeIcon` use (`anchorPositionOf` in
+    /// `map.html`) -- with the currently selected color/size/rotation. The
+    /// JS side validates everything (text, anchor POI, anchor position)
+    /// before touching an already placed label: a failed validation leaves
+    /// it in place and still usable; only once all checks pass is it
+    /// replaced, so at most one exists. Called via `callAsyncJavaScript`, same idiom as `placeIcon`, so every
+    /// outcome comes back as a normal value. See
+    /// `docs/features/custom-text-label.md`.
+    @MainActor
+    func placeTextLabel(anchorId: String, text: String) async -> TextLabelResult {
+        guard let webView else { return .failure("Map not ready") }
+
+        let result = await callTextLabelBridge(
+            "return await window.MapBridge.placeTextLabel(anchorId, text, color, width, height, rotation);",
+            arguments: [
+                "anchorId": anchorId,
+                "text": text,
+                "color": textLabelColor.rawValue,
+                "width": textLabelSize.width,
+                "height": textLabelSize.height,
+                "rotation": textLabelRotation,
+            ],
+            in: webView
+        )
+        switch result {
+        case .success:
+            placedTextLabelAnchorId = anchorId
+            placedTextLabelText = text
+        case .failure:
+            // Validation passed and the previous label was already removed,
+            // but venue.createLabel itself threw: nothing is placed anymore.
+            placedTextLabelAnchorId = nil
+            placedTextLabelText = nil
+        case .textRequired, .poiNotFound, .noPosition, .noLabel:
+            // Validation failed before anything was touched: the existing
+            // label (if any) is still placed and usable.
+            break
+        }
+        return result
+    }
+
+    /// Changes the placed label's text via `venue.updateLabel(label, { text })`.
+    @MainActor
+    func updateTextLabelText(_ text: String) async -> TextLabelResult {
+        guard let webView else { return .failure("Map not ready") }
+        guard placedTextLabelAnchorId != nil else { return .noLabel }
+
+        let result = await callTextLabelBridge(
+            "return window.MapBridge.updateTextLabel({ text: text });",
+            arguments: ["text": text],
+            in: webView
+        )
+        if result == .success {
+            placedTextLabelText = text
+        }
+        return result
+    }
+
+    /// Selects the label color and, if a label is placed, applies it live
+    /// via `venue.updateLabel(label, { color })`.
+    @MainActor
+    func setTextLabelColor(_ color: TextLabelColor) {
+        textLabelColor = color
+        guard let webView, placedTextLabelAnchorId != nil else { return }
+        Task { @MainActor in
+            _ = await callTextLabelBridge(
+                "return window.MapBridge.updateTextLabel({ color: color });",
+                arguments: ["color": color.rawValue],
+                in: webView
+            )
+        }
+    }
+
+    /// Selects the label size and, if a label is placed, applies it live via
+    /// `venue.updateLabel(label, { width, height })` -- always both, since
+    /// `width` alone also resets `height` to `width`.
+    @MainActor
+    func setTextLabelSize(_ size: TextLabelSize) {
+        textLabelSize = size
+        guard let webView, placedTextLabelAnchorId != nil else { return }
+        Task { @MainActor in
+            _ = await callTextLabelBridge(
+                "return window.MapBridge.updateTextLabel({ width: width, height: height });",
+                arguments: ["width": size.width, "height": size.height],
+                in: webView
+            )
+        }
+    }
+
+    /// Selects the label rotation (degrees) and, if a label is placed,
+    /// recreates it with the new rotation: `rotation` is only accepted by
+    /// `venue.createLabel`, not by `venue.updateLabel`.
+    @MainActor
+    func setTextLabelRotation(_ rotation: Int) {
+        textLabelRotation = rotation
+        guard let webView, placedTextLabelAnchorId != nil else { return }
+        Task { @MainActor in
+            let result = await callTextLabelBridge(
+                "return window.MapBridge.setTextLabelRotation(rotation);",
+                arguments: ["rotation": rotation],
+                in: webView
+            )
+            if result != .success {
+                placedTextLabelAnchorId = nil
+                placedTextLabelText = nil
+            }
+        }
+    }
+
+    /// Removes the placed label via `venue.removeLabel()`; the anchor POI
+    /// and its own map label are untouched. Clears the placed state
+    /// optimistically. No-op if nothing is placed.
+    @MainActor
+    func removeTextLabel() {
+        guard let webView, placedTextLabelAnchorId != nil else { return }
+
+        placedTextLabelAnchorId = nil
+        placedTextLabelText = nil
+        webView.callAsyncJavaScript(
+            "window.MapBridge.removeTextLabel();",
+            arguments: [:],
+            in: nil,
+            in: .page
+        ) { result in
+            if case .failure(let error) = result {
+                print("VisioOneBridge: removeTextLabel failed: \(error.localizedDescription)")
+            }
+        }
+    }
+
+    /// Runs one of the text-label bridge functions and maps its
+    /// `{ status, message? }` result into a `TextLabelResult`.
+    @MainActor
+    private func callTextLabelBridge(_ script: String, arguments: [String: Any], in webView: WKWebView) async -> TextLabelResult {
+        await withCheckedContinuation { continuation in
+            webView.callAsyncJavaScript(script, arguments: arguments, in: nil, in: .page) { result in
+                switch result {
+                case .success(let value):
+                    guard let payload = value as? [String: Any], let status = payload["status"] as? String else {
+                        continuation.resume(returning: .failure("Unexpected bridge response"))
+                        return
+                    }
+                    switch status {
+                    case "placed", "updated":
+                        continuation.resume(returning: .success)
+                    case "textRequired":
+                        continuation.resume(returning: .textRequired)
+                    case "poiNotFound":
+                        continuation.resume(returning: .poiNotFound)
+                    case "noPosition":
+                        continuation.resume(returning: .noPosition)
+                    case "noLabel":
+                        continuation.resume(returning: .noLabel)
+                    default:
+                        continuation.resume(returning: .failure(payload["message"] as? String ?? status))
+                    }
+                case .failure(let error):
+                    print("VisioOneBridge: text label call failed: \(error.localizedDescription)")
+                    continuation.resume(returning: .failure(error.localizedDescription))
+                }
             }
         }
     }
