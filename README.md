@@ -79,6 +79,7 @@ Each feature below is a self-contained screen demonstrating one part of the Visi
 - [Exclude modalities](docs/features/navigation-exclude-modalities.md) — computes a route while avoiding a segment modality (e.g. elevators) via `venue.computeNavigation()`'s `excludedAttributes` option.
 - [Accessible route](docs/features/accessible-mode.md) — computes a route that only uses the venue's own accessible path via `venue.computeNavigation()`'s `isAccessible` option.
 - [3D icon marker](docs/features/3d-icon-marker.md) — places a custom image (here a data-URL PNG icon) at a POI's position in the 3D scene via `venue.createImage()`, switches its orientation live via `venue.updateImage()`, and removes it via `venue.removeImage()`.
+- [Custom text label](docs/features/custom-text-label.md) — places your own free text (opening hours, a price, a zone name…) next to a POI via `venue.createLabel()`, restyles it live (text, color, size) via `venue.updateLabel()`, and removes it via `venue.removeLabel()`.
 
 ## Architecture
 

@@ -56,18 +56,44 @@
     // as dynamicPoi/dynamicLabel above, so the native side only ever holds
     // the key. See docs/features/3d-icon-marker.md.
     var iconImages = {};
+    // The single text Label placed by placeTextLabel (null when none), plus
+    // the exact createLabel options it was created with -- Label isn't
+    // JSON-serializable either, and setTextLabelRotation needs those
+    // options to recreate it (rotation isn't part of LabelUpdateOptions).
+    // See docs/features/custom-text-label.md.
+    var textLabel = null;
+    var textLabelOptions = null;
 
     // Reads a WGS84 position off an "anchor" POI's first label or marker --
     // POIs have no direct lat/lng field of their own. Shared by
-    // createDynamicPOI and placeIconImage below, so both features accept
-    // exactly the same anchor POIs. Returns null when the POI has neither.
-    // See docs/features/dynamic-poi-crud.md.
-    function anchorPositionOf(poi) {
+    // createDynamicPOI, placeIconImage and placeTextLabel below, so all
+    // three features accept exactly the same anchor POIs. Returns null when the POI has neither.
+    // `excludeLabel` (optional) is skipped when picking the label: the
+    // custom-text-label feature passes its own tracked label, which stays
+    // attached to the anchor POI, so a re-place never reads its position
+    // back from itself (the ~4 m offset would otherwise build up on an
+    // anchor that has no label of its own). See docs/features/dynamic-poi-crud.md.
+    function anchorPositionOf(poi, excludeLabel) {
+      var label = (poi.labels || []).find(function (l) { return l !== excludeLabel; });
       var position =
-        (poi.labels && poi.labels[0] && poi.labels[0].position) ||
+        (label && label.position) ||
         (poi.markers && poi.markers[0] && poi.markers[0].position);
       if (!position) return null;
       return { latitude: position.latitude, longitude: position.longitude, altitude: position.altitude };
+    }
+
+    // Shared by placeTextLabel/setTextLabelRotation: calls venue.createLabel
+    // and stores the result + its options, or reports the SDK's error
+    // (e.g. an invalid color format) as a normal result. See
+    // docs/features/custom-text-label.md.
+    function createTextLabel(options) {
+      try {
+        textLabel = venue.createLabel(options);
+      } catch (e) {
+        return { status: 'error', message: e && e.message ? e.message : String(e) };
+      }
+      textLabelOptions = options;
+      return { status: 'placed' };
     }
 
     // Finds a floor by ID across every building of the venue (floor IDs are
@@ -627,6 +653,96 @@
         if (!venue || !iconImages[imageId]) return;
         venue.removeImage(iconImages[imageId]);
         delete iconImages[imageId];
+      },
+      // Places free text on the map via venue.createLabel(), owned by an
+      // existing "anchor" POI and positioned at that POI's own label/marker
+      // position (anchorPositionOf above, shared with createDynamicPOI and
+      // placeIconImage), offset by ~4 m so it doesn't overlap the anchor's
+      // own map label. width/height are in meters; height is ALWAYS passed
+      // explicitly (the SDK defaults it to width otherwise -- a square box).
+      // Everything is validated first (text, anchor POI, anchor position);
+      // only then is any text label already placed removed and the new one
+      // created -- one at a time, and a failed place leaves the existing
+      // label untouched. The anchor position never comes from our own
+      // label (anchorPositionOf's excludeLabel). Returns a discriminated
+      // result rather than throwing:
+      //   { status: 'placed' }           on success
+      //   { status: 'textRequired' }     text is empty after trimming
+      //   { status: 'poiNotFound' }      anchorId doesn't resolve to a POI
+      //   { status: 'noPosition' }       anchor POI has no label/marker
+      //   { status: 'error', message }   venue.createLabel threw
+      // See docs/features/custom-text-label.md.
+      placeTextLabel: async function (anchorId, text, color, width, height, rotation) {
+        if (!venue) return { status: 'poiNotFound' };
+        if (!text || !String(text).trim()) return { status: 'textRequired' };
+        var anchor = venue.pois.find(function (p) { return p.id === anchorId; });
+        if (!anchor) return { status: 'poiNotFound' };
+        var anchorPosition = anchorPositionOf(anchor, textLabel);
+        if (!anchorPosition) return { status: 'noPosition' };
+
+        if (textLabel) {
+          venue.removeLabel(textLabel);
+          textLabel = null;
+          textLabelOptions = null;
+        }
+
+        var options = {
+          poi: anchor,
+          position: {
+            latitude: anchorPosition.latitude + 0.00004,
+            longitude: anchorPosition.longitude + 0.00004,
+            altitude: anchorPosition.altitude,
+          },
+          width: width,
+          height: height,
+          text: text,
+          color: color,
+          rotation: rotation,
+        };
+        return createTextLabel(options);
+      },
+      // Restyles the placed text label in place via venue.updateLabel().
+      // `options` is any subset of { text, color, width, height } --
+      // width and height are always sent together by the native side, since
+      // updateLabel({ width }) alone also resets height to width. Never
+      // carries rotation (not part of LabelUpdateOptions, see
+      // setTextLabelRotation). Returns { status: 'updated' | 'noLabel' |
+      // 'textRequired' | 'error', message? }. See
+      // docs/features/custom-text-label.md.
+      updateTextLabel: function (options) {
+        if (!venue || !textLabel) return { status: 'noLabel' };
+        if ('text' in options && (!options.text || !String(options.text).trim())) {
+          return { status: 'textRequired' };
+        }
+        try {
+          venue.updateLabel(textLabel, options);
+        } catch (e) {
+          return { status: 'error', message: e && e.message ? e.message : String(e) };
+        }
+        Object.assign(textLabelOptions, options);
+        return { status: 'updated' };
+      },
+      // rotation is only accepted by venue.createLabel(), so a rotation
+      // change removes the label and recreates it with the same options +
+      // the new rotation. No-op ({ status: 'noLabel' }) if nothing is
+      // placed. See docs/features/custom-text-label.md.
+      setTextLabelRotation: function (rotation) {
+        if (!venue || !textLabel) return { status: 'noLabel' };
+        var options = Object.assign({}, textLabelOptions, { rotation: rotation });
+        venue.removeLabel(textLabel);
+        textLabel = null;
+        textLabelOptions = null;
+        return createTextLabel(options);
+      },
+      // Removes the placed text label via venue.removeLabel(); the anchor
+      // POI and its own map label are untouched. No-op if nothing is placed
+      // (the SDK itself throws "Provided label is not registered" on a
+      // double remove). See docs/features/custom-text-label.md.
+      removeTextLabel: function () {
+        if (!venue || !textLabel) return;
+        venue.removeLabel(textLabel);
+        textLabel = null;
+        textLabelOptions = null;
       },
       // Reads the venue's current locale (venue.currentLocale: string,
       // readonly). A synchronous read of data the SDK already holds once the

@@ -1674,6 +1674,226 @@ struct IconMarkerOverlay: View {
     }
 }
 
+/// Places free text on the map via `venue.createLabel()` next to an anchor
+/// POI, restyles it live via `venue.updateLabel()` (text, color, size) and
+/// removes it via `venue.removeLabel()` -- see
+/// docs/features/custom-text-label.md. A rotation change recreates the
+/// label, since `rotation` is only accepted at creation. After a successful
+/// place, the camera moves to the anchor POI via goto-poi's
+/// `bridge.goToPOI`, same as `IconMarkerOverlay`. One label at a time;
+/// empty text or an unknown/position-less anchor POI is shown as a plain
+/// status line, not a crash.
+struct CustomTextLabelOverlay: View {
+    /// "Restaurant", ground floor of the shared demo map's building B4 --
+    /// same anchor as `IconMarkerOverlay`.
+    private static let defaultAnchorPoiId = "B4-UL00-ID0009"
+    private static let defaultText = "Lunch 12:00\u{2013}14:00"
+    private static let rotations = [0, 45, 90]
+
+    @ObservedObject var bridge: VisioOneBridge
+    @State private var anchorPoiId: String
+    @State private var text: String
+    @State private var isBusy = false
+    @State private var errorMessage: String?
+
+    init(bridge: VisioOneBridge) {
+        self.bridge = bridge
+        _anchorPoiId = State(initialValue: bridge.placedTextLabelAnchorId ?? Self.defaultAnchorPoiId)
+        _text = State(initialValue: bridge.placedTextLabelText ?? Self.defaultText)
+    }
+
+    private var trimmedAnchorPoiId: String { anchorPoiId.trimmingCharacters(in: .whitespaces) }
+    private var hasLabel: Bool { bridge.placedTextLabelAnchorId != nil }
+
+    private var size: Binding<TextLabelSize> {
+        Binding(get: { bridge.textLabelSize }, set: { bridge.setTextLabelSize($0) })
+    }
+
+    private var rotation: Binding<Int> {
+        Binding(get: { bridge.textLabelRotation }, set: { bridge.setTextLabelRotation($0) })
+    }
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 12) {
+                TextField("Anchor POI ID", text: $anchorPoiId)
+                    .textFieldStyle(.roundedBorder)
+                    .autocorrectionDisabled()
+                    .textInputAutocapitalization(.never)
+                    .disabled(isBusy)
+
+                TextField("Text", text: $text)
+                    .textFieldStyle(.roundedBorder)
+                    .autocorrectionDisabled()
+                    .disabled(isBusy)
+
+                Text("Color")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                HStack(spacing: 8) {
+                    ForEach(TextLabelColor.allCases) { color in
+                        colorChip(color)
+                    }
+                }
+
+                Text("Size")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                Picker("Size", selection: size) {
+                    Text("Small").tag(TextLabelSize.small)
+                    Text("Medium").tag(TextLabelSize.medium)
+                    Text("Large").tag(TextLabelSize.large)
+                }
+                .pickerStyle(.segmented)
+
+                Text("Rotation")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                Picker("Rotation", selection: rotation) {
+                    ForEach(Self.rotations, id: \.self) { degrees in
+                        Text("\(degrees)\u{00B0}").tag(degrees)
+                    }
+                }
+                .pickerStyle(.segmented)
+
+                HStack {
+                    Button("Place label") {
+                        place()
+                    }
+                    .disabled(isBusy || trimmedAnchorPoiId.isEmpty)
+
+                    Button("Update text") {
+                        updateText()
+                    }
+                    .disabled(isBusy || !hasLabel)
+
+                    Button("Remove label", role: .destructive) {
+                        errorMessage = nil
+                        bridge.removeTextLabel()
+                    }
+                    .disabled(!hasLabel)
+                }
+                .buttonStyle(.bordered)
+
+                statusText
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding()
+        }
+    }
+
+    private func colorChip(_ color: TextLabelColor) -> some View {
+        let isSelected = bridge.textLabelColor == color
+        return Button {
+            bridge.setTextLabelColor(color)
+        } label: {
+            HStack(spacing: 6) {
+                Circle()
+                    .fill(Self.swatch(color))
+                    .frame(width: 14, height: 14)
+                Text(Self.name(color))
+                    .font(.subheadline)
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .background(
+                Capsule().fill(isSelected ? Color.accentColor.opacity(0.2) : Color(.secondarySystemBackground))
+            )
+            .overlay(
+                Capsule().stroke(isSelected ? Color.accentColor : Color.clear, lineWidth: 2)
+            )
+        }
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
+    }
+
+    private static func name(_ color: TextLabelColor) -> String {
+        switch color {
+        case .red: return "Red"
+        case .green: return "Green"
+        case .blue: return "Blue"
+        case .dark: return "Dark"
+        }
+    }
+
+    private static func swatch(_ color: TextLabelColor) -> Color {
+        switch color {
+        case .red: return Color(red: 0xE5 / 255, green: 0x39 / 255, blue: 0x35 / 255)
+        case .green: return Color(red: 0x43 / 255, green: 0xA0 / 255, blue: 0x47 / 255)
+        case .blue: return Color(red: 0x1E / 255, green: 0x88 / 255, blue: 0xE5 / 255)
+        case .dark: return Color(red: 0x21 / 255, green: 0x21 / 255, blue: 0x21 / 255)
+        }
+    }
+
+    @ViewBuilder
+    private var statusText: some View {
+        if let errorMessage {
+            Text(errorMessage)
+                .font(.footnote)
+                .foregroundStyle(.red)
+        } else if let anchorId = bridge.placedTextLabelAnchorId {
+            Text("Label placed on \(anchorId)")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+        } else {
+            Text("No label placed")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    private func place() {
+        let anchor = trimmedAnchorPoiId
+        guard !anchor.isEmpty else { return }
+
+        isBusy = true
+        errorMessage = nil
+
+        Task {
+            let result = await bridge.placeTextLabel(anchorId: anchor, text: text)
+            isBusy = false
+            if result == .success {
+                // A label is only drawn when its POI's floor is displayed:
+                // reuse goto-poi's camera move (floor switch +
+                // view.goToPOI), same as 3d-icon-marker.
+                bridge.goToPOI(anchor)
+            } else {
+                errorMessage = message(for: result)
+            }
+        }
+    }
+
+    private func updateText() {
+        isBusy = true
+        errorMessage = nil
+
+        Task {
+            let result = await bridge.updateTextLabelText(text)
+            isBusy = false
+            if result != .success {
+                errorMessage = message(for: result)
+            }
+        }
+    }
+
+    private func message(for result: TextLabelResult) -> String? {
+        switch result {
+        case .success:
+            return nil
+        case .textRequired:
+            return "Text is required"
+        case .poiNotFound:
+            return "POI not found"
+        case .noPosition:
+            return "This POI has no position"
+        case .noLabel:
+            return "No label placed"
+        case .failure(let message):
+            return "Could not place the label: \(message)"
+        }
+    }
+}
+
 /// One switchable locale option offered by `RuntimeLocaleOverlay` below.
 /// The shared demo map's `venue.translator.allLocales` is `['en', 'fr']`;
 /// `'default'` isn't even listed there, yet it's still a working locale
