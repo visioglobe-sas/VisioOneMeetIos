@@ -1894,6 +1894,166 @@ struct CustomTextLabelOverlay: View {
     }
 }
 
+/// Pins an interactive HTML badge on the map via `venue.createMarker()`
+/// next to an anchor POI -- a DOM element drawn above the 3D scene, never
+/// hidden by geometry, whose taps are forwarded to native and counted here
+/// (`bridge.htmlBadgeTapCount`). Text is changed with a plain DOM edit,
+/// visibility via `venue.updateMarker(marker, { isVisible })`, removal via
+/// `venue.removeMarker()` -- see docs/features/html-overlay-marker.md. After
+/// a successful place, the camera moves to the anchor POI via goto-poi's
+/// `bridge.goToPOI`, same as `CustomTextLabelOverlay`. One badge at a time;
+/// empty text or an unknown/position-less anchor POI is shown as a plain
+/// status line, not a crash.
+struct HtmlOverlayMarkerOverlay: View {
+    /// "Restaurant", ground floor of the shared demo map's building B4 --
+    /// same anchor as `CustomTextLabelOverlay`.
+    private static let defaultAnchorPoiId = "B4-UL00-ID0009"
+    private static let defaultText = "Open now \u{00B7} 12:00\u{2013}14:00"
+
+    @ObservedObject var bridge: VisioOneBridge
+    @State private var anchorPoiId: String
+    @State private var text: String
+    @State private var isBusy = false
+    @State private var errorMessage: String?
+
+    init(bridge: VisioOneBridge) {
+        self.bridge = bridge
+        _anchorPoiId = State(initialValue: bridge.placedHtmlBadgeAnchorId ?? Self.defaultAnchorPoiId)
+        _text = State(initialValue: bridge.placedHtmlBadgeText ?? Self.defaultText)
+    }
+
+    private var trimmedAnchorPoiId: String { anchorPoiId.trimmingCharacters(in: .whitespaces) }
+    private var hasBadge: Bool { bridge.placedHtmlBadgeAnchorId != nil }
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 12) {
+                TextField("Anchor POI ID", text: $anchorPoiId)
+                    .textFieldStyle(.roundedBorder)
+                    .autocorrectionDisabled()
+                    .textInputAutocapitalization(.never)
+                    .disabled(isBusy)
+
+                TextField("Badge text", text: $text)
+                    .textFieldStyle(.roundedBorder)
+                    .autocorrectionDisabled()
+                    .disabled(isBusy)
+
+                HStack {
+                    Button("Place badge") {
+                        place()
+                    }
+                    .disabled(isBusy || trimmedAnchorPoiId.isEmpty)
+
+                    Button("Update text") {
+                        updateText()
+                    }
+                    .disabled(isBusy || !hasBadge)
+                }
+                .buttonStyle(.bordered)
+
+                HStack {
+                    Button(bridge.isHtmlBadgeVisible ? "Hide badge" : "Show badge") {
+                        toggleVisibility()
+                    }
+                    .disabled(isBusy || !hasBadge)
+
+                    Button("Remove badge", role: .destructive) {
+                        errorMessage = nil
+                        bridge.removeHtmlBadge()
+                    }
+                    .disabled(!hasBadge)
+                }
+                .buttonStyle(.bordered)
+
+                statusText
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding()
+        }
+    }
+
+    @ViewBuilder
+    private var statusText: some View {
+        if let errorMessage {
+            Text(errorMessage)
+                .font(.footnote)
+                .foregroundStyle(.red)
+        } else if let anchorId = bridge.placedHtmlBadgeAnchorId {
+            Text(bridge.htmlBadgeTapCount > 0
+                 ? "Badge tapped (\(bridge.htmlBadgeTapCount))"
+                 : "Badge placed on \(anchorId)")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+        } else {
+            Text("No badge placed")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    private func place() {
+        let anchor = trimmedAnchorPoiId
+        guard !anchor.isEmpty else { return }
+
+        isBusy = true
+        errorMessage = nil
+
+        Task {
+            let result = await bridge.placeHtmlBadge(anchorId: anchor, text: text)
+            isBusy = false
+            if result == .success {
+                // The badge is only displayed while its POI's floor is the
+                // displayed floor: reuse goto-poi's camera move (floor
+                // switch + view.goToPOI), same as custom-text-label.
+                bridge.goToPOI(anchor)
+            } else {
+                errorMessage = message(for: result)
+            }
+        }
+    }
+
+    private func updateText() {
+        isBusy = true
+        errorMessage = nil
+
+        Task {
+            let result = await bridge.updateHtmlBadgeText(text)
+            isBusy = false
+            if result != .success {
+                errorMessage = message(for: result)
+            }
+        }
+    }
+
+    private func toggleVisibility() {
+        isBusy = true
+        errorMessage = nil
+
+        Task {
+            await bridge.setHtmlBadgeVisible(!bridge.isHtmlBadgeVisible)
+            isBusy = false
+        }
+    }
+
+    private func message(for result: HtmlBadgeResult) -> String? {
+        switch result {
+        case .success:
+            return nil
+        case .textRequired:
+            return "Text is required"
+        case .poiNotFound:
+            return "POI not found"
+        case .noPosition:
+            return "This POI has no position"
+        case .noBadge:
+            return "No badge placed"
+        case .failure(let message):
+            return "Could not place the badge: \(message)"
+        }
+    }
+}
+
 /// One switchable locale option offered by `RuntimeLocaleOverlay` below.
 /// The shared demo map's `venue.translator.allLocales` is `['en', 'fr']`;
 /// `'default'` isn't even listed there, yet it's still a working locale

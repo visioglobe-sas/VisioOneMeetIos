@@ -63,21 +63,31 @@
     // See docs/features/custom-text-label.md.
     var textLabel = null;
     var textLabelOptions = null;
+    // The single HTML marker placed by placeHtmlBadge (null when none). Its
+    // DOM element is reachable as htmlBadge.element; neither crosses the
+    // bridge -- taps on it are forwarded to native as 'htmlBadgeTapped'.
+    // See docs/features/html-overlay-marker.md.
+    var htmlBadge = null;
+    var HTML_BADGE_STYLE =
+      'background:#0B6BCB;color:#FFFFFF;font:600 14px sans-serif;padding:6px 12px;' +
+      'border-radius:14px;white-space:nowrap;box-shadow:0 2px 6px rgba(0,0,0,.3);cursor:pointer';
 
     // Reads a WGS84 position off an "anchor" POI's first label or marker --
     // POIs have no direct lat/lng field of their own. Shared by
-    // createDynamicPOI, placeIconImage and placeTextLabel below, so all
-    // three features accept exactly the same anchor POIs. Returns null when the POI has neither.
-    // `excludeLabel` (optional) is skipped when picking the label: the
-    // custom-text-label feature passes its own tracked label, which stays
-    // attached to the anchor POI, so a re-place never reads its position
-    // back from itself (the ~4 m offset would otherwise build up on an
-    // anchor that has no label of its own). See docs/features/dynamic-poi-crud.md.
-    function anchorPositionOf(poi, excludeLabel) {
-      var label = (poi.labels || []).find(function (l) { return l !== excludeLabel; });
-      var position =
-        (label && label.position) ||
-        (poi.markers && poi.markers[0] && poi.markers[0].position);
+    // createDynamicPOI, placeIconImage, placeTextLabel and placeHtmlBadge
+    // below, so all four features accept exactly the same anchor POIs.
+    // Returns null when the POI has neither.
+    // `exclude` (optional) is one of OUR OWN overlays, skipped when picking
+    // the label or the marker: custom-text-label passes its tracked label
+    // (it stays in the anchor's poi.labels), html-overlay-marker its tracked
+    // marker (it stays in the anchor's poi.markers), so a re-place never
+    // reads its position back from itself (the ~4 m offset would otherwise
+    // build up on an anchor that has no label of its own). See
+    // docs/features/dynamic-poi-crud.md.
+    function anchorPositionOf(poi, exclude) {
+      var label = (poi.labels || []).find(function (l) { return l !== exclude; });
+      var marker = (poi.markers || []).find(function (m) { return m !== exclude; });
+      var position = (label && label.position) || (marker && marker.position);
       if (!position) return null;
       return { latitude: position.latitude, longitude: position.longitude, altitude: position.altitude };
     }
@@ -743,6 +753,90 @@
         venue.removeLabel(textLabel);
         textLabel = null;
         textLabelOptions = null;
+      },
+      // Pins an interactive HTML element (a badge) on the map via
+      // venue.createMarker({ poi, position, element }), owned by an existing
+      // "anchor" POI and positioned ~4 m off that POI's own label/marker
+      // position (anchorPositionOf above, excluding our own badge marker),
+      // same offset as placeTextLabel. Unlike a Label/Image, the element
+      // lives in the DOM above the 3D scene: always facing the screen, never
+      // hidden by geometry, and tappable. Validates everything first; only
+      // then is any badge already placed removed and the new one created --
+      // a failed place leaves the existing badge untouched. Returns:
+      //   { status: 'placed' }           on success
+      //   { status: 'textRequired' }     text is empty after trimming
+      //   { status: 'poiNotFound' }      anchorId doesn't resolve to a POI
+      //   { status: 'noPosition' }       anchor POI has no label/marker
+      //   { status: 'error', message }   venue.createMarker threw
+      // See docs/features/html-overlay-marker.md.
+      placeHtmlBadge: async function (anchorId, text) {
+        if (!venue) return { status: 'poiNotFound' };
+        if (!text || !String(text).trim()) return { status: 'textRequired' };
+        var anchor = venue.pois.find(function (p) { return p.id === anchorId; });
+        if (!anchor) return { status: 'poiNotFound' };
+        var anchorPosition = anchorPositionOf(anchor, htmlBadge);
+        if (!anchorPosition) return { status: 'noPosition' };
+
+        if (htmlBadge) {
+          venue.removeMarker(htmlBadge);
+          htmlBadge = null;
+        }
+
+        // Only content styling here: the SDK owns position/top/left/
+        // translate/transform/z-index on this element.
+        var element = document.createElement('div');
+        element.setAttribute('style', HTML_BADGE_STYLE);
+        element.textContent = text;
+
+        try {
+          htmlBadge = venue.createMarker({
+            poi: anchor,
+            position: {
+              latitude: anchorPosition.latitude + 0.00004,
+              longitude: anchorPosition.longitude + 0.00004,
+              altitude: anchorPosition.altitude,
+            },
+            element: element,
+          });
+        } catch (e) {
+          return { status: 'error', message: e && e.message ? e.message : String(e) };
+        }
+        // createMarker forces pointer-events:none on the element (taps would
+        // fall through to the map); it doesn't rewrite it afterwards.
+        element.style.pointerEvents = 'auto';
+        element.addEventListener('click', function (event) {
+          // Keep the tap from reaching the map (it would open the POI card
+          // of whatever is underneath).
+          event.stopPropagation();
+          sendToNative('htmlBadgeTapped');
+        });
+        return { status: 'placed' };
+      },
+      // Changes the badge text with a plain DOM edit on the marker's live
+      // element -- no SDK call involved. Returns { status: 'updated' |
+      // 'noBadge' | 'textRequired' }. See docs/features/html-overlay-marker.md.
+      updateHtmlBadgeText: function (text) {
+        if (!htmlBadge) return { status: 'noBadge' };
+        if (!text || !String(text).trim()) return { status: 'textRequired' };
+        htmlBadge.element.textContent = text;
+        return { status: 'updated' };
+      },
+      // Shows/hides the badge via venue.updateMarker(marker, { isVisible })
+      // (the element stays in the DOM, display:none). Returns { status:
+      // 'updated' | 'noBadge' }. See docs/features/html-overlay-marker.md.
+      setHtmlBadgeVisible: function (isVisible) {
+        if (!venue || !htmlBadge) return { status: 'noBadge' };
+        venue.updateMarker(htmlBadge, { isVisible: isVisible });
+        return { status: 'updated' };
+      },
+      // Removes the badge via venue.removeMarker(), which also detaches its
+      // element from the DOM. No-op if nothing is placed (the SDK throws
+      // "Provided marker is not registered" on a double remove). See
+      // docs/features/html-overlay-marker.md.
+      removeHtmlBadge: function () {
+        if (!venue || !htmlBadge) return;
+        venue.removeMarker(htmlBadge);
+        htmlBadge = null;
       },
       // Reads the venue's current locale (venue.currentLocale: string,
       // readonly). A synchronous read of data the SDK already holds once the

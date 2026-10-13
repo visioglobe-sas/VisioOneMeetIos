@@ -25,6 +25,7 @@ enum Feature: String, CaseIterable, Identifiable, Hashable {
     case accessibleMode
     case iconMarker3D
     case customTextLabel
+    case htmlOverlayMarker
 
     var id: String { slug }
 
@@ -93,6 +94,8 @@ enum Feature: String, CaseIterable, Identifiable, Hashable {
             return "3d-icon-marker"
         case .customTextLabel:
             return "custom-text-label"
+        case .htmlOverlayMarker:
+            return "html-overlay-marker"
         }
     }
 
@@ -146,6 +149,8 @@ enum Feature: String, CaseIterable, Identifiable, Hashable {
             return "feature.3d_icon_marker.title"
         case .customTextLabel:
             return "feature.custom_text_label.title"
+        case .htmlOverlayMarker:
+            return "feature.html_overlay_marker.title"
         }
     }
 
@@ -199,6 +204,8 @@ enum Feature: String, CaseIterable, Identifiable, Hashable {
             return "feature.3d_icon_marker.description"
         case .customTextLabel:
             return "feature.custom_text_label.description"
+        case .htmlOverlayMarker:
+            return "feature.html_overlay_marker.description"
         }
     }
 }
