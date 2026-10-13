@@ -273,6 +273,40 @@
         }
       }
     },
+    "feature.accessible_mode.description" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Compute a route that only uses the venue's accessible path, via computeNavigation's isAccessible option."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Calcule un itinéraire utilisant uniquement le parcours accessible du lieu, via l'option isAccessible de computeNavigation."
+          }
+        }
+      }
+    },
+    "feature.accessible_mode.title" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Accessible route"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Itinéraire accessible"
+          }
+        }
+      }
+    },
     "feature.navigation_exclude_modalities.description" : {
       "extractionState" : "manual",
       "localizations" : {
