@@ -99,6 +99,30 @@ enum CreateDynamicPOIResult: Equatable {
     case bridgeFailure
 }
 
+/// The SDK's 3 `Image` orientation modes (`OrientationType`). Raw values
+/// match the JS SDK's string literals exactly -- `venue.createImage` throws
+/// `"Invalid orientation type"` on anything else. See
+/// `docs/features/3d-icon-marker.md`.
+enum IconOrientation: String, CaseIterable, Identifiable {
+    /// Flat on the ground, fixed heading (`rotation`).
+    case fixed
+    /// Flat on the ground, turning to face the camera.
+    case flat
+    /// Billboard, always facing the camera.
+    case facing
+
+    var id: String { rawValue }
+}
+
+/// Outcome of `placeIcon`, one variant per discriminated result the JS side
+/// can report -- see `docs/features/3d-icon-marker.md`.
+enum PlaceIconResult: Equatable {
+    case placed
+    case poiNotFound
+    case noPosition
+    case failure(String)
+}
+
 /// Outcome of `resolveZonePolygon`, one variant per discriminated result the
 /// JS side can report -- see `docs/features/geofencing.md`.
 enum ResolveZoneResult: Equatable {
@@ -169,6 +193,27 @@ final class VisioOneBridge: NSObject, WKScriptMessageHandler, ObservableObject {
     /// being dismissed and reopened, same as `highlightedCategoryId` above.
     /// See `docs/features/dynamic-poi-crud.md`.
     @Published private(set) var dynamicPOI: DynamicPOI?
+
+    /// Anchor POI id the 3D icon is currently placed on, `nil` when none is
+    /// placed. Kept on the bridge itself -- not local view state -- so it
+    /// survives the control sheet being dismissed and reopened, same as
+    /// `dynamicPOI` above. See `docs/features/3d-icon-marker.md`.
+    @Published private(set) var placedIconAnchorId: String?
+
+    /// Orientation currently selected for the 3D icon, applied on the next
+    /// `placeIcon` and live (via `venue.updateImage`) to an already placed
+    /// one. Defaults to `.facing`. See `docs/features/3d-icon-marker.md`.
+    @Published private(set) var iconOrientation: IconOrientation = .facing
+
+    /// Key under which the JS side stores the single `Image` this demo
+    /// places (`iconImages` in `map.html`) -- `Image` isn't
+    /// JSON-serializable, so only this key crosses the bridge.
+    private static let iconImageId = "3d-icon-marker"
+
+    /// 96x96 PNG (blue disc + white star) passed as `createImage`'s `url`,
+    /// identical on every VisioOneMeet platform. Any image URL works,
+    /// including `https://` ones. See `docs/features/3d-icon-marker.md`.
+    static let iconDataURL = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAGAAAABgCAYAAADimHc4AAACBklEQVR42u3dWW4CMRBFUVbLarOn5JsIqRlsv6FuSfmE0O+IwS7bfbtR1GXdf34/+qMOhg2KcehgGIU+HsMt+DEQ7sHXQqQFXwWRHn4sQkvwkRCt4dsjtAdvDTEtfCuEqeFbIAgv/H/NQzAKfx6CYfhzEIzD70cQf+FFAGxFAEAIEBJ+J4LB7+04gKUIAAgBTEackQBfI4SG34MAgBDAaMIrHuAjBACEAGZTvhUAbyEAIAQwbHrUALyEAAAAcwGMe68V4V8iHAjJHeAI7mqAb0oNcOK1vwYgCP+di1E/334EMcDVRSmewx5gd60COPk6K94Bzy7u1OP4CAqrNQCCQdJ4gAcE0Uh1dPgrASYirB0Ri+dsRoa/A6AdYt+ckNksZn3wpwDSIc7NiprP69cFrwJwBdH3BUo6YLlN+qI2ZGZ7EgAA+AgqD99/ueKA8K0Q0veAxSMk7v+tQnABULQrvQZhQgBVv9gCQb00cXVoUQgOa0MBEALsCitvFlSEMBpAvT9gd0g5TRgATAGMe8Ru/ydul+TJULIBNiGMBlDvlFcE4rkGSISgCsICwOG0FGUIuQDCdaM121ydTs1S/wrJDP8gQN3pu44nJzo1RXLC56h6Ts4FAAROUCd8ELiLBuGDwJ2UCB8E7qhH8BMR4orgQZgdfjJEbRE8ELODd8KgBBjUQRSKuqo/fm7G7BpJ/VcAAAAASUVORK5CYII="
 
     /// Whether the SDK's own default floor-selector widget is currently
     /// shown alongside the app's native one, driven by the "Show SDK's own
@@ -917,6 +962,92 @@ final class VisioOneBridge: NSObject, WKScriptMessageHandler, ObservableObject {
         webView.evaluateJavaScript("window.MapBridge.removeDynamicPOI()") { _, error in
             if let error {
                 print("VisioOneBridge: removeDynamicPOI failed: \(error.localizedDescription)")
+            }
+        }
+    }
+
+    /// Places the demo icon in the 3D scene via `venue.createImage()`, owned
+    /// by the anchor POI `anchorId` and positioned at that POI's own
+    /// label/marker position -- the same anchor-position lookup
+    /// `createDynamicPOI` uses (`anchorPositionOf` in `map.html`). Any icon
+    /// already placed is removed first, so at most one exists at a time.
+    /// Called via `callAsyncJavaScript`, same idiom as `createDynamicPOI`, so
+    /// an unknown POI, a position-less POI, or `createImage` throwing all
+    /// come back as normal values. On success, updates `placedIconAnchorId`.
+    func placeIcon(anchorId: String) async -> PlaceIconResult {
+        guard let webView else { return .failure("Map not ready") }
+
+        return await withCheckedContinuation { continuation in
+            webView.callAsyncJavaScript(
+                "return await window.MapBridge.placeIconImage(imageId, anchorId, url, orientationType);",
+                arguments: [
+                    "imageId": Self.iconImageId,
+                    "anchorId": anchorId,
+                    "url": Self.iconDataURL,
+                    "orientationType": iconOrientation.rawValue,
+                ],
+                in: nil,
+                in: .page
+            ) { [weak self] result in
+                switch result {
+                case .success(let value):
+                    guard let payload = value as? [String: Any], let status = payload["status"] as? String else {
+                        continuation.resume(returning: .failure("Unexpected bridge response"))
+                        return
+                    }
+                    switch status {
+                    case "placed":
+                        self?.placedIconAnchorId = anchorId
+                        continuation.resume(returning: .placed)
+                    case "poiNotFound":
+                        continuation.resume(returning: .poiNotFound)
+                    case "noPosition":
+                        continuation.resume(returning: .noPosition)
+                    default:
+                        continuation.resume(returning: .failure(payload["message"] as? String ?? status))
+                    }
+                case .failure(let error):
+                    print("VisioOneBridge: placeIconImage failed: \(error.localizedDescription)")
+                    continuation.resume(returning: .failure(error.localizedDescription))
+                }
+            }
+        }
+    }
+
+    /// Selects the icon's orientation and, if an icon is placed, applies it
+    /// live via `venue.updateImage(image, { orientationType })` --
+    /// fire-and-forget, same idiom as `updateDynamicLabelText`.
+    func setIconOrientation(_ orientation: IconOrientation) {
+        iconOrientation = orientation
+        guard let webView, placedIconAnchorId != nil else { return }
+
+        webView.callAsyncJavaScript(
+            "window.MapBridge.updateIconImageOrientation(imageId, orientationType);",
+            arguments: ["imageId": Self.iconImageId, "orientationType": orientation.rawValue],
+            in: nil,
+            in: .page
+        ) { result in
+            if case .failure(let error) = result {
+                print("VisioOneBridge: updateIconImageOrientation failed: \(error.localizedDescription)")
+            }
+        }
+    }
+
+    /// Removes the placed icon via `venue.removeImage()`; the anchor POI
+    /// itself is untouched. Clears `placedIconAnchorId` optimistically. No-op
+    /// if nothing is placed.
+    func removeIcon() {
+        guard let webView, placedIconAnchorId != nil else { return }
+
+        placedIconAnchorId = nil
+        webView.callAsyncJavaScript(
+            "window.MapBridge.removeIconImage(imageId);",
+            arguments: ["imageId": Self.iconImageId],
+            in: nil,
+            in: .page
+        ) { result in
+            if case .failure(let error) = result {
+                print("VisioOneBridge: removeIconImage failed: \(error.localizedDescription)")
             }
         }
     }

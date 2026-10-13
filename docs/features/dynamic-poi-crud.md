@@ -14,9 +14,7 @@ createDynamicPOI: async function (newId, anchorId, labelText) {
   if (!venue) return { status: 'anchorNotFound' };
   var anchor = venue.pois.find(function (p) { return p.id === anchorId; });
   if (!anchor) return { status: 'anchorNotFound' };
-  var position =
-    (anchor.labels && anchor.labels[0] && anchor.labels[0].position) ||
-    (anchor.markers && anchor.markers[0] && anchor.markers[0].position);
+  var position = anchorPositionOf(anchor); // first label's, else first marker's .position
   if (!position) return { status: 'noPosition' };
 
   var poi;
@@ -29,7 +27,7 @@ createDynamicPOI: async function (newId, anchorId, labelText) {
   dynamicPoi = poi;
   dynamicLabel = venue.createLabel({
     poi: poi,
-    position: { latitude: position.latitude, longitude: position.longitude, altitude: position.altitude },
+    position: position,
     width: 2,
     text: labelText,
   });
