@@ -17,10 +17,12 @@ Use this repo as a starting point for embedding VisioOne in your own native iOS 
 The map hash is hardcoded in [`VisioOneMeet/WebContent/map.html`](VisioOneMeet/WebContent/map.html):
 
 ```js
-visioOne.loadVenue({ hash: 'kbae8e6c066cca4b02c2afac2bc963a643d87437a' }, container)
+visioOne.loadVenue({ vg_maphash: 'kbae8e6c066cca4b02c2afac2bc963a643d87437a' }, container)
 ```
 
 Replace it with your own map's hash, obtained from [my.visioglobe.com](https://my.visioglobe.com) once your map has been built and published (a 41-character alphanumeric string, e.g. `kd9426d8cb3f1c532f22b5bcbd325c280bd351feb`).
+
+The option is named `vg_maphash` since VisioOne SDK 1.0.9 (it used to be `hash`). The SDK silently ignores an old `hash` option, and the load then fails with `Cannot load the venue`.
 
 ### Generate the Xcode project and build/run
 
@@ -86,7 +88,7 @@ Each feature below is a self-contained screen demonstrating one part of the Visi
 - `FeatureMapView.swift` / `FeatureOverlays.swift` — per-feature screen hosting and the native controls (buttons, toggles, text fields) for each entry in `Feature.allCases`.
 - `VisioOneBridge.swift` — the Swift ↔ JS bridge: native → JS calls go through `WKWebView.evaluateJavaScript` against `window.MapBridge` (defined in `map.html`); JS → native events come back through a `WKScriptMessageHandler` (see `docs/features/loading-state.md` and `docs/features/poi-click.md`).
 - `VisioOneMeet/WebContent/` — a folder reference (not a group) so its flat file hierarchy survives into the app bundle intact:
-  - `map.html` — loads `visioone.umd.cjs` via a classic `<script>` tag, calls `VisioOne.createVisioOne()`, then `visioOne.loadVenue({ hash }, container)` → `visioOne.createView(container, venue)`.
+  - `map.html` — loads `visioone.umd.cjs` via a classic `<script>` tag, calls `VisioOne.createVisioOne()`, then `visioOne.loadVenue({ vg_maphash }, container)` → `visioOne.createView(container, venue)`.
   - `diagnostic.html` — a standalone WebView repro page, not loaded by default (see `CLAUDE.md`).
   - `visioone.umd.cjs` — the vendored SDK bundle.
 - `project.yml` — XcodeGen source of truth. Declares `VisioOneMeet/WebContent` as a `type: folder` / `buildPhase: resources` source so Xcode copies it as a folder reference rather than flattening it.
