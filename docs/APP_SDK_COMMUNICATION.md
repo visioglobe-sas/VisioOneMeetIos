@@ -35,7 +35,7 @@ Don't call SDK methods (`view.goToPOI(...)`, etc.) directly from Swift strings â
     },
   };
 
-  visioOne.loadVenue({ hash: 'YOUR_MAP_HASH' }, container)
+  visioOne.loadVenue({ vg_maphash: 'YOUR_MAP_HASH' }, container)
     .then(function (venue) {
       currentVenue = venue;
       return visioOne.createView(container, venue);

@@ -4,7 +4,7 @@ import WebKit
 struct MapWebView: UIViewRepresentable {
     let bridge: VisioOneBridge
     /// Optional map hash to load instead of the default hardcoded in
-    /// `map.html`. Appended as a `?hash=` query item on the `file://` URL
+    /// `map.html`. Appended as a `?vg_maphash=` query item on the `file://` URL
     /// passed to `loadFileURL`, read back on the JS side via
     /// `URLSearchParams(window.location.search)` (see `map.html`). `nil`
     /// (the default) leaves the URL untouched so `map.html`'s own hardcoded
@@ -46,7 +46,7 @@ struct MapWebView: UIViewRepresentable {
                var components = URLComponents(url: url, resolvingAgainstBaseURL: false) {
                 var queryItems: [URLQueryItem] = []
                 if let hashOverride {
-                    queryItems.append(URLQueryItem(name: "hash", value: hashOverride))
+                    queryItems.append(URLQueryItem(name: "vg_maphash", value: hashOverride))
                 }
                 if let baseURLOverride {
                     queryItems.append(URLQueryItem(name: "baseURL", value: baseURLOverride))
@@ -60,7 +60,7 @@ struct MapWebView: UIViewRepresentable {
             // (the query string isn't part of the path WebKit checks
             // against here) -- confirmed live against a real WKWebView
             // (loading this exact map.html + the vendored SDK bundle) that
-            // appending `?hash=...` to this file:// URL still resolves
+            // appending `?vg_maphash=...` to this file:// URL still resolves
             // sibling resources (visioone.umd.cjs) fine, that
             // `window.location.search` on the JS side sees the query, and
             // that the overridden venue loads and returns real CustomData.

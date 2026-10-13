@@ -14,7 +14,7 @@ Unlike every other bridge-driven demo screen in this app, `baseURL` cannot be ch
 // same way, empty/omitted meaning "let the SDK's own default apply".
 var baseURL = new URLSearchParams(window.location.search).get('baseURL');
 
-visioOne.loadVenue(baseURL ? { hash: hash, baseURL: baseURL } : { hash: hash }, container)
+visioOne.loadVenue(baseURL ? { vg_maphash: hash, baseURL: baseURL } : { vg_maphash: hash }, container)
   .then(function (v) {
     venue = v;
     return visioOne.createView(container, venue);
