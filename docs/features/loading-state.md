@@ -8,7 +8,7 @@ Reflects the SDK's loading/ready/error lifecycle natively, by observing the prom
 
 ```js
 // map.html
-visioOne.loadVenue({ hash: '...' }, container)
+visioOne.loadVenue({ vg_maphash: '...' }, container)
   .then(function (v) { venue = v; return visioOne.createView(container, venue); })
   .then(function () {
     window.webkit.messageHandlers.mapBridge.postMessage({ type: 'ready' });

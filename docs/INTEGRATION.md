@@ -72,7 +72,7 @@ Créez `WebContent/map.html`. Le SDK, une fois chargé en `<script>` classique (
     var visioOne = VisioOne.createVisioOne();
     var container = document.getElementById('container');
 
-    visioOne.loadVenue({ hash: 'YOUR_MAP_HASH' }, container)
+    visioOne.loadVenue({ vg_maphash: 'YOUR_MAP_HASH' }, container)
       .then(function (venue) {
         return visioOne.createView(container, venue);
       })
@@ -91,7 +91,7 @@ Remplacez `YOUR_MAP_HASH` par le hash de votre carte.
 | Appel | Rôle |
 |---|---|
 | `VisioOne.createVisioOne()` | Crée l'instance principale du SDK. |
-| `visioOne.loadVenue({ hash, baseURL?, disableCache?, authorizationToken? }, container)` | Charge les données de la carte (`container` affiche un loader pendant le chargement). Retourne une `Promise<Venue>`. |
+| `visioOne.loadVenue({ vg_maphash, baseURL?, disableCache?, authorizationToken? }, container)` | Charge les données de la carte (`container` affiche un loader pendant le chargement). Retourne une `Promise<Venue>`. |
 | `visioOne.createView(container, venue, options?)` | Crée le rendu 3D interactif de la carte dans `container`. Retourne une `Promise<View>`. |
 | `visioOne.showError(error, container)` | Affiche une erreur dans l'UI du SDK (sinon elle part en console). |
 | `visioOne.unloadVenue(venue)` / `visioOne.destroyView(view)` | Libère les ressources (utile en cas de changement de carte ou de fermeture d'écran). |
