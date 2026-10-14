@@ -188,6 +188,30 @@ enum HtmlBadgeResult: Equatable {
     case failure(String)
 }
 
+/// Accent color choices for the SDK's own UI buttons (POI card "Go", "Add a
+/// step"...). Raw values are the hex strings assigned as-is to
+/// `view.accentColor` (hex, `rgba()` or `hsl()` only -- anything else
+/// throws). `.blue` is the SDK default. See `docs/features/custom-theme.md`.
+enum ThemeAccentColor: String, CaseIterable, Identifiable {
+    case blue = "#0094F0"
+    case red = "#E53935"
+    case green = "#43A047"
+    case purple = "#8E24AA"
+
+    var id: String { rawValue }
+}
+
+/// Text color choices for those same SDK buttons, assigned as-is to
+/// `view.textAccentColor`. `.white` is the SDK default. See
+/// `docs/features/custom-theme.md`.
+enum ThemeTextAccentColor: String, CaseIterable, Identifiable {
+    case white = "#FFFFFF"
+    case yellow = "#FFEB3B"
+    case black = "#212121"
+
+    var id: String { rawValue }
+}
+
 /// Outcome of `resolveZonePolygon`, one variant per discriminated result the
 /// JS side can report -- see `docs/features/geofencing.md`.
 enum ResolveZoneResult: Equatable {
@@ -363,6 +387,21 @@ final class VisioOneBridge: NSObject, WKScriptMessageHandler, ObservableObject {
     /// `highlightedCategoryId`. Only the `custom-base-url` feature reads or
     /// changes this -- see `docs/features/custom-base-url.md`.
     @Published private(set) var baseURL = "https://mapserver.visioglobe.com/"
+
+    /// Scene themes registered on the view (`view.themes`), read once via
+    /// `loadThemes()` -- empty until then. See `docs/features/custom-theme.md`.
+    @Published private(set) var themes: [String] = []
+
+    /// Theme / accent colors currently applied, kept on the bridge itself --
+    /// not local view state -- so they survive the control sheet being
+    /// dismissed and reopened. The SDK has no current-theme getter, so the
+    /// theme is tracked here, starting at the SDK default `"day"`. See
+    /// `docs/features/custom-theme.md`.
+    @Published private(set) var currentTheme = VisioOneBridge.defaultTheme
+    @Published private(set) var themeAccentColor: ThemeAccentColor = .blue
+    @Published private(set) var themeTextAccentColor: ThemeTextAccentColor = .white
+
+    static let defaultTheme = "day"
 
     /// Set by `MapWebView.makeUIView` once the underlying `WKWebView` exists.
     weak var webView: WKWebView?
@@ -1554,6 +1593,100 @@ final class VisioOneBridge: NSObject, WKScriptMessageHandler, ObservableObject {
                 }
                 continuation.resume(returning: result as? String ?? "")
             }
+        }
+    }
+
+    /// Reads `view.themes` via `window.MapBridge.getThemes` into `themes`.
+    /// A synchronous read of data the SDK already holds, so a plain
+    /// `evaluateJavaScript`, same idiom as `getCategories`. See
+    /// `docs/features/custom-theme.md`.
+    @MainActor
+    func loadThemes() async {
+        guard let webView else { return }
+        let result: [String]? = await withCheckedContinuation { continuation in
+            webView.evaluateJavaScript("window.MapBridge.getThemes()") { result, error in
+                if let error {
+                    print("VisioOneBridge: getThemes failed: \(error.localizedDescription)")
+                }
+                continuation.resume(returning: result as? [String])
+            }
+        }
+        if let result {
+            themes = result
+        }
+    }
+
+    /// Switches the 3D scene lighting via `view.setTheme(name)`. Updates
+    /// `currentTheme` optimistically and rolls it back if the SDK throws
+    /// (an id not in `view.themes`). See `docs/features/custom-theme.md`.
+    @MainActor
+    func setTheme(_ name: String) {
+        guard let webView else { return }
+        let previous = currentTheme
+        currentTheme = name
+        webView.callAsyncJavaScript(
+            "return window.MapBridge.setTheme(name);",
+            arguments: ["name": name],
+            in: nil,
+            in: .page
+        ) { [weak self] result in
+            if Self.bridgeError(result) != nil {
+                self?.currentTheme = previous
+            }
+        }
+    }
+
+    /// Recolors the SDK's UI buttons' background via `view.accentColor`.
+    @MainActor
+    func setThemeAccentColor(_ color: ThemeAccentColor) {
+        themeAccentColor = color
+        applyAccentColors(accent: color.rawValue, text: nil)
+    }
+
+    /// Recolors the SDK's UI buttons' text via `view.textAccentColor`.
+    @MainActor
+    func setThemeTextAccentColor(_ color: ThemeTextAccentColor) {
+        themeTextAccentColor = color
+        applyAccentColors(accent: nil, text: color.rawValue)
+    }
+
+    /// Back to the SDK defaults: theme `"day"`, accent `#0094F0`, text
+    /// accent `#FFFFFF`.
+    @MainActor
+    func resetTheme() {
+        setTheme(Self.defaultTheme)
+        themeAccentColor = .blue
+        themeTextAccentColor = .white
+        applyAccentColors(accent: ThemeAccentColor.blue.rawValue, text: ThemeTextAccentColor.white.rawValue)
+    }
+
+    @MainActor
+    private func applyAccentColors(accent: String?, text: String?) {
+        guard let webView else { return }
+        webView.callAsyncJavaScript(
+            "return window.MapBridge.setAccentColors(accent, text);",
+            arguments: ["accent": accent ?? NSNull(), "text": text ?? NSNull()],
+            in: nil,
+            in: .page
+        ) { result in
+            _ = Self.bridgeError(result)
+        }
+    }
+
+    /// Returns (and logs) the error of a `{ status, message? }` bridge call,
+    /// `nil` when it succeeded.
+    private static func bridgeError(_ result: Result<Any, Error>) -> String? {
+        switch result {
+        case .success(let value):
+            guard let payload = value as? [String: Any], payload["status"] as? String == "applied" else {
+                let message = (value as? [String: Any])?["message"] as? String ?? "Unexpected bridge response"
+                print("VisioOneBridge: custom theme call failed: \(message)")
+                return message
+            }
+            return nil
+        case .failure(let error):
+            print("VisioOneBridge: custom theme call failed: \(error.localizedDescription)")
+            return error.localizedDescription
         }
     }
 

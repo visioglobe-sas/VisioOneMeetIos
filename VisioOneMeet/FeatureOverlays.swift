@@ -2179,3 +2179,136 @@ struct AddLocaleOverlay: View {
         }
     }
 }
+
+/// Switches the 3D scene lighting theme via `view.setTheme()` -- the choices
+/// are built at runtime from `view.themes`, shown as raw SDK ids -- and
+/// recolors the SDK's own UI buttons via `view.accentColor` /
+/// `view.textAccentColor`. Everything applies immediately and is kept on the
+/// bridge, so it survives closing the sheet (needed to tap a place and see
+/// its card's Go button). This screen's view is created with
+/// `enableShadows: true`, without which themes have no visible effect -- see
+/// docs/features/custom-theme.md.
+struct CustomThemeOverlay: View {
+    @ObservedObject var bridge: VisioOneBridge
+
+    private var theme: Binding<String> {
+        Binding(get: { bridge.currentTheme }, set: { bridge.setTheme($0) })
+    }
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 12) {
+                Text("Theme")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                if bridge.themes.isEmpty {
+                    ProgressView()
+                } else {
+                    Picker("Theme", selection: theme) {
+                        ForEach(bridge.themes, id: \.self) { name in
+                            Text(name).tag(name)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                }
+
+                Text("Accent color")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                HStack(spacing: 8) {
+                    ForEach(ThemeAccentColor.allCases) { color in
+                        chip(
+                            name: Self.name(color),
+                            hex: color.rawValue,
+                            isSelected: bridge.themeAccentColor == color
+                        ) {
+                            bridge.setThemeAccentColor(color)
+                        }
+                    }
+                }
+
+                Text("Accent text color")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                HStack(spacing: 8) {
+                    ForEach(ThemeTextAccentColor.allCases) { color in
+                        chip(
+                            name: Self.name(color),
+                            hex: color.rawValue,
+                            isSelected: bridge.themeTextAccentColor == color
+                        ) {
+                            bridge.setThemeTextAccentColor(color)
+                        }
+                    }
+                }
+
+                Button("Reset") {
+                    bridge.resetTheme()
+                }
+                .buttonStyle(.bordered)
+
+                Text("feature.custom_theme.hint")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding()
+        }
+        .task {
+            if bridge.themes.isEmpty {
+                await bridge.loadThemes()
+            }
+        }
+    }
+
+    private func chip(name: String, hex: String, isSelected: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 6) {
+                Circle()
+                    .fill(Self.swatch(hex))
+                    .frame(width: 14, height: 14)
+                    // Keeps dark (and white) swatches visible on any panel.
+                    .overlay(Circle().stroke(Color.primary.opacity(0.5), lineWidth: 1))
+                Text(name)
+                    .font(.subheadline)
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .background(
+                Capsule().fill(isSelected ? Color.accentColor.opacity(0.2) : Color(.secondarySystemBackground))
+            )
+            .overlay(
+                Capsule().stroke(isSelected ? Color.accentColor : Color.clear, lineWidth: 2)
+            )
+        }
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
+    }
+
+    private static func name(_ color: ThemeAccentColor) -> String {
+        switch color {
+        case .blue: return "Blue"
+        case .red: return "Red"
+        case .green: return "Green"
+        case .purple: return "Purple"
+        }
+    }
+
+    private static func name(_ color: ThemeTextAccentColor) -> String {
+        switch color {
+        case .white: return "White"
+        case .yellow: return "Yellow"
+        case .black: return "Black"
+        }
+    }
+
+    /// `#RRGGBB` -> SwiftUI color, for the chip swatch only.
+    private static func swatch(_ hex: String) -> Color {
+        let value = UInt32(hex.dropFirst(), radix: 16) ?? 0
+        return Color(
+            red: Double((value >> 16) & 0xFF) / 255,
+            green: Double((value >> 8) & 0xFF) / 255,
+            blue: Double(value & 0xFF) / 255
+        )
+    }
+}

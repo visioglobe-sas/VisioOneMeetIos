@@ -26,6 +26,7 @@ enum Feature: String, CaseIterable, Identifiable, Hashable {
     case iconMarker3D
     case customTextLabel
     case htmlOverlayMarker
+    case customTheme
 
     var id: String { slug }
 
@@ -42,6 +43,15 @@ enum Feature: String, CaseIterable, Identifiable, Hashable {
         default:
             return nil
         }
+    }
+
+    /// Whether this screen's view is created with `enableShadows: true`.
+    /// Only `.customTheme` needs it: `view.setTheme()` only changes the scene
+    /// lights, which aren't rendered otherwise (see
+    /// `docs/features/custom-theme.md`). Every other feature keeps the SDK
+    /// default, shadows being computationally expensive.
+    var enableShadows: Bool {
+        self == .customTheme
     }
 
     var slug: String {
@@ -96,6 +106,8 @@ enum Feature: String, CaseIterable, Identifiable, Hashable {
             return "custom-text-label"
         case .htmlOverlayMarker:
             return "html-overlay-marker"
+        case .customTheme:
+            return "custom-theme"
         }
     }
 
@@ -151,6 +163,8 @@ enum Feature: String, CaseIterable, Identifiable, Hashable {
             return "feature.custom_text_label.title"
         case .htmlOverlayMarker:
             return "feature.html_overlay_marker.title"
+        case .customTheme:
+            return "feature.custom_theme.title"
         }
     }
 
@@ -206,6 +220,8 @@ enum Feature: String, CaseIterable, Identifiable, Hashable {
             return "feature.custom_text_label.description"
         case .htmlOverlayMarker:
             return "feature.html_overlay_marker.description"
+        case .customTheme:
+            return "feature.custom_theme.description"
         }
     }
 }

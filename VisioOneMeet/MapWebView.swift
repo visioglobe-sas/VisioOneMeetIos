@@ -20,6 +20,14 @@ struct MapWebView: UIViewRepresentable {
     /// See `docs/features/custom-base-url.md`.
     var baseURLOverride: String?
 
+    /// Whether `map.html` should create the view with
+    /// `createView(container, venue, { enableShadows: true })`, appended as
+    /// an `?enableShadows=1` query item (same mechanism as the two overrides
+    /// above). Only the custom-theme feature sets it: `view.setTheme()` has
+    /// no visible effect without it, and shadows are expensive, so every
+    /// other screen keeps the SDK default. See `docs/features/custom-theme.md`.
+    var enableShadows = false
+
     func makeUIView(context: Context) -> WKWebView {
         let contentController = WKUserContentController()
         contentController.add(WeakScriptMessageHandler(target: bridge), name: VisioOneBridge.messageHandlerName)
@@ -42,7 +50,7 @@ struct MapWebView: UIViewRepresentable {
 
         if let url = Bundle.main.url(forResource: "map", withExtension: "html", subdirectory: "WebContent") {
             let urlToLoad: URL
-            if (hashOverride != nil || baseURLOverride != nil),
+            if (hashOverride != nil || baseURLOverride != nil || enableShadows),
                var components = URLComponents(url: url, resolvingAgainstBaseURL: false) {
                 var queryItems: [URLQueryItem] = []
                 if let hashOverride {
@@ -50,6 +58,9 @@ struct MapWebView: UIViewRepresentable {
                 }
                 if let baseURLOverride {
                     queryItems.append(URLQueryItem(name: "baseURL", value: baseURLOverride))
+                }
+                if enableShadows {
+                    queryItems.append(URLQueryItem(name: "enableShadows", value: "1"))
                 }
                 components.queryItems = queryItems
                 urlToLoad = components.url ?? url
