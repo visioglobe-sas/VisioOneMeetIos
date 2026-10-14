@@ -160,6 +160,8 @@ struct FeatureMapView: View {
             IconMarkerOverlay(bridge: bridge)
         case .customTextLabel:
             CustomTextLabelOverlay(bridge: bridge)
+        case .htmlOverlayMarker:
+            HtmlOverlayMarkerOverlay(bridge: bridge)
         }
     }
 }

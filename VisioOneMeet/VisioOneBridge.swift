@@ -176,6 +176,18 @@ enum TextLabelResult: Equatable {
     case failure(String)
 }
 
+/// Outcome of `placeHtmlBadge`/`updateHtmlBadgeText`, one variant per
+/// discriminated result the JS side can report -- see
+/// `docs/features/html-overlay-marker.md`.
+enum HtmlBadgeResult: Equatable {
+    case success
+    case textRequired
+    case poiNotFound
+    case noPosition
+    case noBadge
+    case failure(String)
+}
+
 /// Outcome of `resolveZonePolygon`, one variant per discriminated result the
 /// JS side can report -- see `docs/features/geofencing.md`.
 enum ResolveZoneResult: Equatable {
@@ -271,6 +283,18 @@ final class VisioOneBridge: NSObject, WKScriptMessageHandler, ObservableObject {
     @Published private(set) var textLabelColor: TextLabelColor = .red
     @Published private(set) var textLabelSize: TextLabelSize = .medium
     @Published private(set) var textLabelRotation: Int = 0
+
+    /// Anchor POI id the HTML badge is currently placed on, `nil` when none
+    /// is placed, plus that badge's current text, whether it's currently
+    /// shown, and how many times it was tapped since the last successful
+    /// place (pushed by the JS side's `htmlBadgeTapped` message). Kept on
+    /// the bridge itself -- not local view state -- so they survive the
+    /// control sheet being dismissed and reopened (the badge can only be
+    /// tapped with the sheet closed). See `docs/features/html-overlay-marker.md`.
+    @Published private(set) var placedHtmlBadgeAnchorId: String?
+    @Published private(set) var placedHtmlBadgeText: String?
+    @Published private(set) var isHtmlBadgeVisible = true
+    @Published private(set) var htmlBadgeTapCount = 0
 
     /// Key under which the JS side stores the single `Image` this demo
     /// places (`iconImages` in `map.html`) -- `Image` isn't
@@ -1286,6 +1310,135 @@ final class VisioOneBridge: NSObject, WKScriptMessageHandler, ObservableObject {
         }
     }
 
+    /// Pins an interactive HTML badge on the map via
+    /// `venue.createMarker({ poi, position, element })`, owned by the anchor
+    /// POI `anchorId` and positioned ~4 m off that POI's own label/marker
+    /// position -- the same anchor-position lookup as `placeTextLabel`
+    /// (`anchorPositionOf` in `map.html`). The badge element itself is
+    /// created by the JS side; its taps come back as `htmlBadgeTapped`
+    /// messages (see `userContentController`). The JS side validates
+    /// everything (text, anchor POI, anchor position) before touching an
+    /// already placed badge, so a failed place leaves it untouched. On
+    /// success the badge starts visible and the tap counter resets to 0.
+    /// See `docs/features/html-overlay-marker.md`.
+    @MainActor
+    func placeHtmlBadge(anchorId: String, text: String) async -> HtmlBadgeResult {
+        guard let webView else { return .failure("Map not ready") }
+
+        let result = await callHtmlBadgeBridge(
+            "return await window.MapBridge.placeHtmlBadge(anchorId, text);",
+            arguments: ["anchorId": anchorId, "text": text],
+            in: webView
+        )
+        switch result {
+        case .success:
+            placedHtmlBadgeAnchorId = anchorId
+            placedHtmlBadgeText = text
+            isHtmlBadgeVisible = true
+            htmlBadgeTapCount = 0
+        case .failure:
+            // Validation passed and the previous badge was already removed,
+            // but venue.createMarker itself threw: nothing is placed anymore.
+            placedHtmlBadgeAnchorId = nil
+            placedHtmlBadgeText = nil
+            isHtmlBadgeVisible = true
+        case .textRequired, .poiNotFound, .noPosition, .noBadge:
+            // Validation failed before anything was touched.
+            break
+        }
+        return result
+    }
+
+    /// Changes the badge text -- a plain DOM edit on the marker's element on
+    /// the JS side, no SDK call.
+    @MainActor
+    func updateHtmlBadgeText(_ text: String) async -> HtmlBadgeResult {
+        guard let webView else { return .failure("Map not ready") }
+        guard placedHtmlBadgeAnchorId != nil else { return .noBadge }
+
+        let result = await callHtmlBadgeBridge(
+            "return window.MapBridge.updateHtmlBadgeText(text);",
+            arguments: ["text": text],
+            in: webView
+        )
+        if result == .success {
+            placedHtmlBadgeText = text
+        }
+        return result
+    }
+
+    /// Shows/hides the placed badge via
+    /// `venue.updateMarker(marker, { isVisible })`.
+    @MainActor
+    func setHtmlBadgeVisible(_ isVisible: Bool) async {
+        guard let webView, placedHtmlBadgeAnchorId != nil else { return }
+
+        let result = await callHtmlBadgeBridge(
+            "return window.MapBridge.setHtmlBadgeVisible(isVisible);",
+            arguments: ["isVisible": isVisible],
+            in: webView
+        )
+        if result == .success {
+            isHtmlBadgeVisible = isVisible
+        }
+    }
+
+    /// Removes the badge via `venue.removeMarker()` (which also detaches its
+    /// element from the DOM); the anchor POI is untouched. Clears the placed
+    /// state optimistically. No-op if nothing is placed.
+    @MainActor
+    func removeHtmlBadge() {
+        guard let webView, placedHtmlBadgeAnchorId != nil else { return }
+
+        placedHtmlBadgeAnchorId = nil
+        placedHtmlBadgeText = nil
+        isHtmlBadgeVisible = true
+        webView.callAsyncJavaScript(
+            "window.MapBridge.removeHtmlBadge();",
+            arguments: [:],
+            in: nil,
+            in: .page
+        ) { result in
+            if case .failure(let error) = result {
+                print("VisioOneBridge: removeHtmlBadge failed: \(error.localizedDescription)")
+            }
+        }
+    }
+
+    /// Runs one of the HTML-badge bridge functions and maps its
+    /// `{ status, message? }` result into an `HtmlBadgeResult`.
+    @MainActor
+    private func callHtmlBadgeBridge(_ script: String, arguments: [String: Any], in webView: WKWebView) async -> HtmlBadgeResult {
+        await withCheckedContinuation { continuation in
+            webView.callAsyncJavaScript(script, arguments: arguments, in: nil, in: .page) { result in
+                switch result {
+                case .success(let value):
+                    guard let payload = value as? [String: Any], let status = payload["status"] as? String else {
+                        continuation.resume(returning: .failure("Unexpected bridge response"))
+                        return
+                    }
+                    switch status {
+                    case "placed", "updated":
+                        continuation.resume(returning: .success)
+                    case "textRequired":
+                        continuation.resume(returning: .textRequired)
+                    case "poiNotFound":
+                        continuation.resume(returning: .poiNotFound)
+                    case "noPosition":
+                        continuation.resume(returning: .noPosition)
+                    case "noBadge":
+                        continuation.resume(returning: .noBadge)
+                    default:
+                        continuation.resume(returning: .failure(payload["message"] as? String ?? status))
+                    }
+                case .failure(let error):
+                    print("VisioOneBridge: HTML badge call failed: \(error.localizedDescription)")
+                    continuation.resume(returning: .failure(error.localizedDescription))
+                }
+            }
+        }
+    }
+
     /// Reads the venue's current locale via `window.MapBridge.getCurrentLocale`
     /// and stores it in `currentLocale` (see `docs/features/runtime-locale.md`).
     /// Like `getCategories`/`resolvePoiPosition`, this reads a synchronous JS
@@ -1462,6 +1615,10 @@ final class VisioOneBridge: NSObject, WKScriptMessageHandler, ObservableObject {
                   let rawMode = payload["currentExploreMode"] as? String,
                   let mode = MapExploreMode(rawValue: rawMode) else { return }
             currentExploreMode = mode
+        case "htmlBadgeTapped":
+            // Sent by the badge element's own click listener in map.html
+            // (see docs/features/html-overlay-marker.md).
+            htmlBadgeTapCount += 1
         default:
             break
         }

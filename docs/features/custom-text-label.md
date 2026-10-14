@@ -25,10 +25,11 @@ function createTextLabel(options) {
   return { status: 'placed' };
 }
 
-// First label's (skipping excludeLabel), else first marker's .position.
-function anchorPositionOf(poi, excludeLabel) {
-  var label = (poi.labels || []).find(function (l) { return l !== excludeLabel; });
-  var position = (label && label.position) || (poi.markers && poi.markers[0] && poi.markers[0].position);
+// First label's, else first marker's .position -- skipping `exclude` (one of our own overlays).
+function anchorPositionOf(poi, exclude) {
+  var label = (poi.labels || []).find(function (l) { return l !== exclude; });
+  var marker = (poi.markers || []).find(function (m) { return m !== exclude; });
+  var position = (label && label.position) || (marker && marker.position);
   if (!position) return null;
   return { latitude: position.latitude, longitude: position.longitude, altitude: position.altitude };
 }
