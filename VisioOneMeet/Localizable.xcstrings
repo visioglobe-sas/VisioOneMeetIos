@@ -952,6 +952,57 @@
           }
         }
       }
+    },
+    "feature.custom_theme.title" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Custom theme"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Thème personnalisé"
+          }
+        }
+      }
+    },
+    "feature.custom_theme.description" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Switch the 3D lighting theme and recolor the SDK's buttons live"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Changez l'ambiance lumineuse 3D et recolorez les boutons du SDK en direct"
+          }
+        }
+      }
+    },
+    "feature.custom_theme.hint" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tap a place: its card's Go button uses the accent colors."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Touchez un lieu : le bouton « Y aller » de sa fiche utilise les couleurs d'accent."
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

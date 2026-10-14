@@ -10,7 +10,8 @@ struct FeatureMapView: View {
             MapWebView(
                 bridge: bridge,
                 hashOverride: feature.mapHashOverride,
-                baseURLOverride: feature == .customBaseUrl ? bridge.baseURL : nil
+                baseURLOverride: feature == .customBaseUrl ? bridge.baseURL : nil,
+                enableShadows: feature.enableShadows
             )
             .id(bridge.baseURL)
             .ignoresSafeArea()
@@ -162,6 +163,8 @@ struct FeatureMapView: View {
             CustomTextLabelOverlay(bridge: bridge)
         case .htmlOverlayMarker:
             HtmlOverlayMarkerOverlay(bridge: bridge)
+        case .customTheme:
+            CustomThemeOverlay(bridge: bridge)
         }
     }
 }

@@ -879,6 +879,44 @@
         if (!venue) return '';
         return venue.translator.translate(key, locale);
       },
+      // Reads the scene themes registered on the view (view.themes, a
+      // read-only string array -- ['day', 'night', 'goldenHour'] on SDK
+      // 1.0.9). Synchronous, like getCategories above. See
+      // docs/features/custom-theme.md.
+      getThemes: function () {
+        if (!view) return [];
+        return (view.themes || []).slice();
+      },
+      // Switches the 3D scene lighting via view.setTheme(name). Only has a
+      // visible effect when the view was created with enableShadows: true
+      // (see `enableShadows` below). Throws on an id not in view.themes,
+      // reported here as a normal result. Returns { status: 'applied' |
+      // 'error', message? }. See docs/features/custom-theme.md.
+      setTheme: function (name) {
+        if (!view) return { status: 'error', message: 'view not ready' };
+        try {
+          view.setTheme(name);
+        } catch (e) {
+          return { status: 'error', message: e && e.message ? e.message : String(e) };
+        }
+        return { status: 'applied' };
+      },
+      // Recolors the SDK's own UI buttons (POI card "Go", "Add a step"...)
+      // live via the settable view.accentColor / view.textAccentColor
+      // properties. Either argument may be null to leave that color alone.
+      // Invalid colors throw, reported as a normal result. Returns
+      // { status: 'applied' | 'error', message? }. See
+      // docs/features/custom-theme.md.
+      setAccentColors: function (accentColor, textAccentColor) {
+        if (!view) return { status: 'error', message: 'view not ready' };
+        try {
+          if (accentColor != null) view.accentColor = accentColor;
+          if (textAccentColor != null) view.textAccentColor = textAccentColor;
+        } catch (e) {
+          return { status: 'error', message: e && e.message ? e.message : String(e) };
+        }
+        return { status: 'applied' };
+      },
     };
 
     // Optional override so a single feature screen (custom-data, which
@@ -902,10 +940,20 @@
     // docs/features/custom-base-url.md.
     var baseURL = new URLSearchParams(window.location.search).get('baseURL');
 
+    // Per-screen createView option for the custom-theme feature only:
+    // view.setTheme() only changes the scene lights, which are rendered only
+    // when the view is created with enableShadows: true (computationally
+    // expensive, so every other screen keeps the SDK default). MapWebView.swift
+    // appends `?enableShadows=1` for that one screen. See
+    // docs/features/custom-theme.md.
+    var enableShadows = new URLSearchParams(window.location.search).get('enableShadows') === '1';
+
     visioOne.loadVenue(baseURL ? { vg_maphash: hash, baseURL: baseURL } : { vg_maphash: hash }, container)
       .then(function (v) {
         venue = v;
-        return visioOne.createView(container, venue);
+        return enableShadows
+          ? visioOne.createView(container, venue, { enableShadows: true })
+          : visioOne.createView(container, venue);
       })
       .then(function (v) {
         view = v;
