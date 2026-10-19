@@ -976,7 +976,7 @@ struct CameraLockOnPositionOverlay: View {
     }
 }
 
-/// Recolors the simulated tracked position's dot and precision circle
+/// Recolors the simulated tracked position's precision circle
 /// live via `view.updatePositionTrackerGraphicOptions({ color, opacity })`
 /// (`VisioOneBridge.setPositionTrackerColor`/`setPositionTrackerOpacity`),
 /// on top of the same Origin/Destination POI ID + accuracy + Start/Stop

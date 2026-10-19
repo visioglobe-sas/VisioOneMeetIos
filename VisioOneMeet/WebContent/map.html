@@ -917,7 +917,7 @@
         }
         return { status: 'applied' };
       },
-      // Recolors the tracked position's dot AND its precision circle via
+      // Recolors the tracked position's precision circle (not its arrow) via
       // view.updatePositionTrackerGraphicOptions({ color, opacity }). The
       // SDK only stores these options: they're drawn at the next
       // injectTrackedPosition call (the simulated-position loop makes that

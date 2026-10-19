@@ -1027,13 +1027,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Recolor the tracked position's dot and precision circle, live"
+            "value" : "Recolor the tracked position's precision circle, live"
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Recolorer le point de position et son cercle de précision, en direct"
+            "value" : "Recolorer le cercle de précision de la position, en direct"
           }
         }
       }
@@ -1146,7 +1146,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Color and opacity apply to both the dot and the precision circle, at the next position update."
+            "value" : "Color and opacity apply to the precision circle (not the center arrow), at the next position update."
           }
         },
         "fr" : {
