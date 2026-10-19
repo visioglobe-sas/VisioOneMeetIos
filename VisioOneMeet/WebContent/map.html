@@ -880,8 +880,8 @@
         return venue.translator.translate(key, locale);
       },
       // Reads the scene themes registered on the view (view.themes, a
-      // read-only string array -- ['day', 'night', 'goldenHour'] on SDK
-      // 1.0.9). Synchronous, like getCategories above. See
+      // read-only string array -- ['day', 'night', 'goldenHour'] as of
+      // SDK 1.1.0). Synchronous, like getCategories above. See
       // docs/features/custom-theme.md.
       getThemes: function () {
         if (!view) return [];
