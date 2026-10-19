@@ -188,7 +188,7 @@ enum HtmlBadgeResult: Equatable {
     case failure(String)
 }
 
-/// Color presets for the tracked position's dot + precision circle, passed
+/// Color presets for the tracked position's precision circle, passed
 /// as-is to `view.updatePositionTrackerGraphicOptions({ color })` (hex,
 /// `rgba()` or `hsl()` only -- anything else throws). `.defaultBlue` is the
 /// SDK default. See `docs/features/accuracy-circle-style.md`.
@@ -1681,7 +1681,7 @@ final class VisioOneBridge: NSObject, WKScriptMessageHandler, ObservableObject {
         applyAccentColors(accent: ThemeAccentColor.blue.rawValue, text: ThemeTextAccentColor.white.rawValue)
     }
 
-    /// Selects the tracked position's color (dot + precision circle) and
+    /// Selects the tracked position's precision circle color and
     /// sends it to the SDK right away. See `applyPositionTrackerStyle()`.
     @MainActor
     func setPositionTrackerColor(_ color: PositionTrackerColor) {
@@ -1689,7 +1689,7 @@ final class VisioOneBridge: NSObject, WKScriptMessageHandler, ObservableObject {
         applyPositionTrackerStyle()
     }
 
-    /// Selects the tracked position's opacity (dot + precision circle),
+    /// Selects the tracked position's precision circle opacity,
     /// rounded to one decimal (the slider's step), and sends it to the SDK
     /// right away. See `applyPositionTrackerStyle()`.
     @MainActor
