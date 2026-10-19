@@ -4,7 +4,7 @@
 
 White-label styling beyond the defaults, applied live with no reload:
 
-- **3D scene theme** — `view.themes` (read-only list of registered theme ids: `['day', 'night', 'goldenHour']` on SDK 1.0.9) and `view.setTheme(name)`. A theme changes the scene's lighting (directional + ambient light color and position): `night` is bluish/darker, `goldenHour` warm/muted.
+- **3D scene theme** — `view.themes` (read-only list of registered theme ids: `['day', 'night', 'goldenHour']` as of SDK 1.1.0) and `view.setTheme(name)`. A theme changes the scene's lighting (directional + ambient light color and position): `night` is bluish/darker, `goldenHour` warm/muted.
 - **UI accent colors** — the settable `view.accentColor` / `view.textAccentColor` properties recolor the SDK's own UI buttons (POI card "Go", "Add a step", "Remove step"…): background and text respectively.
 
 The theme choices are built at runtime from `view.themes`, not hardcoded. The SDK has no font option, so no custom font is demonstrated.
@@ -79,7 +79,7 @@ Defaults (what a "reset" sends back): theme `day`, accent `#0094F0`, text accent
 - **`setTheme` needs `enableShadows: true`.** Themes only change the scene lights, which are only rendered when the view is created with `createView(container, venue, { enableShadows: true })` (and a quality preset that allows shadows — `medium`, the default, or `high`; `low` disables them). Without it, switching theme is pixel-identical. Shadows are computationally expensive (per the SDK docs), so enable them only where you need themes.
 - **Observed on the iOS Simulator, unverified on a physical device:** in the iOS Simulator's `WKWebView`, switching theme shows no visible change even with `enableShadows: true` (the option does reach the SDK), whereas desktop Chromium and desktop WebKit (Safari engine, Apple GPU) clearly show it.
 - `setTheme('unknown')` throws `Cannot apply given theme unknown as it isn't registered.` — only pass ids read from `view.themes`.
-- There is **no getter for the current theme** in SDK 1.0.9: track it on your side (the SDK starts on `day`).
+- There is **no getter for the current theme** (as of SDK 1.1.0): track it on your side (the SDK starts on `day`).
 - Switching back to `day` after another theme does not render pixel-identical to the freshly loaded view (lighting/shadows differ slightly); it's still the `day` theme.
 - `setTheme` never touches the UI, and the accent colors never touch the 3D scene. The accent colors also don't change the surface selection color — that's the separate `view.surfaceSelectionColor`.
 - An invalid color throws `Invalid color format provided, it should be hex color, rgba color or hsl color.`
