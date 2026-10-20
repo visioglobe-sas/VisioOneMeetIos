@@ -21,7 +21,9 @@ resolvePoiPosition: function (poiId) {
 },
 injectTrackedPosition: function (latitude, longitude, precisionCircleRadius) {
   if (!view) return;
-  view.allowTracking = true;
+  if (!view.allowTracking) {
+    view.allowTracking = true;
+  }
   view.injectTrackedPosition({
     position: { latitude: latitude, longitude: longitude },
     precisionCircleRadius: precisionCircleRadius,
@@ -72,7 +74,7 @@ func stopTrackedPosition() {
 
 ## Things to know
 
-- **`view.injectTrackedPosition` requires `view.allowTracking = true` beforehand, or the SDK throws.** Setting `allowTracking = true` on every call to `injectTrackedPosition` (rather than as a separate one-time step) is idempotent and side-effect-free, which avoids having to enforce a call order on the native side.
+- **`view.injectTrackedPosition` requires `view.allowTracking = true` beforehand, or the SDK throws.** Turning it on inside `injectTrackedPosition` (rather than as a separate one-time step) avoids having to enforce a call order on the native side, **but only set it when it isn't already `true`**: setting `allowTracking = true` is not side-effect-free, it always forces `lockCameraPositionOnTracking` and `lockCameraOrientationOnTracking` back to `true` (and fires a `trackingon` view event). Re-setting it on every position update re-locks the camera each time, undoing any unlock by the user (a pan) or by your app (see `docs/features/camera-lock-on-position.md`).
 - **There's no dedicated "stop" SDK method** — setting `view.allowTracking = false` is what removes the tracked-position marker and precision circle from the map. This is the same mechanism used to stop tracking.
 - **A POI has no direct lat/lng field.** Its position must be read from `poi.markers[0].position`, `poi.labels[0].position`, or `poi.images[0].position` (first one available, in that order) — never a `poi.position` field, which doesn't exist. If none of the three exist, or the ID matches no POI, `resolvePoiPosition` returns `null`.
 - **`resolvePoiPosition` deliberately doesn't use the JS → native `WKScriptMessageHandler` channel** used elsewhere (see `docs/features/poi-click.md`/`docs/features/loading-state.md`) — it's a synchronous, side-effect-free read, so the direct return value of `evaluateJavaScript(_:completionHandler:)` is enough; no request/response correlation is needed for a lookup this simple.

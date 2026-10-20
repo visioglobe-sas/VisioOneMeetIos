@@ -157,6 +157,14 @@
       sendToNative('exploreModeChanged', { currentExploreMode: view.currentExploreMode });
     }
 
+    // Pushes the SDK's current camera-lock state to native. Called from the
+    // trackingon/trackingoff/trackingchanged listeners registered once the
+    // view exists. See docs/features/camera-lock-on-position.md.
+    function sendCameraLockState() {
+      if (!view) return;
+      sendToNative('cameraLockChanged', { locked: view.lockCameraPositionOnTracking === true });
+    }
+
     // JS -> native: forward the loading lifecycle so the SwiftUI layer can
     // show a spinner/error instead of a screen frozen on a black rectangle.
     // See docs/APP_SDK_COMMUNICATION.md for the pattern.
@@ -378,11 +386,18 @@
       },
       // Injects/updates the simulated tracked position + accuracy circle.
       // allowTracking must be true before the first injectTrackedPosition
-      // call, so it's set here on every call rather than requiring a
-      // separate "start" step. See docs/features/simulated-position.md.
+      // call, so it's turned on here on the first call rather than
+      // requiring a separate "start" step -- but ONLY on the false -> true
+      // transition: setting allowTracking = true always forces
+      // lockCameraPositionOnTracking (and the orientation lock) back to
+      // true, so re-setting it on every ~150 ms tick would undo a user
+      // unlock (toggle or map pan) almost immediately. See
+      // docs/features/simulated-position.md.
       injectTrackedPosition: function (latitude, longitude, precisionCircleRadius) {
         if (!view) return;
-        view.allowTracking = true;
+        if (!view.allowTracking) {
+          view.allowTracking = true;
+        }
         view.injectTrackedPosition({
           position: { latitude: latitude, longitude: longitude },
           precisionCircleRadius: precisionCircleRadius,
@@ -400,7 +415,10 @@
       // view.allowTracking is already true (i.e. a tracked position is
       // being injected, see injectTrackedPosition above) — per the SDK's
       // own doc comment, setting this while tracking is off is a harmless
-      // no-op, not an error, so no guard is needed here. See
+      // no-op, not an error, so no guard is needed here. The SDK fires
+      // 'trackingchanged' on an actual change, which pushes the new state
+      // back to native (sendCameraLockState) -- the native toggle follows
+      // that event rather than keeping its own value. See
       // docs/features/camera-lock-on-position.md.
       setCameraLockOnPosition: function (locked) {
         if (!view) return;
@@ -1005,6 +1023,17 @@
         // to 'floor'). See docs/features/explore-mode.md.
         view.addEventListener('exploremodechanged', function (event) {
           sendToNative('exploreModeChanged', { currentExploreMode: event.currentExploreMode });
+        });
+
+        // JS -> native: mirror view.lockCameraPositionOnTracking into the
+        // camera-lock toggle. The SDK changes it on its own: allowTracking =
+        // true turns it on ('trackingon'), allowTracking = false turns it
+        // off ('trackingoff'), and a user pan while tracking turns it off
+        // ('trackingchanged', also fired by our own setCameraLockOnPosition).
+        // None of these events carries the value, so it's read off the view.
+        // See docs/features/camera-lock-on-position.md.
+        ['trackingon', 'trackingoff', 'trackingchanged'].forEach(function (eventName) {
+          view.addEventListener(eventName, sendCameraLockState);
         });
 
         sendToNative('ready');

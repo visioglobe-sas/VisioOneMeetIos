@@ -280,6 +280,15 @@ final class VisioOneBridge: NSObject, WKScriptMessageHandler, ObservableObject {
     /// See `docs/features/explore-mode.md`.
     @Published private(set) var currentExploreMode: MapExploreMode = .global
 
+    /// Mirror of the SDK's `view.lockCameraPositionOnTracking`, pushed by the
+    /// JS side on every `trackingon`/`trackingoff`/`trackingchanged` view
+    /// event. The SDK moves this on its own -- `allowTracking = true` turns
+    /// it on, `allowTracking = false` and a user pan while tracking turn it
+    /// off -- so the camera-lock toggle reads this instead of keeping an
+    /// independent app-side value. `false` until the first push. See
+    /// `docs/features/camera-lock-on-position.md`.
+    @Published private(set) var isCameraLockedOnPosition = false
+
     /// Category id (`venue.categories[].id`) currently highlighted via
     /// `highlightCategory`, `nil` when no category is highlighted. Set
     /// optimistically from the Swift side (these are fire-and-forget one-way
@@ -753,7 +762,8 @@ final class VisioOneBridge: NSObject, WKScriptMessageHandler, ObservableObject {
 
     /// Injects/updates a simulated tracked position + its accuracy circle via
     /// `view.injectTrackedPosition()`, turning on `view.allowTracking` first
-    /// (done JS-side, on every call — see `map.html`). Meant to be called
+    /// (done JS-side, only when it isn't already on — re-setting it would
+    /// re-lock the camera on every tick, see `map.html`). Meant to be called
     /// repeatedly on a timer by the caller (see `SimulatedPositionOverlay`);
     /// this method itself is stateless. `latitude`/`longitude`/
     /// `precisionCircleRadius` are plain `Double`s computed on the Swift
@@ -796,6 +806,9 @@ final class VisioOneBridge: NSObject, WKScriptMessageHandler, ObservableObject {
     /// user text), so it's interpolated directly into the generated script
     /// rather than JSON-encoded — same rule as the boolean in
     /// `setUIPartVisible` above.
+    ///
+    /// Fire-and-forget: `isCameraLockedOnPosition` is not set here, it
+    /// follows the SDK's `trackingchanged` event pushed back by `map.html`.
     func setCameraLockOnPosition(_ locked: Bool) {
         webView?.evaluateJavaScript("window.MapBridge.setCameraLockOnPosition(\(locked))") { _, error in
             if let error {
@@ -1814,6 +1827,10 @@ final class VisioOneBridge: NSObject, WKScriptMessageHandler, ObservableObject {
                   let rawMode = payload["currentExploreMode"] as? String,
                   let mode = MapExploreMode(rawValue: rawMode) else { return }
             currentExploreMode = mode
+        case "cameraLockChanged":
+            guard let payload = body["message"] as? [String: Any],
+                  let locked = payload["locked"] as? Bool else { return }
+            isCameraLockedOnPosition = locked
         case "htmlBadgeTapped":
             // Sent by the badge element's own click listener in map.html
             // (see docs/features/html-overlay-marker.md).

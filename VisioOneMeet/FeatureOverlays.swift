@@ -925,21 +925,18 @@ struct SimulatedPositionOverlay: View {
 /// `VisioOneBridge.setCameraLockOnPosition`. See
 /// `docs/features/camera-lock-on-position.md`.
 ///
-/// The toggle is disabled while no simulation is running — locking onto
-/// nothing has no visible effect — and is reset off (with the matching
-/// `bridge.setCameraLockOnPosition(false)` call) whenever the simulation
-/// stops, whether via the Stop button or a "POI not found" error:
-/// `onChange(of: controller.isSimulating)` below reacts to both transitions
-/// uniformly, since `PositionTrackingController` flips `isSimulating` back
-/// to `false` in either case. Leaving the screen entirely tears down the
-/// `WKWebView` (see `MapWebView.swift`/CLAUDE.md), which discards the SDK's
-/// `view` — and with it `lockCameraPositionOnTracking` — the same way it
-/// already discards the tracked position itself, so no separate handling
-/// is needed for that third case.
+/// The toggle has no app-side state of its own: it mirrors
+/// `bridge.isCameraLockedOnPosition`, which the JS side pushes on every SDK
+/// `trackingon`/`trackingoff`/`trackingchanged` event. So it shows ON right
+/// after Start (`allowTracking = true` locks the camera by itself), flips
+/// OFF when the user pans the map (the SDK unlocks by itself), and shows
+/// OFF again on Stop (`allowTracking = false`). It is disabled while no
+/// simulation is running — locking onto nothing has no visible effect.
+/// Leaving the screen tears down the `WKWebView` (see `MapWebView.swift`),
+/// discarding the SDK `view` along with its lock state.
 struct CameraLockOnPositionOverlay: View {
     @ObservedObject var bridge: VisioOneBridge
     @StateObject private var controller: PositionTrackingController
-    @State private var isCameraLocked = false
 
     init(bridge: VisioOneBridge) {
         self.bridge = bridge
@@ -958,20 +955,12 @@ struct CameraLockOnPositionOverlay: View {
             .disabled(!controller.isSimulating)
         }
         .padding()
-        .onChange(of: controller.isSimulating) { simulating in
-            guard !simulating, isCameraLocked else { return }
-            isCameraLocked = false
-            bridge.setCameraLockOnPosition(false)
-        }
     }
 
     private var cameraLockBinding: Binding<Bool> {
         Binding(
-            get: { isCameraLocked },
-            set: { newValue in
-                isCameraLocked = newValue
-                bridge.setCameraLockOnPosition(newValue)
-            }
+            get: { bridge.isCameraLockedOnPosition },
+            set: { bridge.setCameraLockOnPosition($0) }
         )
     }
 }
