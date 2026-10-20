@@ -27,6 +27,7 @@ enum Feature: String, CaseIterable, Identifiable, Hashable {
     case customTextLabel
     case htmlOverlayMarker
     case customTheme
+    case accuracyCircleStyle
 
     var id: String { slug }
 
@@ -108,6 +109,8 @@ enum Feature: String, CaseIterable, Identifiable, Hashable {
             return "html-overlay-marker"
         case .customTheme:
             return "custom-theme"
+        case .accuracyCircleStyle:
+            return "accuracy-circle-style"
         }
     }
 
@@ -165,6 +168,8 @@ enum Feature: String, CaseIterable, Identifiable, Hashable {
             return "feature.html_overlay_marker.title"
         case .customTheme:
             return "feature.custom_theme.title"
+        case .accuracyCircleStyle:
+            return "feature.accuracy_circle_style.title"
         }
     }
 
@@ -222,6 +227,8 @@ enum Feature: String, CaseIterable, Identifiable, Hashable {
             return "feature.html_overlay_marker.description"
         case .customTheme:
             return "feature.custom_theme.description"
+        case .accuracyCircleStyle:
+            return "feature.accuracy_circle_style.description"
         }
     }
 }

@@ -188,6 +188,19 @@ enum HtmlBadgeResult: Equatable {
     case failure(String)
 }
 
+/// Color presets for the tracked position's precision circle, passed
+/// as-is to `view.updatePositionTrackerGraphicOptions({ color })` (hex,
+/// `rgba()` or `hsl()` only -- anything else throws). `.defaultBlue` is the
+/// SDK default. See `docs/features/accuracy-circle-style.md`.
+enum PositionTrackerColor: String, CaseIterable, Identifiable {
+    case defaultBlue = "#0094f0"
+    case red = "#e53935"
+    case green = "#43a047"
+    case purple = "#8e24aa"
+
+    var id: String { rawValue }
+}
+
 /// Accent color choices for the SDK's own UI buttons (POI card "Go", "Add a
 /// step"...). Raw values are the hex strings assigned as-is to
 /// `view.accentColor` (hex, `rgba()` or `hsl()` only -- anything else
@@ -402,6 +415,14 @@ final class VisioOneBridge: NSObject, WKScriptMessageHandler, ObservableObject {
     @Published private(set) var themeTextAccentColor: ThemeTextAccentColor = .white
 
     static let defaultTheme = "day"
+
+    /// Tracked-position color/opacity currently selected, kept on the bridge
+    /// so they survive the control sheet being dismissed and reopened -- the
+    /// SDK has no getter for its position-tracker graphic options. Start at
+    /// the SDK defaults (`#0094f0`, 0.3). See
+    /// `docs/features/accuracy-circle-style.md`.
+    @Published private(set) var positionTrackerColor: PositionTrackerColor = .defaultBlue
+    @Published private(set) var positionTrackerOpacity: Double = 0.3
 
     /// Set by `MapWebView.makeUIView` once the underlying `WKWebView` exists.
     weak var webView: WKWebView?
@@ -1658,6 +1679,51 @@ final class VisioOneBridge: NSObject, WKScriptMessageHandler, ObservableObject {
         themeAccentColor = .blue
         themeTextAccentColor = .white
         applyAccentColors(accent: ThemeAccentColor.blue.rawValue, text: ThemeTextAccentColor.white.rawValue)
+    }
+
+    /// Selects the tracked position's precision circle color and
+    /// sends it to the SDK right away. See `applyPositionTrackerStyle()`.
+    @MainActor
+    func setPositionTrackerColor(_ color: PositionTrackerColor) {
+        positionTrackerColor = color
+        applyPositionTrackerStyle()
+    }
+
+    /// Selects the tracked position's precision circle opacity,
+    /// rounded to one decimal (the slider's step), and sends it to the SDK
+    /// right away. See `applyPositionTrackerStyle()`.
+    @MainActor
+    func setPositionTrackerOpacity(_ opacity: Double) {
+        positionTrackerOpacity = (opacity * 10).rounded() / 10
+        applyPositionTrackerStyle()
+    }
+
+    /// Pushes the currently selected color/opacity to
+    /// `view.updatePositionTrackerGraphicOptions({ color, opacity })`. The
+    /// SDK only stores them -- they're drawn at the next
+    /// `injectTrackedPosition` -- and resets them to its defaults whenever
+    /// tracking stops, so this is also called before the first inject of
+    /// every Start (see `AccuracyCircleStyleOverlay`). Safe to call while
+    /// not tracking. See `docs/features/accuracy-circle-style.md`.
+    @MainActor
+    func applyPositionTrackerStyle() {
+        guard let webView else { return }
+        webView.callAsyncJavaScript(
+            "return window.MapBridge.updatePositionTrackerGraphicOptions(color, opacity);",
+            arguments: ["color": positionTrackerColor.rawValue, "opacity": positionTrackerOpacity],
+            in: nil,
+            in: .page
+        ) { result in
+            switch result {
+            case .success(let value):
+                if let payload = value as? [String: Any], payload["status"] as? String != "applied" {
+                    let message = payload["message"] as? String ?? "Unexpected bridge response"
+                    print("VisioOneBridge: updatePositionTrackerGraphicOptions failed: \(message)")
+                }
+            case .failure(let error):
+                print("VisioOneBridge: updatePositionTrackerGraphicOptions failed: \(error.localizedDescription)")
+            }
+        }
     }
 
     @MainActor

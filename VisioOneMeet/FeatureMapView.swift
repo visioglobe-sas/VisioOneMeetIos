@@ -165,6 +165,8 @@ struct FeatureMapView: View {
             HtmlOverlayMarkerOverlay(bridge: bridge)
         case .customTheme:
             CustomThemeOverlay(bridge: bridge)
+        case .accuracyCircleStyle:
+            AccuracyCircleStyleOverlay(bridge: bridge)
         }
     }
 }

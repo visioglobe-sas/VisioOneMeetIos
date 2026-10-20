@@ -765,6 +765,15 @@ final class PositionTrackingController: ObservableObject {
     /// unaffected.
     var onTick: ((GeoPosition) -> Void)?
 
+    /// Optional hook invoked once per Start, after both POIs resolved and
+    /// right before the first `injectTrackedPosition`. Added for
+    /// `AccuracyCircleStyleOverlay` (see
+    /// `docs/features/accuracy-circle-style.md`): the SDK resets the
+    /// position tracker's color/opacity whenever tracking stops, so the
+    /// selected style has to be re-sent before each new run. `nil` (the
+    /// default) leaves every other caller unaffected.
+    var onWillStartTracking: (() -> Void)?
+
     init(bridge: VisioOneBridge) {
         self.bridge = bridge
     }
@@ -800,6 +809,7 @@ final class PositionTrackingController: ObservableObject {
                 return
             }
             guard !Task.isCancelled else { return }
+            onWillStartTracking?()
 
             var progress = 0.0
             var direction = 1.0
@@ -963,6 +973,87 @@ struct CameraLockOnPositionOverlay: View {
                 bridge.setCameraLockOnPosition(newValue)
             }
         )
+    }
+}
+
+/// Recolors the simulated tracked position's precision circle
+/// live via `view.updatePositionTrackerGraphicOptions({ color, opacity })`
+/// (`VisioOneBridge.setPositionTrackerColor`/`setPositionTrackerOpacity`),
+/// on top of the same Origin/Destination POI ID + accuracy + Start/Stop
+/// controls as `SimulatedPositionOverlay` (shared
+/// `PositionTrackingController`/`PositionTrackingControls`). The selected
+/// style lives on the bridge, so it survives the sheet being reopened, and
+/// is re-sent through `onWillStartTracking` before the first inject of each
+/// Start, since the SDK resets it to its defaults whenever tracking stops.
+/// See `docs/features/accuracy-circle-style.md`.
+struct AccuracyCircleStyleOverlay: View {
+    @ObservedObject var bridge: VisioOneBridge
+    @StateObject private var controller: PositionTrackingController
+
+    init(bridge: VisioOneBridge) {
+        self.bridge = bridge
+        let controller = PositionTrackingController(bridge: bridge)
+        controller.originPlaceId = "B4-UL00-ID0009"
+        controller.destinationPlaceId = "B4-UL00-ID0010"
+        controller.precisionCircleRadius = 6
+        controller.onWillStartTracking = { [weak bridge] in
+            bridge?.applyPositionTrackerStyle()
+        }
+        _controller = StateObject(wrappedValue: controller)
+    }
+
+    private var opacity: Binding<Double> {
+        Binding(
+            get: { bridge.positionTrackerOpacity },
+            set: { bridge.setPositionTrackerOpacity($0) }
+        )
+    }
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 12) {
+                PositionTrackingControls(controller: controller)
+
+                Divider()
+
+                Text("feature.accuracy_circle_style.color")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                HStack(spacing: 8) {
+                    ForEach(PositionTrackerColor.allCases) { color in
+                        ColorSwatchChip(
+                            name: Self.name(color),
+                            hex: color.rawValue,
+                            isSelected: bridge.positionTrackerColor == color
+                        ) {
+                            bridge.setPositionTrackerColor(color)
+                        }
+                    }
+                }
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("feature.accuracy_circle_style.opacity \(String(format: "%.1f", bridge.positionTrackerOpacity))")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                    Slider(value: opacity, in: 0.1...1.0, step: 0.1)
+                }
+
+                Text("feature.accuracy_circle_style.hint")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding()
+        }
+    }
+
+    private static func name(_ color: PositionTrackerColor) -> LocalizedStringKey {
+        switch color {
+        case .defaultBlue: return "feature.accuracy_circle_style.color.default"
+        case .red: return "feature.accuracy_circle_style.color.red"
+        case .green: return "feature.accuracy_circle_style.color.green"
+        case .purple: return "feature.accuracy_circle_style.color.purple"
+        }
     }
 }
 
@@ -2217,8 +2308,8 @@ struct CustomThemeOverlay: View {
                     .foregroundStyle(.secondary)
                 HStack(spacing: 8) {
                     ForEach(ThemeAccentColor.allCases) { color in
-                        chip(
-                            name: Self.name(color),
+                        ColorSwatchChip(
+                            name: LocalizedStringKey(Self.name(color)),
                             hex: color.rawValue,
                             isSelected: bridge.themeAccentColor == color
                         ) {
@@ -2232,8 +2323,8 @@ struct CustomThemeOverlay: View {
                     .foregroundStyle(.secondary)
                 HStack(spacing: 8) {
                     ForEach(ThemeTextAccentColor.allCases) { color in
-                        chip(
-                            name: Self.name(color),
+                        ColorSwatchChip(
+                            name: LocalizedStringKey(Self.name(color)),
                             hex: color.rawValue,
                             isSelected: bridge.themeTextAccentColor == color
                         ) {
@@ -2261,7 +2352,33 @@ struct CustomThemeOverlay: View {
         }
     }
 
-    private func chip(name: String, hex: String, isSelected: Bool, action: @escaping () -> Void) -> some View {
+    private static func name(_ color: ThemeAccentColor) -> String {
+        switch color {
+        case .blue: return "Blue"
+        case .red: return "Red"
+        case .green: return "Green"
+        case .purple: return "Purple"
+        }
+    }
+
+    private static func name(_ color: ThemeTextAccentColor) -> String {
+        switch color {
+        case .white: return "White"
+        case .yellow: return "Yellow"
+        case .black: return "Black"
+        }
+    }
+}
+
+/// A capsule chip with a color swatch + name, used by the color pickers of
+/// `CustomThemeOverlay` and `AccuracyCircleStyleOverlay`.
+struct ColorSwatchChip: View {
+    let name: LocalizedStringKey
+    let hex: String
+    let isSelected: Bool
+    let action: () -> Void
+
+    var body: some View {
         Button(action: action) {
             HStack(spacing: 6) {
                 Circle()
@@ -2285,24 +2402,7 @@ struct CustomThemeOverlay: View {
         .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 
-    private static func name(_ color: ThemeAccentColor) -> String {
-        switch color {
-        case .blue: return "Blue"
-        case .red: return "Red"
-        case .green: return "Green"
-        case .purple: return "Purple"
-        }
-    }
-
-    private static func name(_ color: ThemeTextAccentColor) -> String {
-        switch color {
-        case .white: return "White"
-        case .yellow: return "Yellow"
-        case .black: return "Black"
-        }
-    }
-
-    /// `#RRGGBB` -> SwiftUI color, for the chip swatch only.
+    /// `#RRGGBB` -> SwiftUI color, for the swatch only.
     private static func swatch(_ hex: String) -> Color {
         let value = UInt32(hex.dropFirst(), radix: 16) ?? 0
         return Color(
