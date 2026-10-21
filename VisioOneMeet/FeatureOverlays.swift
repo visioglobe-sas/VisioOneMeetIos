@@ -745,6 +745,13 @@ private let simulatedPositionStepFraction: Double = 0.02 // ~50 ticks (7.5s) per
 /// differ in what they show alongside it (the latter adds a camera-lock
 /// toggle). Resolution + the loop itself are unchanged from the original
 /// `SimulatedPositionOverlay` implementation.
+///
+/// Owned by the feature screen (`FeatureMapView`), not by the control
+/// sheet: the sheet's overlays only observe it. Dismissing the sheet
+/// therefore leaves the simulation running (the user can pan/zoom the map
+/// while the position keeps moving), reopening it shows the same running
+/// controller (Stop button, filled fields), and there is only ever one loop
+/// per screen. Leaving the screen calls `stopIfRunning()`.
 @MainActor
 final class PositionTrackingController: ObservableObject {
     @Published var originPlaceId = ""
@@ -792,6 +799,10 @@ final class PositionTrackingController: ObservableObject {
     }
 
     func start() {
+        // One loop per controller: a second Start while one is already
+        // running (or still resolving its POIs) would interleave two
+        // ping-pong loops on the same tracked position.
+        guard simulationTask == nil else { return }
         let origin = originPlaceId.trimmingCharacters(in: .whitespaces)
         let destination = destinationPlaceId.trimmingCharacters(in: .whitespaces)
         guard !origin.isEmpty, !destination.isEmpty else { return }
@@ -803,12 +814,15 @@ final class PositionTrackingController: ObservableObject {
             async let originPosition = bridge.resolvePoiPosition(origin)
             async let destinationPosition = bridge.resolvePoiPosition(destination)
 
-            guard let originPos = await originPosition, let destPos = await destinationPosition else {
+            let resolvedOrigin = await originPosition
+            let resolvedDestination = await destinationPosition
+            guard !Task.isCancelled else { return }
+            guard let originPos = resolvedOrigin, let destPos = resolvedDestination else {
                 errorMessage = "Origin or destination POI not found"
                 isSimulating = false
+                simulationTask = nil
                 return
             }
-            guard !Task.isCancelled else { return }
             onWillStartTracking?()
 
             var progress = 0.0
@@ -844,6 +858,30 @@ final class PositionTrackingController: ObservableObject {
         simulationTask = nil
         isSimulating = false
         bridge.stopTrackedPosition()
+    }
+
+    /// Builds the screen-level controller for `feature`, with the
+    /// per-screen presets: `accuracy-circle-style` pre-fills two POIs and a
+    /// 6 m radius, and re-applies the selected tracker style before each
+    /// Start (see `AccuracyCircleStyleOverlay`).
+    static func forFeature(_ feature: Feature, bridge: VisioOneBridge) -> PositionTrackingController {
+        let controller = PositionTrackingController(bridge: bridge)
+        if feature == .accuracyCircleStyle {
+            controller.originPlaceId = "B4-UL00-ID0009"
+            controller.destinationPlaceId = "B4-UL00-ID0010"
+            controller.precisionCircleRadius = 6
+            controller.onWillStartTracking = { [weak bridge] in
+                bridge?.applyPositionTrackerStyle()
+            }
+        }
+        return controller
+    }
+
+    /// Called when the feature screen goes away (back to the menu): ends the
+    /// loop so nothing keeps injecting into a map that's being torn down.
+    func stopIfRunning() {
+        guard isSimulating else { return }
+        stop()
     }
 }
 
@@ -898,16 +936,11 @@ struct PositionTrackingControls: View {
 /// Place ID fields resolve to WGS84 positions once at Start (through
 /// `VisioOneBridge.resolvePoiPosition`, itself backed by the POIs' own
 /// markers/labels/images — see `docs/features/simulated-position.md`), then
-/// a repeating Swift-side loop — now `PositionTrackingController` above,
-/// same idiom as `OccupancyOverlay` further up — ping-pongs a linear
-/// interpolation between them, independent of whether this sheet stays
-/// open.
+/// a repeating Swift-side loop — `PositionTrackingController` above, owned
+/// by the screen rather than this sheet — ping-pongs a linear interpolation
+/// between them, independent of whether this sheet stays open.
 struct SimulatedPositionOverlay: View {
-    @StateObject private var controller: PositionTrackingController
-
-    init(bridge: VisioOneBridge) {
-        _controller = StateObject(wrappedValue: PositionTrackingController(bridge: bridge))
-    }
+    @ObservedObject var controller: PositionTrackingController
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -936,12 +969,7 @@ struct SimulatedPositionOverlay: View {
 /// discarding the SDK `view` along with its lock state.
 struct CameraLockOnPositionOverlay: View {
     @ObservedObject var bridge: VisioOneBridge
-    @StateObject private var controller: PositionTrackingController
-
-    init(bridge: VisioOneBridge) {
-        self.bridge = bridge
-        _controller = StateObject(wrappedValue: PositionTrackingController(bridge: bridge))
-    }
+    @ObservedObject var controller: PositionTrackingController
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -974,22 +1002,13 @@ struct CameraLockOnPositionOverlay: View {
 /// style lives on the bridge, so it survives the sheet being reopened, and
 /// is re-sent through `onWillStartTracking` before the first inject of each
 /// Start, since the SDK resets it to its defaults whenever tracking stops.
+/// The controller itself (pre-filled POIs, 6 m radius, `onWillStartTracking`
+/// hook) is built by the screen — see
+/// `PositionTrackingController.forFeature(_:bridge:)`.
 /// See `docs/features/accuracy-circle-style.md`.
 struct AccuracyCircleStyleOverlay: View {
     @ObservedObject var bridge: VisioOneBridge
-    @StateObject private var controller: PositionTrackingController
-
-    init(bridge: VisioOneBridge) {
-        self.bridge = bridge
-        let controller = PositionTrackingController(bridge: bridge)
-        controller.originPlaceId = "B4-UL00-ID0009"
-        controller.destinationPlaceId = "B4-UL00-ID0010"
-        controller.precisionCircleRadius = 6
-        controller.onWillStartTracking = { [weak bridge] in
-            bridge?.applyPositionTrackerStyle()
-        }
-        _controller = StateObject(wrappedValue: controller)
-    }
+    @ObservedObject var controller: PositionTrackingController
 
     private var opacity: Binding<Double> {
         Binding(
@@ -1148,14 +1167,14 @@ final class GeofencingViewModel: ObservableObject {
 /// it, and clears the highlight on exit -- the base pattern for contextual
 /// indoor notifications (e.g. "you're near a promo"). See
 /// `docs/features/geofencing.md`.
+///
+/// Both the tracking controller and the geofence view model are owned by
+/// the screen (`FeatureMapView`), which also wires the per-tick
+/// point-in-polygon check and the alert reset on stop -- so the zone and
+/// its alerts keep working while this sheet is closed.
 struct GeofencingOverlay: View {
-    @StateObject private var trackingController: PositionTrackingController
-    @StateObject private var geofence: GeofencingViewModel
-
-    init(bridge: VisioOneBridge) {
-        _trackingController = StateObject(wrappedValue: PositionTrackingController(bridge: bridge))
-        _geofence = StateObject(wrappedValue: GeofencingViewModel(bridge: bridge))
-    }
+    @ObservedObject var trackingController: PositionTrackingController
+    @ObservedObject var geofence: GeofencingViewModel
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -1184,15 +1203,6 @@ struct GeofencingOverlay: View {
             PositionTrackingControls(controller: trackingController)
         }
         .padding()
-        .onAppear {
-            trackingController.onTick = { [weak geofence] position in
-                geofence?.handleTrackedPosition(position)
-            }
-        }
-        .onChange(of: trackingController.isSimulating) { simulating in
-            guard !simulating else { return }
-            geofence.resetAlert()
-        }
     }
 }
 
