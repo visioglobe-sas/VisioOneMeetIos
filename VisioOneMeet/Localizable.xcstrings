@@ -1156,6 +1156,91 @@
           }
         }
       }
+    },
+    "feature.camera_projection.title" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Camera projection"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Projection de la caméra"
+          }
+        }
+      }
+    },
+    "feature.camera_projection.description" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Switch between a 3D perspective view and a flat orthographic view"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Basculer entre une vue 3D en perspective et une vue à plat orthographique"
+          }
+        }
+      }
+    },
+    "feature.camera_projection.option.perspective" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Perspective"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Perspective"
+          }
+        }
+      }
+    },
+    "feature.camera_projection.option.orthographic" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Orthographic"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Orthographique"
+          }
+        }
+      }
+    },
+    "feature.camera_projection.hint" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Switching reloads the map (the projection can only be set when the view is created)."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Changer de projection recharge la carte (la projection ne se choisit qu'à la création de la vue)."
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

@@ -985,11 +985,28 @@
     // docs/features/custom-theme.md.
     var enableShadows = new URLSearchParams(window.location.search).get('enableShadows') === '1';
 
+    // Per-screen createView option for the camera-projection-toggle feature
+    // only: cameraProjection is a creation-time option (view.cameraProjection
+    // is read-only, there is no runtime setter), so switching it means a
+    // whole new page load -- a fresh loadVenue + createView. MapWebView.swift
+    // appends `?cameraProjection=orthographic|perspective` for that one
+    // screen; absent everywhere else, so every other screen keeps the SDK
+    // default ('perspective'). Deliberately NOT the SDK's own `?orthographic`
+    // URL flag (presence-only, can't express "perspective" explicitly).
+    // See docs/features/camera-projection-toggle.md.
+    var cameraProjection = new URLSearchParams(window.location.search).get('cameraProjection');
+
+    var viewOptions = {};
+    if (enableShadows) viewOptions.enableShadows = true;
+    if (cameraProjection === 'orthographic' || cameraProjection === 'perspective') {
+      viewOptions.cameraProjection = cameraProjection;
+    }
+
     visioOne.loadVenue(baseURL ? { vg_maphash: hash, baseURL: baseURL } : { vg_maphash: hash }, container)
       .then(function (v) {
         venue = v;
-        return enableShadows
-          ? visioOne.createView(container, venue, { enableShadows: true })
+        return Object.keys(viewOptions).length
+          ? visioOne.createView(container, venue, viewOptions)
           : visioOne.createView(container, venue);
       })
       .then(function (v) {
@@ -1036,7 +1053,10 @@
           view.addEventListener(eventName, sendCameraLockState);
         });
 
-        sendToNative('ready');
+        // `cameraProjection` is the projection the view actually reports
+        // (read-only), so the camera-projection-toggle screen shows the
+        // real state rather than the one it requested.
+        sendToNative('ready', { cameraProjection: view.cameraProjection });
         sendFloorsState();
         sendExploreModeState();
       })

@@ -28,6 +28,12 @@ struct MapWebView: UIViewRepresentable {
     /// other screen keeps the SDK default. See `docs/features/custom-theme.md`.
     var enableShadows = false
 
+    /// `createView`'s `cameraProjection` option, appended as a
+    /// `?cameraProjection=` query item (same mechanism as above). `nil` (the
+    /// default) keeps the SDK default; only the camera-projection-toggle
+    /// feature sets it. See `docs/features/camera-projection-toggle.md`.
+    var cameraProjection: CameraProjection?
+
     func makeUIView(context: Context) -> WKWebView {
         let contentController = WKUserContentController()
         contentController.add(WeakScriptMessageHandler(target: bridge), name: VisioOneBridge.messageHandlerName)
@@ -50,7 +56,7 @@ struct MapWebView: UIViewRepresentable {
 
         if let url = Bundle.main.url(forResource: "map", withExtension: "html", subdirectory: "WebContent") {
             let urlToLoad: URL
-            if (hashOverride != nil || baseURLOverride != nil || enableShadows),
+            if (hashOverride != nil || baseURLOverride != nil || enableShadows || cameraProjection != nil),
                var components = URLComponents(url: url, resolvingAgainstBaseURL: false) {
                 var queryItems: [URLQueryItem] = []
                 if let hashOverride {
@@ -61,6 +67,9 @@ struct MapWebView: UIViewRepresentable {
                 }
                 if enableShadows {
                     queryItems.append(URLQueryItem(name: "enableShadows", value: "1"))
+                }
+                if let cameraProjection {
+                    queryItems.append(URLQueryItem(name: "cameraProjection", value: cameraProjection.rawValue))
                 }
                 components.queryItems = queryItems
                 urlToLoad = components.url ?? url
