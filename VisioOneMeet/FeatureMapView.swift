@@ -3,7 +3,31 @@ import SwiftUI
 struct FeatureMapView: View {
     let feature: Feature
     @StateObject private var bridge = VisioOneBridge()
+
+    var body: some View {
+        FeatureScreen(feature: feature, bridge: bridge)
+    }
+}
+
+/// The feature screen itself. Split from `FeatureMapView` so that
+/// screen-level state needing the bridge at construction time can be owned
+/// here as `@StateObject`s: the position-tracking simulation (and the
+/// geofencing zone) used by the four tracking screens lives at this level,
+/// not inside the `.sheet` content, so it survives the sheet being closed
+/// and reopened, and is stopped when the screen goes away.
+private struct FeatureScreen: View {
+    let feature: Feature
+    @ObservedObject var bridge: VisioOneBridge
+    @StateObject private var tracking: PositionTrackingController
+    @StateObject private var geofence: GeofencingViewModel
     @State private var isControlPresented = false
+
+    init(feature: Feature, bridge: VisioOneBridge) {
+        self.feature = feature
+        self.bridge = bridge
+        _tracking = StateObject(wrappedValue: PositionTrackingController.forFeature(feature, bridge: bridge))
+        _geofence = StateObject(wrappedValue: GeofencingViewModel(bridge: bridge))
+    }
 
     var body: some View {
         ZStack(alignment: .bottomTrailing) {
@@ -64,6 +88,21 @@ struct FeatureMapView: View {
             // see docs/features/native-ui-replacement.md.
             guard feature == .nativeUiReplacement, newValue == .ready else { return }
             bridge.setSdkFloorSelectorVisible(false)
+        }
+        .onAppear {
+            guard feature == .geofencing else { return }
+            tracking.onTick = { [weak geofence] position in
+                geofence?.handleTrackedPosition(position)
+            }
+        }
+        .onChange(of: tracking.isSimulating) { simulating in
+            guard feature == .geofencing, !simulating else { return }
+            geofence.resetAlert()
+        }
+        .onDisappear {
+            // Back to the menu: the map is recreated per screen, so the
+            // simulation must not outlive this one.
+            tracking.stopIfRunning()
         }
     }
 
@@ -132,9 +171,9 @@ struct FeatureMapView: View {
         case .nativeUiReplacement:
             NativeUiReplacementOverlay(bridge: bridge)
         case .simulatedPosition:
-            SimulatedPositionOverlay(bridge: bridge)
+            SimulatedPositionOverlay(controller: tracking)
         case .cameraLockOnPosition:
-            CameraLockOnPositionOverlay(bridge: bridge)
+            CameraLockOnPositionOverlay(bridge: bridge, controller: tracking)
         case .clickableSurface:
             ClickableSurfaceOverlay(bridge: bridge)
         case .customData:
@@ -148,7 +187,7 @@ struct FeatureMapView: View {
         case .addLocale:
             AddLocaleOverlay(bridge: bridge)
         case .geofencing:
-            GeofencingOverlay(bridge: bridge)
+            GeofencingOverlay(trackingController: tracking, geofence: geofence)
         case .customBaseUrl:
             CustomBaseUrlOverlay(bridge: bridge)
         case .customNavigationTrace:
@@ -166,7 +205,7 @@ struct FeatureMapView: View {
         case .customTheme:
             CustomThemeOverlay(bridge: bridge)
         case .accuracyCircleStyle:
-            AccuracyCircleStyleOverlay(bridge: bridge)
+            AccuracyCircleStyleOverlay(bridge: bridge, controller: tracking)
         }
     }
 }
