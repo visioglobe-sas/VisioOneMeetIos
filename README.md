@@ -22,7 +22,7 @@ visioOne.loadVenue({ vg_maphash: 'kbae8e6c066cca4b02c2afac2bc963a643d87437a' }, 
 
 Replace it with your own map's hash, obtained from [my.visioglobe.com](https://my.visioglobe.com) once your map has been built and published (a 41-character alphanumeric string, e.g. `kd9426d8cb3f1c532f22b5bcbd325c280bd351feb`).
 
-The option is named `vg_maphash` since VisioOne SDK 1.0.9 (it used to be `hash`). The SDK silently ignores an old `hash` option, and the load then fails with `Cannot load the venue`.
+The option is named `vg_maphash` since VisioOne SDK 1.0.6 (it used to be `hash`). The SDK silently ignores an old `hash` option, and the load then fails with `Cannot load the venue`.
 
 ### Generate the Xcode project and build/run
 
