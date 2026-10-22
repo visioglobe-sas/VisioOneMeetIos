@@ -31,6 +31,16 @@ enum CameraProjection: String, CaseIterable, Identifiable {
 /// (see `docs/features/poi-click.md`). `name` mirrors whatever the SDK
 /// resolves as the POI's first label for the current locale — `nil` if the
 /// POI has no label at all.
+/// State of the camera-showcase-carousel tour, mirrored from `map.html`
+/// (which owns the loop) via the `carouselStateChanged` message. See
+/// `docs/features/camera-showcase-carousel.md`.
+enum CarouselStatus: Equatable {
+    case stopped
+    /// `stop` is 1-based.
+    case running(stop: Int, total: Int, poiId: String)
+    case paused
+}
+
 struct TappedPOI: Equatable {
     let id: String
     let name: String?
@@ -466,6 +476,12 @@ final class VisioOneBridge: NSObject, WKScriptMessageHandler, ObservableObject {
     @Published private(set) var positionTrackerColor: PositionTrackerColor = .defaultBlue
     @Published private(set) var positionTrackerOpacity: Double = 0.3
 
+    /// Camera tour state, pushed by the JS side whenever it changes --
+    /// including changes native didn't ask for (a touch on the map pausing
+    /// it, the idle timer resuming it), so the panel always shows the real
+    /// state. See `docs/features/camera-showcase-carousel.md`.
+    @Published private(set) var carouselStatus: CarouselStatus = .stopped
+
     /// Set by `MapWebView.makeUIView` once the underlying `WKWebView` exists.
     weak var webView: WKWebView?
 
@@ -477,6 +493,27 @@ final class VisioOneBridge: NSObject, WKScriptMessageHandler, ObservableObject {
         webView?.evaluateJavaScript("window.MapBridge.goToGlobal()") { _, error in
             if let error {
                 print("VisioOneBridge: goToGlobal failed: \(error.localizedDescription)")
+            }
+        }
+    }
+
+    /// Starts the automatic camera tour (`view.goToFloor` + `view.goToPOI`
+    /// on each stop, looped in `map.html`). See
+    /// `docs/features/camera-showcase-carousel.md`.
+    func startCarousel() {
+        webView?.evaluateJavaScript("window.MapBridge.startCarousel()") { _, error in
+            if let error {
+                print("VisioOneBridge: startCarousel failed: \(error.localizedDescription)")
+            }
+        }
+    }
+
+    /// Stops the camera tour where the camera currently is. Also called when
+    /// leaving the screen.
+    func stopCarousel() {
+        webView?.evaluateJavaScript("window.MapBridge.stopCarousel()") { _, error in
+            if let error {
+                print("VisioOneBridge: stopCarousel failed: \(error.localizedDescription)")
             }
         }
     }
@@ -1879,6 +1916,21 @@ final class VisioOneBridge: NSObject, WKScriptMessageHandler, ObservableObject {
             guard let payload = body["message"] as? [String: Any],
                   let locked = payload["locked"] as? Bool else { return }
             isCameraLockedOnPosition = locked
+        case "carouselStateChanged":
+            guard let payload = body["message"] as? [String: Any],
+                  let state = payload["state"] as? String else { return }
+            switch state {
+            case "running":
+                carouselStatus = .running(
+                    stop: payload["stop"] as? Int ?? 1,
+                    total: payload["total"] as? Int ?? 1,
+                    poiId: payload["poiId"] as? String ?? ""
+                )
+            case "paused":
+                carouselStatus = .paused
+            default:
+                carouselStatus = .stopped
+            }
         case "htmlBadgeTapped":
             // Sent by the badge element's own click listener in map.html
             // (see docs/features/html-overlay-marker.md).

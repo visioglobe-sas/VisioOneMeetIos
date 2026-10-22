@@ -84,6 +84,7 @@ Each feature below is a self-contained screen demonstrating one part of the Visi
 - [Custom theme](docs/features/custom-theme.md) — switches the 3D scene lighting theme via `view.themes`/`view.setTheme()` (view created with `enableShadows: true`) and recolors the SDK's own UI buttons live via `view.accentColor`/`view.textAccentColor`.
 - [Accuracy circle style](docs/features/accuracy-circle-style.md) — recolors the tracked position's precision circle live (color presets + opacity) via `view.updatePositionTrackerGraphicOptions()`, on top of the simulated-position loop.
 - [Camera projection](docs/features/camera-projection-toggle.md) — switches between a 3D perspective view and a flat orthographic view via `createView()`'s `cameraProjection` option (creation-time only, so each switch reloads the map), showing the projection reported by the read-only `view.cameraProjection`.
+- [Camera showcase](docs/features/camera-showcase-carousel.md) — an automatic camera tour of the map for kiosks and lobby screens, looping `view.goToFloor()` + `view.goToPOI()` (custom duration, easing and heading/pitch) over a list of POIs; a touch on the map pauses it in place and it resumes after 10 s idle.
 
 ## Architecture
 
