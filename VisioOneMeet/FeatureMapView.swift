@@ -14,7 +14,9 @@ struct FeatureMapView: View {
 /// here as `@StateObject`s: the position-tracking simulation (and the
 /// geofencing zone) used by the four tracking screens lives at this level,
 /// not inside the `.sheet` content, so it survives the sheet being closed
-/// and reopened, and is stopped when the screen goes away.
+/// and reopened, and is stopped when the screen goes away. (The
+/// camera-showcase-carousel loop follows the same rule from the page itself,
+/// its state mirrored on the bridge.)
 private struct FeatureScreen: View {
     let feature: Feature
     @ObservedObject var bridge: VisioOneBridge
@@ -106,6 +108,11 @@ private struct FeatureScreen: View {
             // Back to the menu: the map is recreated per screen, so the
             // simulation must not outlive this one.
             tracking.stopIfRunning()
+            // Same for the camera tour, whose loop lives in the page: stop
+            // it explicitly rather than relying on the WKWebView teardown.
+            if feature == .cameraShowcaseCarousel {
+                bridge.stopCarousel()
+            }
         }
     }
 
@@ -211,6 +218,8 @@ private struct FeatureScreen: View {
             AccuracyCircleStyleOverlay(bridge: bridge, controller: tracking)
         case .cameraProjectionToggle:
             CameraProjectionOverlay(bridge: bridge)
+        case .cameraShowcaseCarousel:
+            CameraShowcaseCarouselOverlay(bridge: bridge)
         }
     }
 }
