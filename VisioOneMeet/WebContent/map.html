@@ -323,6 +323,18 @@
       goToGlobal: function () {
         if (view) view.goToGlobal();
       },
+      // auth-token sample: token refresh. Updates the token used by every
+      // later map request of the loaded venue (no reload). Call it before
+      // the current token expires. See docs/features/auth-token.md.
+      setAuthorizationToken: function (token) {
+        if (!venue) return { status: 'error', message: 'No venue loaded' };
+        try {
+          venue.setAuthorizationToken(token);
+        } catch (e) {
+          return { status: 'error', message: e && e.message ? e.message : String(e) };
+        }
+        return { status: 'applied' };
+      },
       // Starts the camera tour from the first stop (no-op if already
       // running or paused). See docs/features/camera-showcase-carousel.md.
       startCarousel: function () {
@@ -1157,68 +1169,117 @@
       viewOptions.cameraProjection = cameraProjection;
     }
 
-    visioOne.loadVenue(baseURL ? { vg_maphash: hash, baseURL: baseURL } : { vg_maphash: hash }, container)
-      .then(function (v) {
-        venue = v;
-        return Object.keys(viewOptions).length
-          ? visioOne.createView(container, venue, viewOptions)
-          : visioOne.createView(container, venue);
-      })
-      .then(function (v) {
-        view = v;
+    // Shared by the default public load below and by loadProtectedVenue():
+    // everything the demo screens need once the view exists.
+    function onViewCreated(v) {
+      view = v;
 
-        // JS -> native: forward the SDK's `poiclick` event so the app can
-        // react to a POI tap with a native panel (see docs/features/poi-click.md).
-        // `event.pois` is the array of POIs under the tap point; only the
-        // topmost one is relevant here.
-        view.addEventListener('poiclick', function (event) {
-          var poi = event.pois && event.pois[0];
-          if (!poi) return;
-          sendToNative('poiSelected', {
-            id: poi.id,
-            name: poi.labels && poi.labels.length ? poi.labels[0].text : null,
-          });
+      // JS -> native: forward the SDK's `poiclick` event so the app can
+      // react to a POI tap with a native panel (see docs/features/poi-click.md).
+      // `event.pois` is the array of POIs under the tap point; only the
+      // topmost one is relevant here.
+      view.addEventListener('poiclick', function (event) {
+        var poi = event.pois && event.pois[0];
+        if (!poi) return;
+        sendToNative('poiSelected', {
+          id: poi.id,
+          name: poi.labels && poi.labels.length ? poi.labels[0].text : null,
         });
-
-        // JS -> native: refresh the floor-selector state whenever the
-        // active floor/building changes, whichever triggered it (native
-        // goToFloor/goToBuilding calls below, the SDK's own default
-        // floor-selector widget, or navigation). See docs/features/floor-selector.md.
-        view.addEventListener('currentfloorchanged', function () {
-          sendFloorsState();
-        });
-
-        // JS -> native: refresh the explore-mode state whenever it changes,
-        // whichever triggered it (the setExploreMode command above, or
-        // direct camera/map interaction -- e.g. moving the camera in/out of
-        // a building in 'global' mode, or a click auto-switching 'building'
-        // to 'floor'). See docs/features/explore-mode.md.
-        view.addEventListener('exploremodechanged', function (event) {
-          sendToNative('exploreModeChanged', { currentExploreMode: event.currentExploreMode });
-        });
-
-        // JS -> native: mirror view.lockCameraPositionOnTracking into the
-        // camera-lock toggle. The SDK changes it on its own: allowTracking =
-        // true turns it on ('trackingon'), allowTracking = false turns it
-        // off ('trackingoff'), and a user pan while tracking turns it off
-        // ('trackingchanged', also fired by our own setCameraLockOnPosition).
-        // None of these events carries the value, so it's read off the view.
-        // See docs/features/camera-lock-on-position.md.
-        ['trackingon', 'trackingoff', 'trackingchanged'].forEach(function (eventName) {
-          view.addEventListener(eventName, sendCameraLockState);
-        });
-
-        // `cameraProjection` is the projection the view actually reports
-        // (read-only), so the camera-projection-toggle screen shows the
-        // real state rather than the one it requested.
-        sendToNative('ready', { cameraProjection: view.cameraProjection });
-        sendFloorsState();
-        sendExploreModeState();
-      })
-      .catch(function (error) {
-        visioOne.showError(error, container);
-        sendToNative('error', error && error.message ? error.message : String(error));
       });
+
+      // JS -> native: refresh the floor-selector state whenever the
+      // active floor/building changes, whichever triggered it (native
+      // goToFloor/goToBuilding calls below, the SDK's own default
+      // floor-selector widget, or navigation). See docs/features/floor-selector.md.
+      view.addEventListener('currentfloorchanged', function () {
+        sendFloorsState();
+      });
+
+      // JS -> native: refresh the explore-mode state whenever it changes,
+      // whichever triggered it (the setExploreMode command above, or
+      // direct camera/map interaction -- e.g. moving the camera in/out of
+      // a building in 'global' mode, or a click auto-switching 'building'
+      // to 'floor'). See docs/features/explore-mode.md.
+      view.addEventListener('exploremodechanged', function (event) {
+        sendToNative('exploreModeChanged', { currentExploreMode: event.currentExploreMode });
+      });
+
+      // JS -> native: mirror view.lockCameraPositionOnTracking into the
+      // camera-lock toggle. The SDK changes it on its own: allowTracking =
+      // true turns it on ('trackingon'), allowTracking = false turns it
+      // off ('trackingoff'), and a user pan while tracking turns it off
+      // ('trackingchanged', also fired by our own setCameraLockOnPosition).
+      // None of these events carries the value, so it's read off the view.
+      // See docs/features/camera-lock-on-position.md.
+      ['trackingon', 'trackingoff', 'trackingchanged'].forEach(function (eventName) {
+        view.addEventListener(eventName, sendCameraLockState);
+      });
+
+      // `cameraProjection` is the projection the view actually reports
+      // (read-only), so the camera-projection-toggle screen shows the
+      // real state rather than the one it requested.
+      sendToNative('ready', { cameraProjection: view.cameraProjection });
+      sendFloorsState();
+      sendExploreModeState();
+    }
+
+    function onLoadError(error) {
+      visioOne.showError(error, container);
+      sendToNative('error', error && error.message ? error.message : String(error));
+    }
+
+    // ---- auth-token code sample -------------------------------------------
+    // Loads a map protected by an authorization token (JWT). The options are
+    // defined on the native side (ProtectedMapSample.swift, placeholders to
+    // replace) and injected as window.VISIOONE_PROTECTED_MAP before this page
+    // runs (MapWebView.swift). The SDK sends the token as an
+    // `Authorization: Bearer <token>` header on every map request. See
+    // docs/features/auth-token.md.
+    //
+    // The UMD build does not export the SDK's error classes (no instanceof
+    // possible) and error.name is the generic 'Error': the class name, kept
+    // in this bundle, identifies an UnauthorizedError, with the SDK's own
+    // message as a fallback.
+    var UNAUTHORIZED_MESSAGE = 'This venue needs an Authorization token to be loaded';
+    function isUnauthorizedError(error) {
+      if (!error) return false;
+      return (error.constructor && error.constructor.name === 'UnauthorizedError') ||
+        error.message === UNAUTHORIZED_MESSAGE;
+    }
+
+    async function loadProtectedVenue(options) {
+      try {
+        venue = await visioOne.loadVenue({
+          vg_maphash: options.vg_maphash,
+          baseURL: options.baseURL,
+          authorizationToken: options.authorizationToken,
+        }, container);
+        onViewCreated(await visioOne.createView(container, venue));
+      } catch (error) {
+        if (isUnauthorizedError(error)) {
+          // Token invalid, expired or missing: get a new one from your
+          // backend and load again.
+          visioOne.showError(error, container);
+          sendToNative('unauthorized', error.message);
+        } else {
+          onLoadError(error);
+        }
+      }
+    }
+
+    if (window.VISIOONE_PROTECTED_MAP) {
+      loadProtectedVenue(window.VISIOONE_PROTECTED_MAP);
+    } else {
+      visioOne.loadVenue(baseURL ? { vg_maphash: hash, baseURL: baseURL } : { vg_maphash: hash }, container)
+        .then(function (v) {
+          venue = v;
+          return Object.keys(viewOptions).length
+            ? visioOne.createView(container, venue, viewOptions)
+            : visioOne.createView(container, venue);
+        })
+        .then(onViewCreated)
+        .catch(onLoadError);
+    }
   </script>
 </body>
 </html>

@@ -17,11 +17,13 @@
 		8FEA2CF3CAAC5CA2DEE1AAFA /* FeatureMapView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD4DFC78890176D9AD39520C /* FeatureMapView.swift */; };
 		9D8EB87580F89AA4FF2B5996 /* MapWebView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 673AD5796D2AF2821BA9174B /* MapWebView.swift */; };
 		E2FD9C6C5880B733CED7444E /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = 78F5F28A7C73D01EDDB0CB89 /* Localizable.xcstrings */; };
+		E3BC93E0A858C4CE7BB39FA9 /* ProtectedMapSample.swift in Sources */ = {isa = PBXBuildFile; fileRef = 65005B081B70C8AF7DD74E3F /* ProtectedMapSample.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
 		02E28AAC1015E3E897957968 /* VisioOneMeetApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VisioOneMeetApp.swift; sourceTree = "<group>"; };
 		5206E976F660AE4D56D4695B /* VisioOneMeet.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = VisioOneMeet.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		65005B081B70C8AF7DD74E3F /* ProtectedMapSample.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProtectedMapSample.swift; sourceTree = "<group>"; };
 		673AD5796D2AF2821BA9174B /* MapWebView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapWebView.swift; sourceTree = "<group>"; };
 		6CA5AE82D423D3D56C43F4C8 /* Feature.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Feature.swift; sourceTree = "<group>"; };
 		78F5F28A7C73D01EDDB0CB89 /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
@@ -60,6 +62,7 @@
 				E62A59B4BB0AC4E6DFED2747 /* FeatureOverlays.swift */,
 				78F5F28A7C73D01EDDB0CB89 /* Localizable.xcstrings */,
 				673AD5796D2AF2821BA9174B /* MapWebView.swift */,
+				65005B081B70C8AF7DD74E3F /* ProtectedMapSample.swift */,
 				BFFDF5130E4730632C49AF49 /* VisioOneBridge.swift */,
 				02E28AAC1015E3E897957968 /* VisioOneMeetApp.swift */,
 				BDFA82E7DAF044589B4DF57D /* WebContent */,
@@ -145,6 +148,7 @@
 				8FEA2CF3CAAC5CA2DEE1AAFA /* FeatureMapView.swift in Sources */,
 				3CFB3B290673F85F34877E3F /* FeatureOverlays.swift in Sources */,
 				9D8EB87580F89AA4FF2B5996 /* MapWebView.swift in Sources */,
+				E3BC93E0A858C4CE7BB39FA9 /* ProtectedMapSample.swift in Sources */,
 				50E1C797D9DB74CB32482C90 /* VisioOneBridge.swift in Sources */,
 				69EECDC3C20BD64BFEDF3355 /* VisioOneMeetApp.swift in Sources */,
 			);

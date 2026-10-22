@@ -5,7 +5,33 @@ struct FeatureMapView: View {
     @StateObject private var bridge = VisioOneBridge()
 
     var body: some View {
-        FeatureScreen(feature: feature, bridge: bridge)
+        if feature == .authToken {
+            // Code sample only: no map is loaded on this screen.
+            AuthTokenSampleScreen(feature: feature)
+        } else {
+            FeatureScreen(feature: feature, bridge: bridge)
+        }
+    }
+}
+
+/// auth-token: a plain text page pointing to the code sample
+/// (`ProtectedMapSample.swift` + `loadProtectedVenue()` in `map.html`). This
+/// demo has no protected map, so nothing is loaded here. See
+/// `docs/features/auth-token.md`.
+private struct AuthTokenSampleScreen: View {
+    let feature: Feature
+
+    var body: some View {
+        ScrollView {
+            Text("feature.auth_token.screen_text")
+                .font(.body)
+                .textSelection(.enabled)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(24)
+        }
+        .background(Color(.systemBackground))
+        .navigationTitle(Text(feature.title))
+        .navigationBarTitleDisplayMode(.inline)
     }
 }
 
@@ -220,6 +246,9 @@ private struct FeatureScreen: View {
             CameraProjectionOverlay(bridge: bridge)
         case .cameraShowcaseCarousel:
             CameraShowcaseCarouselOverlay(bridge: bridge)
+        case .authToken:
+            // Never reached: this feature has its own text-only screen.
+            EmptyView()
         }
     }
 }
@@ -229,3 +258,4 @@ private struct FeatureScreen: View {
         FeatureMapView(feature: .resetView)
     }
 }
+

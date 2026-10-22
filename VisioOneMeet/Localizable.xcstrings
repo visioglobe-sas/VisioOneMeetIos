@@ -1377,6 +1377,57 @@
           }
         }
       }
+    },
+    "feature.auth_token.title" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Protected map (token)"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Carte protégée (jeton)"
+          }
+        }
+      }
+    },
+    "feature.auth_token.description" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Code sample: load a map protected by an authorization token"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Exemple de code : charger une carte protégée par un jeton d'autorisation"
+          }
+        }
+      }
+    },
+    "feature.auth_token.screen_text" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This feature is a code sample only: this demo has no protected map to load. See VisioOneMeet/ProtectedMapSample.swift, loadProtectedVenue() in VisioOneMeet/WebContent/map.html and docs/features/auth-token.md, then replace the placeholder map hash and token with your own values."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cette feature est uniquement un exemple de code : cette démo n'a pas de carte protégée à charger. Voir VisioOneMeet/ProtectedMapSample.swift, loadProtectedVenue() dans VisioOneMeet/WebContent/map.html et docs/features/auth-token.md, puis remplacer le hash de carte et le jeton fictifs par vos propres valeurs."
+          }
+        }
+      }
     }
   },
   "version" : "1.0"
