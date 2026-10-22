@@ -218,12 +218,13 @@
     }
 
     // Interrupts the tour's in-flight camera animation WITHOUT moving the
-    // camera. animation.cancel() is not usable for this: it resolves the
-    // promise but snaps the camera to the animation's final state. Starting
-    // another camera animation does interrupt the running one in place
-    // (its promise resolves with isCanceled === true, no jump), so this
-    // starts a zero-length goToViewpoint on the camera's current target,
-    // keeping the current heading/pitch.
+    // camera. Starting another camera animation interrupts the running one
+    // in place (its promise resolves with isCanceled === true, the camera
+    // stays where it is), so this starts a zero-length goToViewpoint on the
+    // camera's current target, keeping the current heading/pitch.
+    // (animation.cancel() would also stop the camera where it is; its public
+    // typing wrongly says it puts the target in its final state, but the SDK
+    // core implementation and live measurements say otherwise.)
     function interruptCarouselAnimation() {
       if (!view || !carouselAnimation) return;
       carouselAnimation = null;
@@ -257,7 +258,7 @@
           var ok = await carouselStep(run, view.goToPOI(poi, {
             duration: 2500,
             easing: 'easeInOutQuad',
-            orientation: { heading: carouselIndex * 90, pitch: 45 },
+            orientation: { heading: carouselIndex * 90, pitch: 30 },
           }));
           if (!ok) break;
           await new Promise(function (resolve) { carouselDwellTimer = setTimeout(resolve, CAROUSEL_DWELL_MS); });
@@ -330,7 +331,7 @@
       },
       // Stops the tour for good: no more hop is scheduled, a pending
       // auto-resume is dropped, and an in-flight hop is interrupted where
-      // the camera currently is (no jump to its destination). Also called
+      // the camera currently is (it doesn't fly on to its destination). Also called
       // by native when leaving the screen.
       stopCarousel: function () {
         if (carouselState === 'stopped') return;

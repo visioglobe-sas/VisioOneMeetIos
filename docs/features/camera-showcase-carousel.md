@@ -41,7 +41,7 @@ async function loop(myRun) {
     if (!(await step(myRun, view.goToPOI(poi, {
       duration: 2500,
       easing: 'easeInOutQuad',                       // animejs/Penner easing name
-      orientation: { heading: index * 90, pitch: 45 }, // degrees
+      orientation: { heading: index * 90, pitch: 30 }, // degrees
     })))) break;
 
     await new Promise(function (resolve) { setTimeout(resolve, 3000); }); // dwell
@@ -50,9 +50,9 @@ async function loop(myRun) {
   }
 }
 
-// Stops the in-flight camera animation WHERE THE CAMERA IS. Not
-// animation.cancel(): that snaps the camera to the animation's destination.
-// Starting another animation interrupts the running one in place instead.
+// Stops the in-flight camera animation WHERE THE CAMERA IS, by starting
+// another animation: it interrupts the running one in place.
+// (animation.cancel() would stop the camera in place too.)
 function interruptInPlace() {
   if (!currentAnimation) return;
   currentAnimation = null;
@@ -117,8 +117,9 @@ Leaving the screen calls `stopCarousel()`. The `WKWebView` is torn down anyway, 
 ## Things to know
 
 - **`goToFloor`, `goToPOI` and `goToViewpoint` return an `AnimationPromise`**: a `Promise<void>` with an `isCanceled` flag and a `cancel()` method. It always resolves (it doesn't reject when interrupted), so after each `await` check `isCanceled` and whether your loop was stopped.
-- **`animation.cancel()` jumps to the end.** It resolves the promise right away (`isCanceled === true`), but leaves the camera at the animation's final state. It doesn't freeze the camera where it is. Don't use it for "stop" or "pause".
+- **`animation.cancel()` stops the camera where it is.** It resolves the promise right away with `isCanceled === true` and leaves the camera in the state it is in at the moment of the call. The public typing of `cancel()` says it "puts the animation target in its final state": that wording is wrong. The SDK core implementation (1.1.0) documents and implements the opposite, and live measurements (Android `WebView`, iOS `WKWebView`) confirm it. This page interrupts with a zero-length `goToViewpoint` instead (see below); both stop the camera in place.
 - **A new camera animation interrupts the running one in place.** Its promise resolves with `isCanceled === true` and the camera continues from where it was, with no jump to the old destination. That's how this page stops a hop where it is: a zero-length `goToViewpoint` on `view.camera.target`, passing the current `view.camera.heading`/`pitch` as `orientation`. Measured on iOS: a pause mid-`goToPOI` moved the camera target by about 1.5 m. The altitude went from 35.4 to 34.0 m, while the hop's destination was about 30 m away. A Stop mid-hop moved it by about 1 m (destination about 65 m away).
+- **Known SDK issue (1.1.0): the camera can break after a drag on an underground floor.** Observed on another platform: after `goToPOI` with `orientation: { heading: 90 or 180, pitch: 45 }` on the underground POI `B1-LL01-ID0152` (floor `B1-LL1`, camera at its 10 m minimum altitude), one or two user drags turned `view.camera.heading` into `NaN` and `pitch` into `0`, and the map rendered black until the view was reloaded. It is not systematically reproducible; pitch 30 did not trigger it in the attempts made, so the demo uses `pitch: 30`.
 - **User gestures don't interrupt SDK animations, and there's no "camera moved by user" event.** A drag during a `goToPOI` doesn't stop it, so the user ends up fighting the camera until the animation ends. Detect touches yourself (`pointerdown` on the map container, capture phase) and stop scheduling. Once the animation is interrupted, the drag moves the camera normally.
 - **Call `goToFloor(poi.floor)` before `goToPOI(poi)`.** The SDK docs make the caller responsible for the floor switch when the POI is on another floor. Without it, `currentFloor`/`currentBuilding` stay where they were. In SDK 1.1.0, `goToPOI` alone did switch the floor in a test on the web sibling app, but follow the documented order.
 - **`orientation` takes degrees**: `heading` relative to north and `pitch` from the vertical. Either can also be `'initial'`. Without `orientation`, `goToPOI` keeps its own default framing. `view.camera.heading` reads back normalized: a hop with `heading: 270` ends at `-90`.
