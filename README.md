@@ -83,6 +83,7 @@ Each feature below is a self-contained screen demonstrating one part of the Visi
 - [HTML overlay marker](docs/features/html-overlay-marker.md) — pins a tappable HTML badge on the map via `venue.createMarker({ element })`, drawn above the 3D scene (never hidden by geometry), forwards its taps to native, shows/hides it via `venue.updateMarker()` and removes it via `venue.removeMarker()`.
 - [Custom theme](docs/features/custom-theme.md) — switches the 3D scene lighting theme via `view.themes`/`view.setTheme()` (view created with `enableShadows: true`) and recolors the SDK's own UI buttons live via `view.accentColor`/`view.textAccentColor`.
 - [Accuracy circle style](docs/features/accuracy-circle-style.md) — recolors the tracked position's precision circle live (color presets + opacity) via `view.updatePositionTrackerGraphicOptions()`, on top of the simulated-position loop.
+- [Camera projection](docs/features/camera-projection-toggle.md) — switches between a 3D perspective view and a flat orthographic view via `createView()`'s `cameraProjection` option (creation-time only, so each switch reloads the map), showing the projection reported by the read-only `view.cameraProjection`.
 
 ## Architecture
 

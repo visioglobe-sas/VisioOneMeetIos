@@ -8,6 +8,25 @@ enum MapLoadState: Equatable {
     case error(String)
 }
 
+/// The `createView` `cameraProjection` option / read-only
+/// `view.cameraProjection` value (see
+/// `docs/features/camera-projection-toggle.md`).
+enum CameraProjection: String, CaseIterable, Identifiable {
+    case perspective
+    case orthographic
+
+    var id: String { rawValue }
+
+    var label: LocalizedStringResource {
+        switch self {
+        case .perspective:
+            return "feature.camera_projection.option.perspective"
+        case .orthographic:
+            return "feature.camera_projection.option.orthographic"
+        }
+    }
+}
+
 /// A POI tapped on the map, forwarded by the SDK's `poiclick` event
 /// (see `docs/features/poi-click.md`). `name` mirrors whatever the SDK
 /// resolves as the POI's first label for the current locale — `nil` if the
@@ -409,6 +428,20 @@ final class VisioOneBridge: NSObject, WKScriptMessageHandler, ObservableObject {
     /// `highlightedCategoryId`. Only the `custom-base-url` feature reads or
     /// changes this -- see `docs/features/custom-base-url.md`.
     @Published private(set) var baseURL = "https://mapserver.visioglobe.com/"
+
+    /// The camera projection the next view gets created with (the
+    /// `createView` `cameraProjection` option, threaded to `map.html` as a
+    /// `?cameraProjection=` query item). Changing it changes
+    /// `FeatureMapView`'s `.id()` on `MapWebView`, which recreates the
+    /// `WKWebView` -- a fresh `loadVenue` + `createView`, the only way to
+    /// switch projection since it's a creation-time option. Only the
+    /// `camera-projection-toggle` feature changes it. See
+    /// `docs/features/camera-projection-toggle.md`.
+    @Published private(set) var requestedCameraProjection: CameraProjection = .perspective
+
+    /// The projection the current view reports (`view.cameraProjection`,
+    /// read-only), pushed by the JS side on `ready`; `nil` while loading.
+    @Published private(set) var cameraProjection: CameraProjection?
 
     /// Scene themes registered on the view (`view.themes`), read once via
     /// `loadThemes()` -- empty until then. See `docs/features/custom-theme.md`.
@@ -1798,6 +1831,17 @@ final class VisioOneBridge: NSObject, WKScriptMessageHandler, ObservableObject {
         }
     }
 
+    /// Recreates the map with another camera projection -- same
+    /// `.id()`-driven `WKWebView` recreation as `reloadWithBaseURL` above,
+    /// since `cameraProjection` can only be set at `createView` time. See
+    /// `docs/features/camera-projection-toggle.md`.
+    func reloadWithCameraProjection(_ projection: CameraProjection) {
+        guard projection != requestedCameraProjection else { return }
+        loadState = .loading
+        cameraProjection = nil
+        requestedCameraProjection = projection
+    }
+
     /// Resets the reaction panel's source of truth, e.g. once the user
     /// dismisses it — so tapping the same POI again is still detected as a
     /// change (`tappedPOI` going `nil` -> non-`nil`).
@@ -1812,6 +1856,10 @@ final class VisioOneBridge: NSObject, WKScriptMessageHandler, ObservableObject {
 
         switch type {
         case "ready":
+            if let payload = body["message"] as? [String: Any],
+               let rawProjection = payload["cameraProjection"] as? String {
+                cameraProjection = CameraProjection(rawValue: rawProjection)
+            }
             loadState = .ready
         case "error":
             loadState = .error(body["message"] as? String ?? "Erreur inconnue du SDK VisioOne")

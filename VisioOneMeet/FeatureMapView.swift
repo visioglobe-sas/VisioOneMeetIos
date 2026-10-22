@@ -35,9 +35,12 @@ private struct FeatureScreen: View {
                 bridge: bridge,
                 hashOverride: feature.mapHashOverride,
                 baseURLOverride: feature == .customBaseUrl ? bridge.baseURL : nil,
-                enableShadows: feature.enableShadows
+                enableShadows: feature.enableShadows,
+                cameraProjection: feature == .cameraProjectionToggle ? bridge.requestedCameraProjection : nil
             )
-            .id(bridge.baseURL)
+            // Recreates the WKWebView (fresh loadVenue + createView) when
+            // either load/creation-time option changes.
+            .id("\(bridge.baseURL)|\(bridge.requestedCameraProjection.rawValue)")
             .ignoresSafeArea()
 
             switch bridge.loadState {
@@ -206,6 +209,8 @@ private struct FeatureScreen: View {
             CustomThemeOverlay(bridge: bridge)
         case .accuracyCircleStyle:
             AccuracyCircleStyleOverlay(bridge: bridge, controller: tracking)
+        case .cameraProjectionToggle:
+            CameraProjectionOverlay(bridge: bridge)
         }
     }
 }

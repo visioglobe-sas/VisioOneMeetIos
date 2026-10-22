@@ -28,6 +28,7 @@ enum Feature: String, CaseIterable, Identifiable, Hashable {
     case htmlOverlayMarker
     case customTheme
     case accuracyCircleStyle
+    case cameraProjectionToggle
 
     var id: String { slug }
 
@@ -111,6 +112,8 @@ enum Feature: String, CaseIterable, Identifiable, Hashable {
             return "custom-theme"
         case .accuracyCircleStyle:
             return "accuracy-circle-style"
+        case .cameraProjectionToggle:
+            return "camera-projection-toggle"
         }
     }
 
@@ -170,6 +173,8 @@ enum Feature: String, CaseIterable, Identifiable, Hashable {
             return "feature.custom_theme.title"
         case .accuracyCircleStyle:
             return "feature.accuracy_circle_style.title"
+        case .cameraProjectionToggle:
+            return "feature.camera_projection.title"
         }
     }
 
@@ -229,6 +234,8 @@ enum Feature: String, CaseIterable, Identifiable, Hashable {
             return "feature.custom_theme.description"
         case .accuracyCircleStyle:
             return "feature.accuracy_circle_style.description"
+        case .cameraProjectionToggle:
+            return "feature.camera_projection.description"
         }
     }
 }
