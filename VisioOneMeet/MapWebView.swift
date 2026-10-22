@@ -3,18 +3,16 @@ import WebKit
 
 struct MapWebView: UIViewRepresentable {
     let bridge: VisioOneBridge
-    /// Optional map hash to load instead of the default hardcoded in
-    /// `map.html`. Appended as a `?vg_maphash=` query item on the `file://` URL
-    /// passed to `loadFileURL`, read back on the JS side via
+    /// Map hash to load (`Feature.mapHash`, values in `DemoMap.swift`).
+    /// Appended as a `?vg_maphash=` query item on the `file://` URL passed
+    /// to `loadFileURL`, read back on the JS side via
     /// `URLSearchParams(window.location.search)` (see `map.html`). `nil`
-    /// (the default) leaves the URL untouched so `map.html`'s own hardcoded
-    /// default keeps applying -- only the `.customData` feature passes a
-    /// value today (see `FeatureMapView.swift`), so no other feature's
-    /// behavior changes.
-    var hashOverride: String?
+    /// only for the auth-token sample, which passes its hash through
+    /// `protectedMap` instead.
+    var mapHash: String?
 
     /// Optional `baseURL` to pass to `loadVenue`, same override mechanism as
-    /// `hashOverride` above but for the custom-base-url feature: appended as
+    /// `mapHash` above but for the custom-base-url feature: appended as
     /// a second `?baseURL=` query item, read back in `map.html`. `nil` (the
     /// default) leaves the SDK's own built-in `baseURL` default in effect.
     /// See `docs/features/custom-base-url.md`.
@@ -67,11 +65,11 @@ struct MapWebView: UIViewRepresentable {
 
         if let url = Bundle.main.url(forResource: "map", withExtension: "html", subdirectory: "WebContent") {
             let urlToLoad: URL
-            if (hashOverride != nil || baseURLOverride != nil || enableShadows || cameraProjection != nil),
+            if (mapHash != nil || baseURLOverride != nil || enableShadows || cameraProjection != nil),
                var components = URLComponents(url: url, resolvingAgainstBaseURL: false) {
                 var queryItems: [URLQueryItem] = []
-                if let hashOverride {
-                    queryItems.append(URLQueryItem(name: "vg_maphash", value: hashOverride))
+                if let mapHash {
+                    queryItems.append(URLQueryItem(name: "vg_maphash", value: mapHash))
                 }
                 if let baseURLOverride {
                     queryItems.append(URLQueryItem(name: "baseURL", value: baseURLOverride))

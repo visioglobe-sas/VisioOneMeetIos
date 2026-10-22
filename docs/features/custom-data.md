@@ -4,7 +4,7 @@
 
 Reads business `CustomData` — free key/value strings such as price, opening hours, or a product reference — attached to a POI in VisioMapEditor, via `venue.refreshCustomData()` and `venue.getPOICustomData(poi)`.
 
-> **Note:** this demo screen loads a map hash different from the rest of the app (`kd9426d8cb3f1c532f22b5bcbd325c280bd351feb`, overriding `map.html`'s hardcoded default via the `?vg_maphash=` query param — see `MapWebView.swift`/`Feature.swift`), because the app's shared demo map (`kbae8e6c066cca4b02c2afac2bc963a643d87437a`) has no CustomData published at all (see "Things to know" below). On this dedicated map, the following POI IDs are confirmed to carry real CustomData:
+> **Note:** this demo screen loads a map hash different from the rest of the app (`kd9426d8cb3f1c532f22b5bcbd325c280bd351feb`, passed to `map.html` via the `?vg_maphash=` query param like every screen's hash — see `DemoMap.swift`, `Feature.swift` and `MapWebView.swift`), because the app's shared demo map (`kbae8e6c066cca4b02c2afac2bc963a643d87437a`) has no CustomData published at all (see "Things to know" below). On this dedicated map, the following POI IDs are confirmed to carry real CustomData:
 > - `B1` → `{"CSM ID":"BLBLA"}`
 > - `B3-UL00-ID0065` → `{"Sensor X":"17718393"}`
 > - `B3-UL00-ID0064` → `{"SENSOR":"DDDZEZHJF"}`

@@ -1428,6 +1428,57 @@
           }
         }
       }
+    },
+    "demo.dynamic_poi.label_text" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Demo POI"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "POI de démo"
+          }
+        }
+      }
+    },
+    "demo.text_label.text" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lunch 12:00–14:00"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Déjeuner 12:00–14:00"
+          }
+        }
+      }
+    },
+    "demo.html_badge.text" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open now · 12:00–14:00"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ouvert · 12:00–14:00"
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

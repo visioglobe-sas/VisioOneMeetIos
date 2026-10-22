@@ -61,7 +61,7 @@ private struct FeatureScreen: View {
         ZStack(alignment: .bottomTrailing) {
             MapWebView(
                 bridge: bridge,
-                hashOverride: feature.mapHashOverride,
+                mapHash: feature.mapHash,
                 baseURLOverride: feature == .customBaseUrl ? bridge.baseURL : nil,
                 enableShadows: feature.enableShadows,
                 cameraProjection: feature == .cameraProjectionToggle ? bridge.requestedCameraProjection : nil

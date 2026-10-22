@@ -14,13 +14,17 @@ Use this repo as a starting point for embedding VisioOne in your own native iOS 
 
 ### Configure your own map
 
-The map hash is hardcoded in [`VisioOneMeet/WebContent/map.html`](VisioOneMeet/WebContent/map.html):
+The map hash and every demo POI id used to prefill the feature screens' fields live in one file, [`VisioOneMeet/DemoMap.swift`](VisioOneMeet/DemoMap.swift):
 
-```js
-visioOne.loadVenue({ vg_maphash: 'kbae8e6c066cca4b02c2afac2bc963a643d87437a' }, container)
+```swift
+enum DemoMap {
+    static let mapHash = "kbae8e6c066cca4b02c2afac2bc963a643d87437a"
+    static let gotoPoiId = "B3-UL00-ID0076"
+    // ...
+}
 ```
 
-Replace it with your own map's hash, obtained from [my.visioglobe.com](https://my.visioglobe.com) once your map has been built and published (a 41-character alphanumeric string, e.g. `kd9426d8cb3f1c532f22b5bcbd325c280bd351feb`).
+The native side passes the hash to [`map.html`](VisioOneMeet/WebContent/map.html) as a `?vg_maphash=` query param, which hands it to `visioOne.loadVenue({ vg_maphash }, container)`. Replace it with your own map's hash, obtained from [my.visioglobe.com](https://my.visioglobe.com) once your map has been built and published (a 41-character alphanumeric string, e.g. `kd9426d8cb3f1c532f22b5bcbd325c280bd351feb`), and the POI ids with ids from your own map.
 
 The option is named `vg_maphash` since VisioOne SDK 1.0.6 (it used to be `hash`). The SDK silently ignores an old `hash` option, and the load then fails with `Cannot load the venue`.
 
