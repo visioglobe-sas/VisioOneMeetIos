@@ -30,6 +30,7 @@ enum Feature: String, CaseIterable, Identifiable, Hashable {
     case accuracyCircleStyle
     case cameraProjectionToggle
     case cameraShowcaseCarousel
+    case authToken
 
     var id: String { slug }
 
@@ -117,6 +118,8 @@ enum Feature: String, CaseIterable, Identifiable, Hashable {
             return "camera-projection-toggle"
         case .cameraShowcaseCarousel:
             return "camera-showcase-carousel"
+        case .authToken:
+            return "auth-token"
         }
     }
 
@@ -180,6 +183,8 @@ enum Feature: String, CaseIterable, Identifiable, Hashable {
             return "feature.camera_projection.title"
         case .cameraShowcaseCarousel:
             return "feature.camera_showcase_carousel.title"
+        case .authToken:
+            return "feature.auth_token.title"
         }
     }
 
@@ -243,6 +248,8 @@ enum Feature: String, CaseIterable, Identifiable, Hashable {
             return "feature.camera_projection.description"
         case .cameraShowcaseCarousel:
             return "feature.camera_showcase_carousel.description"
+        case .authToken:
+            return "feature.auth_token.description"
         }
     }
 }

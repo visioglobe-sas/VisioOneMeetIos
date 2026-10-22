@@ -1900,6 +1900,13 @@ final class VisioOneBridge: NSObject, WKScriptMessageHandler, ObservableObject {
             loadState = .ready
         case "error":
             loadState = .error(body["message"] as? String ?? "Erreur inconnue du SDK VisioOne")
+        case Self.unauthorizedMessageType:
+            // auth-token sample: loadVenue rejected with the SDK's
+            // UnauthorizedError, reported apart from other load errors.
+            // See docs/features/auth-token.md.
+            let detail = body["message"] as? String ?? ""
+            print("VisioOneBridge: protected map rejected: token invalid, expired or missing (\(detail))")
+            loadState = .error("Token invalid, expired or missing. \(detail)")
         case "poiSelected":
             guard let payload = body["message"] as? [String: Any],
                   let id = payload["id"] as? String else { return }

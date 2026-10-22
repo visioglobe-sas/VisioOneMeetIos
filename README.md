@@ -85,6 +85,7 @@ Each feature below is a self-contained screen demonstrating one part of the Visi
 - [Accuracy circle style](docs/features/accuracy-circle-style.md) — recolors the tracked position's precision circle live (color presets + opacity) via `view.updatePositionTrackerGraphicOptions()`, on top of the simulated-position loop.
 - [Camera projection](docs/features/camera-projection-toggle.md) — switches between a 3D perspective view and a flat orthographic view via `createView()`'s `cameraProjection` option (creation-time only, so each switch reloads the map), showing the projection reported by the read-only `view.cameraProjection`.
 - [Camera showcase](docs/features/camera-showcase-carousel.md) — an automatic camera tour of the map for kiosks and lobby screens, looping `view.goToFloor()` + `view.goToPOI()` (custom duration, easing and heading/pitch) over a list of POIs; a touch on the map pauses it in place and it resumes after 10 s idle.
+- [Protected map (token)](docs/features/auth-token.md) — **code sample** (placeholder values, not loaded by the demo): loads a map protected by a JWT via `loadVenue()`'s `authorizationToken` + `baseURL` options, refreshes it via `venue.setAuthorizationToken()`, and reports the SDK's `UnauthorizedError` apart from other load errors.
 
 ## Architecture
 

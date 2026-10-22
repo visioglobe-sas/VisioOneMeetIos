@@ -34,9 +34,20 @@ struct MapWebView: UIViewRepresentable {
     /// feature sets it. See `docs/features/camera-projection-toggle.md`.
     var cameraProjection: CameraProjection?
 
+    /// When set, `map.html` loads this token-protected map via its
+    /// `loadProtectedVenue()` instead of its default public map. Injected as
+    /// a document-start user script (not a query item: a JWT doesn't belong
+    /// in a URL). `nil` (the default) leaves every screen unchanged -- no
+    /// demo screen sets it, it's the auth-token code sample's entry point.
+    /// See `ProtectedMapSample.swift` and `docs/features/auth-token.md`.
+    var protectedMap: ProtectedMapOptions?
+
     func makeUIView(context: Context) -> WKWebView {
         let contentController = WKUserContentController()
         contentController.add(WeakScriptMessageHandler(target: bridge), name: VisioOneBridge.messageHandlerName)
+        if let script = protectedMap?.userScript {
+            contentController.addUserScript(script)
+        }
 
         let configuration = WKWebViewConfiguration()
         configuration.allowsInlineMediaPlayback = true
