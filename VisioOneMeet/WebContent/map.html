@@ -183,9 +183,10 @@
     // lives here, at page level (one page = one feature screen), never in
     // the native panel: closing the panel must not stop it, and there is
     // only ever one loop. Native only sends start/stop and mirrors the
-    // state pushed back by sendCarouselState(). See
+    // state pushed back by sendCarouselState(). The stop ids come from
+    // native with each start (DemoMap.carouselStopIds). See
     // docs/features/camera-showcase-carousel.md.
-    var CAROUSEL_STOP_IDS = ['B4-UL00-ID0009', 'B1-LL01-ID0152', 'B3-UL00-ID0064', 'B4-UL03-ID0015'];
+    var CAROUSEL_STOP_IDS = [];
     var CAROUSEL_DWELL_MS = 3000;
     var CAROUSEL_RESUME_DELAY_MS = 10000;
     var carouselState = 'stopped'; // 'running' | 'paused' | 'stopped'
@@ -335,10 +336,12 @@
         }
         return { status: 'applied' };
       },
-      // Starts the camera tour from the first stop (no-op if already
-      // running or paused). See docs/features/camera-showcase-carousel.md.
-      startCarousel: function () {
+      // Starts the camera tour over stopIds (POI ids, in order) from the
+      // first stop (no-op if already running or paused). See docs/features/camera-showcase-carousel.md.
+      startCarousel: function (stopIds) {
         if (carouselState !== 'stopped') return;
+        if (!Array.isArray(stopIds) || stopIds.length === 0) return;
+        CAROUSEL_STOP_IDS = stopIds;
         startCarouselFrom(0);
       },
       // Stops the tour for good: no more hop is scheduled, a pending
@@ -1123,18 +1126,14 @@
       },
     };
 
-    // Optional override so a single feature screen (custom-data, which
-    // needs a map with published CustomData the shared demo map doesn't
-    // have) can point this same bundled page at a different map without
-    // touching the default used by every other feature. Mirrors the
-    // `?vg_maphash=` query-param pattern already used by the Android sibling app
-    // (see web/src/main.js there) -- MapWebView.swift appends it to the
-    // file:// URL only when instantiated for that feature, nil/omitted
-    // otherwise. See docs/features/custom-data.md. Since SDK 1.0.6 the
-    // SDK itself also reads `?vg_maphash=` from the page URL as an override
-    // of LoadOptions.vg_maphash, so both paths agree on the same value.
-    var DEFAULT_HASH = 'kbae8e6c066cca4b02c2afac2bc963a643d87437a';
-    var hash = new URLSearchParams(window.location.search).get('vg_maphash') || DEFAULT_HASH;
+    // Map hash to load, always passed by native as a `?vg_maphash=` query
+    // param (MapWebView.swift; the values live in DemoMap.swift, so there is
+    // no second copy here): the shared demo map for every screen, a
+    // dedicated one for custom-data (see docs/features/custom-data.md).
+    // Since SDK 1.0.6 the SDK itself also reads `?vg_maphash=` from the page
+    // URL as an override of LoadOptions.vg_maphash, so both paths agree on
+    // the same value.
+    var hash = new URLSearchParams(window.location.search).get('vg_maphash');
 
     // Same override mechanism as `hash` above, for the custom-base-url
     // feature: lets that one screen point loadVenue at a caller-supplied

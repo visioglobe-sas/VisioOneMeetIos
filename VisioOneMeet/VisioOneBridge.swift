@@ -498,10 +498,13 @@ final class VisioOneBridge: NSObject, WKScriptMessageHandler, ObservableObject {
     }
 
     /// Starts the automatic camera tour (`view.goToFloor` + `view.goToPOI`
-    /// on each stop, looped in `map.html`). See
+    /// on each stop of `stopIds`, looped in `map.html`). See
     /// `docs/features/camera-showcase-carousel.md`.
-    func startCarousel() {
-        webView?.evaluateJavaScript("window.MapBridge.startCarousel()") { _, error in
+    func startCarousel(stopIds: [String] = DemoMap.carouselStopIds) {
+        guard let webView,
+              let data = try? JSONSerialization.data(withJSONObject: stopIds),
+              let json = String(data: data, encoding: .utf8) else { return }
+        webView.evaluateJavaScript("window.MapBridge.startCarousel(\(json))") { _, error in
             if let error {
                 print("VisioOneBridge: startCarousel failed: \(error.localizedDescription)")
             }

@@ -14,7 +14,7 @@ The loop lives in the web page (`map.html`), next to the SDK, not in native code
 
 ```js
 // map.html
-var STOPS = ['B4-UL00-ID0009', 'B1-LL01-ID0152', 'B3-UL00-ID0064', 'B4-UL03-ID0015'];
+var STOPS = [];          // POI ids, in order: sent by native with startCarousel()
 var state = 'stopped';   // 'running' | 'paused' | 'stopped'
 var index = 0;
 var run = 0;             // bumped on every start/pause/stop: an old loop exits at its next await
@@ -80,7 +80,11 @@ container.addEventListener('pointerdown', function () {
 // (the real page also re-arms the 10 s delay on pointerup, so a long drag counts as touching)
 
 window.MapBridge = {
-  startCarousel: function () { if (state === 'stopped') startFrom(0); },
+  startCarousel: function (stopIds) {
+    if (state !== 'stopped' || !stopIds.length) return;
+    STOPS = stopIds;
+    startFrom(0);
+  },
   stopCarousel: function () {
     if (state === 'stopped') return;
     run++;
@@ -94,8 +98,12 @@ window.MapBridge = {
 
 ```swift
 // VisioOneBridge.swift: native -> JS
-func startCarousel() {
-    webView?.evaluateJavaScript("window.MapBridge.startCarousel()")
+// The stops (DemoMap.carouselStopIds: replace them with your own map's POI
+// ids), JSON-encoded so they arrive as a real JS array.
+func startCarousel(stopIds: [String] = DemoMap.carouselStopIds) {
+    guard let data = try? JSONSerialization.data(withJSONObject: stopIds),
+          let json = String(data: data, encoding: .utf8) else { return }
+    webView?.evaluateJavaScript("window.MapBridge.startCarousel(\(json))")
 }
 func stopCarousel() {
     webView?.evaluateJavaScript("window.MapBridge.stopCarousel()")

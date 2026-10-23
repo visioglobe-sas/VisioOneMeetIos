@@ -22,7 +22,7 @@ private let occupancyIntervalNanoseconds: UInt64 = 2_500_000_000
 
 struct OccupancyOverlay: View {
     @ObservedObject var bridge: VisioOneBridge
-    @State private var placeId = ""
+    @State private var placeId = DemoMap.occupancyPlaceId
     @State private var simulatingOccupancy = false
     @State private var occupancySimulationTask: Task<Void, Never>?
 
@@ -79,7 +79,7 @@ struct OccupancyOverlay: View {
 /// `view.goToPOI()`. See docs/features/goto-poi.md.
 struct GoToPoiOverlay: View {
     @ObservedObject var bridge: VisioOneBridge
-    @State private var placeId = ""
+    @State private var placeId = DemoMap.gotoPoiId
 
     var body: some View {
         HStack {
@@ -309,8 +309,8 @@ struct NativeUiReplacementOverlay: View {
 /// toggle UI.
 struct ComputeNavigationOverlay: View {
     @ObservedObject var bridge: VisioOneBridge
-    @State private var originPlaceId = ""
-    @State private var destinationPlaceId = ""
+    @State private var originPlaceId = DemoMap.itineraryFrom
+    @State private var destinationPlaceId = DemoMap.itineraryTo
 
     private var canComputeNavigation: Bool {
         !originPlaceId.trimmingCharacters(in: .whitespaces).isEmpty
@@ -450,8 +450,8 @@ private extension Color {
 /// state is needed here to guard against it.
 struct CustomNavigationTraceOverlay: View {
     @ObservedObject var bridge: VisioOneBridge
-    @State private var originPlaceId = ""
-    @State private var destinationPlaceId = ""
+    @State private var originPlaceId = DemoMap.itineraryFrom
+    @State private var destinationPlaceId = DemoMap.itineraryTo
     @State private var selectedPreset: NavigationTracePreset = .visioglobeBlue
 
     private var canComputeNavigation: Bool {
@@ -533,8 +533,8 @@ struct CustomNavigationTraceOverlay: View {
 /// on every change" idiom as the origin/destination fields themselves.
 struct NavigationExcludeModalitiesOverlay: View {
     @ObservedObject var bridge: VisioOneBridge
-    @State private var originPlaceId = ""
-    @State private var destinationPlaceId = ""
+    @State private var originPlaceId = DemoMap.excludeModalitiesFrom
+    @State private var destinationPlaceId = DemoMap.excludeModalitiesTo
     @State private var avoidElevator = false
 
     /// The real SDK attribute string for an elevator hop on this app's
@@ -622,8 +622,8 @@ struct NavigationExcludeModalitiesOverlay: View {
 /// as `NavigationExcludeModalitiesOverlay`'s "Avoid elevator" toggle.
 struct AccessibleModeOverlay: View {
     @ObservedObject var bridge: VisioOneBridge
-    @State private var originPlaceId = ""
-    @State private var destinationPlaceId = ""
+    @State private var originPlaceId = DemoMap.accessibleFrom
+    @State private var destinationPlaceId = DemoMap.accessibleTo
     @State private var isAccessible = false
 
     private var canComputeNavigation: Bool {
@@ -861,14 +861,20 @@ final class PositionTrackingController: ObservableObject {
     }
 
     /// Builds the screen-level controller for `feature`, with the
-    /// per-screen presets: `accuracy-circle-style` pre-fills two POIs and a
-    /// 6 m radius, and re-applies the selected tracker style before each
+    /// per-screen presets: the 4 tracking screens pre-fill the demo
+    /// origin/destination POIs, and `accuracy-circle-style` also sets a
+    /// 6 m radius and re-applies the selected tracker style before each
     /// Start (see `AccuracyCircleStyleOverlay`).
     static func forFeature(_ feature: Feature, bridge: VisioOneBridge) -> PositionTrackingController {
         let controller = PositionTrackingController(bridge: bridge)
+        switch feature {
+        case .simulatedPosition, .cameraLockOnPosition, .geofencing, .accuracyCircleStyle:
+            controller.originPlaceId = DemoMap.trackingFrom
+            controller.destinationPlaceId = DemoMap.trackingTo
+        default:
+            break
+        }
         if feature == .accuracyCircleStyle {
-            controller.originPlaceId = "B4-UL00-ID0009"
-            controller.destinationPlaceId = "B4-UL00-ID0010"
             controller.precisionCircleRadius = 6
             controller.onWillStartTracking = { [weak bridge] in
                 bridge?.applyPositionTrackerStyle()
@@ -1073,7 +1079,7 @@ struct AccuracyCircleStyleOverlay: View {
 /// `docs/features/geofencing.md`.
 @MainActor
 final class GeofencingViewModel: ObservableObject {
-    @Published var zonePlaceId = ""
+    @Published var zonePlaceId = DemoMap.geofenceZoneId
     @Published private(set) var zoneErrorMessage: String?
     @Published private(set) var zonePolygon: [GeoPosition]?
     @Published private(set) var isInsideZone = false
@@ -1254,7 +1260,7 @@ struct CustomBaseUrlOverlay: View {
 /// own. See docs/features/clickable-surface.md.
 struct ClickableSurfaceOverlay: View {
     @ObservedObject var bridge: VisioOneBridge
-    @State private var placeId = ""
+    @State private var placeId = DemoMap.clickableSurfacePlaceId
 
     var body: some View {
         HStack {
@@ -1292,7 +1298,7 @@ struct ClickableSurfaceOverlay: View {
 /// cache almost always needs refreshing right before a lookup anyway. See
 /// docs/features/custom-data.md.
 ///
-/// This screen loads a dedicated map (`Feature.customData.mapHashOverride`,
+/// This screen loads a dedicated map (`Feature.customData.mapHash`,
 /// threaded through by `FeatureMapView`/`MapWebView`) rather than the app's
 /// shared demo map, because the shared map has no CustomData published —
 /// looking up any POI there would always land on the empty state. The 3
@@ -1304,10 +1310,10 @@ struct ClickableSurfaceOverlay: View {
 struct CustomDataOverlay: View {
     /// POI IDs confirmed to carry real CustomData on the dedicated map this
     /// screen loads. See docs/features/custom-data.md.
-    private static let knownPlaceIds = ["B1", "B3-UL00-ID0065", "B3-UL00-ID0064"]
+    private static let knownPlaceIds = DemoMap.customDataPlaceIds
 
     @ObservedObject var bridge: VisioOneBridge
-    @State private var placeId = ""
+    @State private var placeId = DemoMap.customDataPlaceId
     @State private var isLoading = false
     @State private var lookup: CustomDataLookup?
     @State private var loadFailed = false
@@ -1532,8 +1538,8 @@ struct PoiClickOverlay: View {
 /// not crashes.
 struct DynamicPoiCrudOverlay: View {
     @ObservedObject var bridge: VisioOneBridge
-    @State private var newPoiId = ""
-    @State private var anchorPoiId = ""
+    @State private var newPoiId = DemoMap.newPoiId
+    @State private var anchorPoiId = DemoMap.anchorPoiId
     @State private var labelText: String
     @State private var isCreating = false
     @State private var createError: String?
@@ -1545,7 +1551,7 @@ struct DynamicPoiCrudOverlay: View {
         // current label text via "Update text" -- this view is recreated
         // fresh every time the sheet opens (see FeatureMapView.swift), while
         // `bridge.dynamicPOI` itself persists across that.
-        _labelText = State(initialValue: bridge.dynamicPOI?.labelText ?? "")
+        _labelText = State(initialValue: bridge.dynamicPOI?.labelText ?? DemoMap.dynamicPoiLabelText)
     }
 
     private var hasDynamicPOI: Bool { bridge.dynamicPOI != nil }
@@ -1664,7 +1670,7 @@ struct IconMarkerOverlay: View {
     /// "Restaurant", ground floor of the shared demo map's building B4: has
     /// a label to read a position from, unlike surface-only POIs such as
     /// `B3-UL00-ID0065` (which reports "This POI has no position").
-    private static let defaultAnchorPoiId = "B4-UL00-ID0009"
+    private static let defaultAnchorPoiId = DemoMap.anchorPoiId
 
     @ObservedObject var bridge: VisioOneBridge
     @State private var anchorPoiId: String
@@ -1776,8 +1782,8 @@ struct IconMarkerOverlay: View {
 struct CustomTextLabelOverlay: View {
     /// "Restaurant", ground floor of the shared demo map's building B4 --
     /// same anchor as `IconMarkerOverlay`.
-    private static let defaultAnchorPoiId = "B4-UL00-ID0009"
-    private static let defaultText = "Lunch 12:00\u{2013}14:00"
+    private static let defaultAnchorPoiId = DemoMap.anchorPoiId
+    private static var defaultText: String { DemoMap.textLabelText }
     private static let rotations = [0, 45, 90]
 
     @ObservedObject var bridge: VisioOneBridge
@@ -1997,8 +2003,8 @@ struct CustomTextLabelOverlay: View {
 struct HtmlOverlayMarkerOverlay: View {
     /// "Restaurant", ground floor of the shared demo map's building B4 --
     /// same anchor as `CustomTextLabelOverlay`.
-    private static let defaultAnchorPoiId = "B4-UL00-ID0009"
-    private static let defaultText = "Open now \u{00B7} 12:00\u{2013}14:00"
+    private static let defaultAnchorPoiId = DemoMap.anchorPoiId
+    private static var defaultText: String { DemoMap.htmlBadgeText }
 
     @ObservedObject var bridge: VisioOneBridge
     @State private var anchorPoiId: String
