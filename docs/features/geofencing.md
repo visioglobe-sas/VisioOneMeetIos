@@ -19,9 +19,9 @@ resolveZonePolygon: function (poiId) {
     positions: surface.positions.map(function (p) { return { latitude: p.latitude, longitude: p.longitude }; }),
   };
 },
-setZoneAlert: function (placeId, active) {
+setZoneAlert: function (poiId, active) {
   if (!venue) return;
-  var poi = venue.pois.find(function (p) { return p.id === placeId; });
+  var poi = venue.pois.find(function (p) { return p.id === poiId; });
   if (!poi) return;
   poi.surfaces.forEach(function (surface) {
     venue.updateSurface(surface, { color: active ? '#E74C3C' : 'initial' });
@@ -35,7 +35,7 @@ func resolveZonePolygon(_ poiId: String) async -> ResolveZoneResult {
     // { status: 'notFound' | 'noSurface' | 'ok', positions? }
 }
 
-func setZoneAlert(_ placeId: String, active: Bool) {
+func setZoneAlert(_ poiId: String, active: Bool) {
     webView?.evaluateJavaScript("window.MapBridge.setZoneAlert(\(json), \(active))")
 }
 

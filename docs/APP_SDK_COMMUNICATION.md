@@ -91,6 +91,27 @@ webView.callBridge("goToPOI", ["'B1-UL00-01'"]) // note: quoted, it's a JS strin
 > )
 > ```
 
+### 1.3 Read a result back (and wait for a Promise)
+
+`evaluateJavaScript`'s completion handler receives the script's return value, but only for synchronous values: if the JS function returns a `Promise` (e.g. it awaits `venue.refreshCustomData()` or `venue.setCurrentLocale()`), `evaluateJavaScript` does **not** wait for it to settle. Use `callAsyncJavaScript` instead: the script runs as the body of an async function, so `await` works and the completion handler receives the settled value (or the rejection as an error):
+
+```swift
+func loadCustomData(_ poiId: String) async -> [String: Any]? {
+    await withCheckedContinuation { continuation in
+        webView.callAsyncJavaScript(
+            "return await window.MapBridge.loadCustomData(poiId);",
+            arguments: ["poiId": poiId],
+            in: nil,
+            in: .page
+        ) { result in
+            continuation.resume(returning: try? result.get() as? [String: Any])
+        }
+    }
+}
+```
+
+Returning a plain object such as `{ status: 'placed' }` or `{ status: 'error', message }` from the JS side (instead of letting an exception escape) keeps every expected outcome a normal value on the Swift side; keep the completion's error for real bridge failures.
+
 ## 2. JavaScript → Native
 
 ### 2.1 Register a message handler

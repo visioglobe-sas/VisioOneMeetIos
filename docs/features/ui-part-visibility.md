@@ -15,10 +15,15 @@ setUIPartVisible: function (uiPart, isVisible) {
 ```
 
 ```swift
-func setUIPartVisible(_ uiPart: String, isVisible: Bool) {
-    guard let webView else { return }
-    guard let data = try? JSONSerialization.data(withJSONObject: uiPart, options: [.fragmentsAllowed]),
+// The SDK has no getter for this: the bridge records what it hid, so the
+// native switches always show the map's real state.
+@Published private(set) var hiddenUIParts: Set<MapUIPart> = []
+
+func setUIPartVisible(_ part: MapUIPart, isVisible: Bool) {
+    guard let webView,
+          let data = try? JSONSerialization.data(withJSONObject: part.rawValue, options: [.fragmentsAllowed]),
           let json = String(data: data, encoding: .utf8) else { return }
+    if isVisible { hiddenUIParts.remove(part) } else { hiddenUIParts.insert(part) }
     webView.evaluateJavaScript("window.MapBridge.setUIPartVisible(\(json), \(isVisible))")
 }
 ```
@@ -27,7 +32,7 @@ func setUIPartVisible(_ uiPart: String, isVisible: Bool) {
 
 - **The SDK's `UIPart` type has exactly 5 values, case-sensitive**: `floorSelector`, `navigation`, `poiDetails`, `search`, `userTracking`. A typo (`poidetails`, `Navigation`, …) isn't rejected with an error — `view.setUIPartVisible` silently ignores it, the same way an unknown Place ID or floor ID does elsewhere in the SDK. Modeling the 5 values as a native enum eliminates the typo at the source rather than debugging it on the map.
 - **Hiding `search` or `navigation` removes the only SDK-provided trigger for those flows** if your app has no native equivalent — unlike `floorSelector`/`poiDetails`/`userTracking`, whose disappearance doesn't block anything else from working. They can always be toggled back on to reappear.
-- **No `isUIPartVisible` read is used to seed initial state here** — all 5 parts are assumed visible (`true`) at startup, matching the SDK's own documented default. A client wanting a guaranteed-synced initial state (in case something else already changed visibility before this code runs) should call `view.isUIPartVisible(part)` for each part after `createView` rather than assume the default.
+- **No `isUIPartVisible` read is used to seed initial state here** — all 5 parts are assumed visible (`true`) at startup, matching the SDK's own documented default, and every later change is recorded next to the call (`hiddenUIParts`), so a UI showing the switches again later reflects what is actually hidden. A client wanting a guaranteed-synced initial state (in case something else already changed visibility before this code runs) should call `view.isUIPartVisible(part)` for each part after `createView` rather than assume the default.
 - Only call `setUIPartVisible` once `view` exists (after `createView` resolves) — like most native → JS calls on this bridge, it's a silent no-op before that.
 
 ## Learn more

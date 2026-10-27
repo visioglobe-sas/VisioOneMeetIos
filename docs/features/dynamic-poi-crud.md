@@ -14,7 +14,7 @@ createDynamicPOI: async function (newId, anchorId, labelText) {
   if (!venue) return { status: 'anchorNotFound' };
   var anchor = venue.pois.find(function (p) { return p.id === anchorId; });
   if (!anchor) return { status: 'anchorNotFound' };
-  var position = anchorPositionOf(anchor); // first label's, else first marker's .position
+  var position = poiDisplayPosition(anchor); // see simulated-position.md
   if (!position) return { status: 'noPosition' };
 
   var poi;
@@ -95,4 +95,4 @@ func removeDynamicPOI() {
 ## Learn more
 
 - See `docs/features/custom-data.md` for another feature using `WKWebView.callAsyncJavaScript` to await a JS-side result.
-- See `docs/features/simulated-position.md` for the same "read a POI's position from its label/marker" idiom, applied to camera tracking instead of copying.
+- See `docs/features/simulated-position.md` for the same "read a POI's display position" helper, applied to camera tracking instead of copying.

@@ -60,6 +60,7 @@ configuration.userContentController = contentController
 
 ## Things to know
 
+- **The page itself can fail to load** (e.g. a missing bundled file): then no `ready`/`error` message ever arrives. Report `WKNavigationDelegate`'s `didFail`/`didFailProvisionalNavigation` as an error too (ignoring `NSURLErrorCancelled`, raised when a newer load replaces the current one), otherwise the spinner never goes away. For a Retry button, load the page URL again with `loadFileURL` rather than `WKWebView.reload()`, which does nothing when the first navigation never committed.
 - `visioOne.showError(error, container)` is the SDK's own default error-rendering helper — it draws directly into the map container; calling it doesn't preclude also relaying the error natively.
 - `WKScriptMessage.body` only carries property-list-compatible types — always `as?`, never force-cast, with a silent fallback (`default: break`) for an unexpected message shape.
 - This same JS → native channel (`{type, message}` posted to a named message handler) is the general pattern reused by any other feature that needs the SDK to report something back — see `docs/features/poi-click.md` and `docs/features/floor-selector.md`.
