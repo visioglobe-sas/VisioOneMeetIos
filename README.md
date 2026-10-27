@@ -9,7 +9,7 @@ Use this repo as a starting point for embedding VisioOne in your own native iOS 
 ### Prerequisites
 
 - Xcode 15+ (tested with Xcode 16.2), iOS 16+
-- [XcodeGen](https://github.com/yonaskolb/XcodeGen) (`brew install xcodegen`) — this project's `.xcodeproj` is generated, not checked in
+- [XcodeGen](https://github.com/yonaskolb/XcodeGen) (`brew install xcodegen`) — `VisioOneMeet.xcodeproj` is generated from `project.yml`; the generated project is committed so the repo builds as cloned, but regenerate it after adding/removing files
 - Node.js/npm — only needed if you want to refresh the vendored SDK bundle (see below); no JS build step is required to just build and run the app
 
 ### Configure your own map
@@ -95,12 +95,14 @@ Each feature below is a self-contained screen demonstrating one part of the Visi
 
 - `VisioOneMeetApp.swift` — `@main` entry point, forces dark color scheme, hosts `ContentView` full-screen.
 - `ContentView.swift` — the feature menu: lists `Feature.allCases`, each navigating to its own `FeatureMapView`.
-- `MapWebView.swift` — the actual integration point: a `UIViewRepresentable` wrapping `WKWebView`. Configures `allowsInlineMediaPlayback`, an opaque/black background, disables scroll bounce, and loads a bundled HTML file via `webView.loadFileURL(url, allowingReadAccessTo:)` (required so WebKit can read `visioone.umd.cjs` sitting next to the HTML under `file://`).
-- `FeatureMapView.swift` / `FeatureOverlays.swift` — per-feature screen hosting and the native controls (buttons, toggles, text fields) for each entry in `Feature.allCases`.
-- `VisioOneBridge.swift` — the Swift ↔ JS bridge: native → JS calls go through `WKWebView.evaluateJavaScript` against `window.MapBridge` (defined in `map.html`); JS → native events come back through a `WKScriptMessageHandler` (see `docs/features/loading-state.md` and `docs/features/poi-click.md`).
+- `MapWebView.swift` — the actual integration point: a `UIViewRepresentable` wrapping `WKWebView`. Configures `allowsInlineMediaPlayback`, a black background (`isOpaque = false`, so nothing flashes white while the page loads), disables scroll bounce, and loads a bundled HTML file via `webView.loadFileURL(url, allowingReadAccessTo:)` (required so WebKit can read `visioone.umd.cjs` sitting next to the HTML under `file://`). A failure to load the page itself is reported to the bridge, which shows the error screen.
+- `Feature.swift` — the feature registry (slug, localized title/description, per-screen load options). `DemoMap.swift` — the demo map hash and POI ids (see "Configure your own map").
+- `FeatureMapView.swift` — one screen per feature: the map, the FAB and the control sheet. Everything the sheet shows (typed values, running simulations) is owned by the screen, not by the sheet, so closing and reopening the sheet shows the real current state.
+- `FeatureOverlays.swift` — the native controls (buttons, toggles, text fields) of each feature's sheet; `SharedControls.swift` — small components shared by several sheets (POI id field, From/To fields, color chip).
+- `VisioOneBridge.swift` — the Swift ↔ JS bridge: native → JS calls go to `window.MapBridge` (defined in `map.html`) through `WKWebView.evaluateJavaScript` or `callAsyncJavaScript`; JS → native events come back through a `WKScriptMessageHandler` (see `docs/APP_SDK_COMMUNICATION.md`).
+- `Localizable.xcstrings` — every user-visible string, in English and French.
 - `VisioOneMeet/WebContent/` — a folder reference (not a group) so its flat file hierarchy survives into the app bundle intact:
-  - `map.html` — loads `visioone.umd.cjs` via a classic `<script>` tag, calls `VisioOne.createVisioOne()`, then `visioOne.loadVenue({ vg_maphash }, container)` → `visioOne.createView(container, venue)`.
-  - `diagnostic.html` — a standalone WebView repro page, not loaded by default (see `CLAUDE.md`).
+  - `map.html` — loads `visioone.umd.cjs` via a classic `<script>` tag, calls `VisioOne.createVisioOne()`, then `visioOne.loadVenue({ vg_maphash }, container)` → `visioOne.createView(container, venue)`, and defines `window.MapBridge`.
   - `visioone.umd.cjs` — the vendored SDK bundle.
 - `project.yml` — XcodeGen source of truth. Declares `VisioOneMeet/WebContent` as a `type: folder` / `buildPhase: resources` source so Xcode copies it as a folder reference rather than flattening it.
 

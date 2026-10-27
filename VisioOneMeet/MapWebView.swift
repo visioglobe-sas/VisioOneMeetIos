@@ -85,16 +85,14 @@ struct MapWebView: UIViewRepresentable {
             } else {
                 urlToLoad = url
             }
-            // Read access must stay scoped to the original file's directory
-            // (the query string isn't part of the path WebKit checks
-            // against here) -- confirmed live against a real WKWebView
-            // (loading this exact map.html + the vendored SDK bundle) that
-            // appending `?vg_maphash=...` to this file:// URL still resolves
-            // sibling resources (visioone.umd.cjs) fine, that
-            // `window.location.search` on the JS side sees the query, and
-            // that the overridden venue loads and returns real CustomData.
-            // See docs/features/custom-data.md.
-            webView.loadFileURL(urlToLoad, allowingReadAccessTo: url.deletingLastPathComponent())
+            // Read access is scoped to the original file's directory (the
+            // query string isn't part of the path WebKit checks): a
+            // `?vg_maphash=...` file:// URL still resolves sibling resources
+            // (visioone.umd.cjs), and `window.location.search` sees the query.
+            let readAccessURL = url.deletingLastPathComponent()
+            bridge.pageURL = urlToLoad
+            bridge.pageReadAccessURL = readAccessURL
+            webView.loadFileURL(urlToLoad, allowingReadAccessTo: readAccessURL)
         }
 
         bridge.webView = webView
@@ -108,16 +106,25 @@ struct MapWebView: UIViewRepresentable {
     }
 
     func makeCoordinator() -> Coordinator {
-        Coordinator()
+        Coordinator(bridge: bridge)
     }
 
+    /// Reports a failure to load `map.html` itself to the bridge, which
+    /// shows the error screen: no SDK `ready`/`error` message would ever
+    /// arrive otherwise, leaving the spinner up forever.
     final class Coordinator: NSObject, WKNavigationDelegate {
+        private weak var bridge: VisioOneBridge?
+
+        init(bridge: VisioOneBridge) {
+            self.bridge = bridge
+        }
+
         func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
-            print("VisioOne map load failed: \(error.localizedDescription)")
+            bridge?.pageLoadFailed(error)
         }
 
         func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
-            print("VisioOne map provisional load failed: \(error.localizedDescription)")
+            bridge?.pageLoadFailed(error)
         }
     }
 }

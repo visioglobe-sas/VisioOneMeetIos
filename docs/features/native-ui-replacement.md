@@ -17,15 +17,13 @@ setUIPartVisible: function (uiPart, isVisible) {
 ```
 
 ```swift
-// Swift side — the same generic VisioOneBridge.setUIPartVisible(_:isVisible:)
-// added for ui-part-visibility, called here with the one fixed part value
-// this feature cares about ('floorSelector').
-func setUIPartVisible(_ uiPart: String, isVisible: Bool) {
-    guard let webView else { return }
-    guard let data = try? JSONSerialization.data(withJSONObject: uiPart, options: [.fragmentsAllowed]),
-          let json = String(data: data, encoding: .utf8) else { return }
-    webView.evaluateJavaScript("window.MapBridge.setUIPartVisible(\(json), \(isVisible))")
+// Swift side — the same VisioOneBridge.setUIPartVisible(_:isVisible:) as
+// ui-part-visibility (which also records the hidden parts, the SDK having no
+// getter), called with the one part this feature cares about.
+func setSdkFloorSelectorVisible(_ isVisible: Bool) {
+    setUIPartVisible(.floorSelector, isVisible: isVisible)
 }
+var isSdkFloorSelectorVisible: Bool { !hiddenUIParts.contains(.floorSelector) }
 ```
 
 `view.setUIPartVisible(uiPart: UIPart, isVisible: boolean): void` — one of the SDK's exact, case-sensitive `UIPart` values (`'floorSelector'` here); see [`ui-part-visibility`](./ui-part-visibility.md) for the full set and its pitfalls.

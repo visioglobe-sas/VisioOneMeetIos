@@ -1,61 +1,61 @@
-# Intégrer le SDK VisioOne dans une application iOS native
+# Integrating the VisioOne SDK into a native iOS app
 
-Ce guide explique comment afficher une carte [VisioOne](https://www.npmjs.com/package/@visioglobe/visioone) dans une application iOS native (Swift/SwiftUI), en embarquant le SDK JavaScript dans une `WKWebView`.
+This guide shows how to display a [VisioOne](https://www.npmjs.com/package/@visioglobe/visioone) map in a native iOS app (Swift/SwiftUI) by embedding the JavaScript SDK in a `WKWebView`.
 
-VisioOne est un SDK **web** (JS/WebGL) : il n'existe pas de binaire Swift natif. L'intégration native consiste donc à :
+VisioOne is a **web** SDK (JS/WebGL): there is no native Swift binary. A native integration therefore means:
 
-1. embarquer le SDK JS et une page HTML hôte dans le bundle de l'application,
-2. afficher cette page dans une `WKWebView` plein écran,
-3. piloter la carte via l'API JS du SDK (chargement d'un site, navigation, etc.).
+1. bundling the JS SDK and a host HTML page in the app bundle,
+2. displaying that page in a full-screen `WKWebView`,
+3. driving the map through the SDK's JS API (loading a venue, navigation, etc.).
 
-Aucune permission système (localisation, caméra…) n'est requise pour un affichage de carte basique.
+No system permission (location, camera…) is needed for basic map display.
 
-## Prérequis
+## Prerequisites
 
-- Xcode 15+ (testé avec Xcode 16.2), iOS 16+
-- Node.js/npm (uniquement pour récupérer le SDK, aucun build JS n'est nécessaire ensuite)
-- Un **hash de carte** valide, obtenu depuis [my.visioglobe.com](https://my.visioglobe.com) (chaîne alphanumérique de 41 caractères, ex. `kd9426d8cb3f1c532f22b5bcbd325c280bd351feb` — la carte doit avoir été "buildée" au préalable)
+- Xcode 15+ (tested with Xcode 16.2), iOS 16+
+- Node.js/npm (only to fetch the SDK; no JS build is needed afterwards)
+- A valid **map hash**, obtained from [my.visioglobe.com](https://my.visioglobe.com) (a 41-character alphanumeric string, e.g. `kd9426d8cb3f1c532f22b5bcbd325c280bd351feb` — the map must have been built first)
 
-## 1. Récupérer le SDK
+## 1. Fetch the SDK
 
-Le SDK est distribué sous forme de package npm :
+The SDK is distributed as an npm package:
 
 ```bash
 npm pack @visioglobe/visioone
 tar xzf visioglobe-visioone-*.tgz
 ```
 
-Le fichier qui nous intéresse est **`package/dist/visioone.umd.cjs`** : un bundle UMD autonome (~5 Mo) qui embarque son propre CSS et ses assets (icônes, animations) en base64. C'est ce fichier qu'on charge tel quel dans une balise `<script>`, sans bundler ni transpilation.
+The file you need is **`package/dist/visioone.umd.cjs`**: a self-contained UMD bundle (~5 MB) that embeds its own CSS and assets (icons, animations) as base64. It is loaded as-is in a `<script>` tag, with no bundler or transpilation.
 
-> ⚠️ Ne pas utiliser `dist/visioone.js` (build ESM) tel quel dans une WebView : ce fichier référence des chunks JS chargés dynamiquement via `import()`, ce qui échoue en `file://` sous WebKit (restrictions CORS sur les modules ES en local). Le bundle **UMD** évite ce problème.
+> ⚠️ Do not use `dist/visioone.js` (the ESM build) as-is in a WebView: it references JS chunks loaded dynamically via `import()`, which fails under `file://` in WebKit (CORS restrictions on local ES modules). The **UMD** bundle avoids this.
 
-## 2. Structure du projet
+## 2. Project structure
 
 ```
-MonApp/
-├── MonApp.xcodeproj
-└── MonApp/
-    ├── MonAppApp.swift
+MyApp/
+├── MyApp.xcodeproj
+└── MyApp/
+    ├── MyAppApp.swift
     ├── ContentView.swift
-    ├── MapWebView.swift        // wrapper WKWebView
-    └── WebContent/             // ⚠️ voir avertissement ci-dessous
+    ├── MapWebView.swift        // WKWebView wrapper
+    └── WebContent/             // ⚠️ see the warning below
         ├── map.html
         └── visioone.umd.cjs
 ```
 
-> ⚠️ **Ne nommez jamais ce dossier `Resources`.** Un dossier appelé littéralement `Resources` à la racine du bundle applicatif iOS fait échouer l'installation sur le simulateur (et potentiellement sur device), avec une erreur trompeuse :
+> ⚠️ **Never name this folder `Resources`.** A folder literally named `Resources` at the root of an iOS app bundle makes installation fail on the simulator (and possibly on device) with a misleading error:
 > ```
 > The application's Info.plist does not contain a valid CFBundleVersion.
 > ```
-> même quand `CFBundleVersion` est bien présent et valide. En cause : CoreSimulator interprète la présence d'un dossier `Resources` comme la structure `Contents/Resources` d'un bundle macOS et échoue à localiser l'`Info.plist` là où il l'attend. Utilisez un autre nom (`WebContent`, `WebAssets`, etc.).
+> even when `CFBundleVersion` is present and valid. CoreSimulator mistakes a `Resources` folder for the `Contents/Resources` layout of a macOS bundle and fails to find the `Info.plist` where it expects it. Use another name (`WebContent`, `WebAssets`, etc.).
 
-## 3. La page HTML hôte
+## 3. The host HTML page
 
-Créez `WebContent/map.html`. Le SDK, une fois chargé en `<script>` classique (pas `type="module"`), s'expose sur `window.VisioOne` :
+Create `WebContent/map.html`. Once loaded with a classic `<script>` tag (not `type="module"`), the SDK is exposed as `window.VisioOne`:
 
 ```html
 <!DOCTYPE html>
-<html lang="fr">
+<html lang="en">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
@@ -84,45 +84,45 @@ Créez `WebContent/map.html`. Le SDK, une fois chargé en `<script>` classique (
 </html>
 ```
 
-Remplacez `YOUR_MAP_HASH` par le hash de votre carte.
+Replace `YOUR_MAP_HASH` with your map's hash.
 
-### API JS essentielle
+### Essential JS API
 
-| Appel | Rôle |
+| Call | Purpose |
 |---|---|
-| `VisioOne.createVisioOne()` | Crée l'instance principale du SDK. |
-| `visioOne.loadVenue({ vg_maphash, baseURL?, disableCache?, authorizationToken? }, container)` | Charge les données de la carte (`container` affiche un loader pendant le chargement). Retourne une `Promise<Venue>`. |
-| `visioOne.createView(container, venue, options?)` | Crée le rendu 3D interactif de la carte dans `container`. Retourne une `Promise<View>`. |
-| `visioOne.showError(error, container)` | Affiche une erreur dans l'UI du SDK (sinon elle part en console). |
-| `visioOne.unloadVenue(venue)` / `visioOne.destroyView(view)` | Libère les ressources (utile en cas de changement de carte ou de fermeture d'écran). |
+| `VisioOne.createVisioOne()` | Creates the SDK's main instance. |
+| `visioOne.loadVenue({ vg_maphash, baseURL?, disableCache?, authorizationToken? }, container)` | Loads the map data (`container` shows a loader meanwhile). Returns a `Promise<Venue>`. |
+| `visioOne.createView(container, venue, options?)` | Creates the interactive 3D map view in `container`. Returns a `Promise<View>`. |
+| `visioOne.showError(error, container)` | Shows an error in the SDK's UI (otherwise it only goes to the console). |
+| `visioOne.unloadVenue(venue)` / `visioOne.destroyView(view)` | Releases resources (useful when switching maps or closing a screen). |
 
-`options` de `createView` permet notamment `zoomSpeed`, `cameraProjection` (`perspective`/`orthographic`), `zenithalMode`, `lockPitch`.
+`createView`'s `options` include `zoomSpeed`, `cameraProjection` (`perspective`/`orthographic`), `zenithalMode`, `lockPitch`.
 
-L'ensemble de l'API (POI, navigation, markers, événements…) est documenté sur [my.visioglobe.com/docs](https://my.visioglobe.com/docs/) et dans les fichiers `.d.ts` livrés avec le package npm.
+The whole API (POIs, navigation, markers, events…) is documented on [my.visioglobe.com/docs](https://my.visioglobe.com/docs/) and in the `.d.ts` files shipped with the npm package.
 
-## 4. Déclarer les ressources dans le projet Xcode
+## 4. Declare the resources in the Xcode project
 
-Le dossier `WebContent` doit être ajouté comme **référence de dossier** (icône bleue) et non comme groupe, afin que sa hiérarchie soit préservée dans le bundle applicatif (sinon les fichiers sont mis à plat et `map.html` ne retrouvera pas `visioone.umd.cjs` à côté de lui, sauf à ajuster les chemins).
+Add the `WebContent` folder as a **folder reference** (blue icon), not as a group, so its hierarchy is kept in the app bundle (otherwise the files are flattened and `map.html` won't find `visioone.umd.cjs` next to it).
 
-**Dans Xcode :** glissez le dossier `WebContent` dans le navigateur de projet et sélectionnez **"Create folder references"** (pas "Create groups").
+**In Xcode:** drag the `WebContent` folder into the project navigator and choose **"Create folder references"** (not "Create groups").
 
-**Avec [XcodeGen](https://github.com/yonaskolb/XcodeGen)** (`project.yml`) :
+**With [XcodeGen](https://github.com/yonaskolb/XcodeGen)** (`project.yml`):
 
 ```yaml
 targets:
-  MonApp:
+  MyApp:
     type: application
     platform: iOS
     sources:
-      - path: MonApp
+      - path: MyApp
         excludes:
           - "WebContent/**"
-      - path: MonApp/WebContent
+      - path: MyApp/WebContent
         type: folder
         buildPhase: resources
 ```
 
-## 5. Le wrapper SwiftUI / WKWebView
+## 5. The SwiftUI / WKWebView wrapper
 
 ```swift
 import SwiftUI
@@ -166,34 +166,34 @@ struct ContentView: View {
 }
 ```
 
-`loadFileURL(_:allowingReadAccessTo:)` est indispensable : il autorise WebKit à lire, depuis un contexte `file://`, tous les fichiers du dossier passé en second argument (ici `WebContent/`), donc `visioone.umd.cjs` à côté de `map.html`.
+`loadFileURL(_:allowingReadAccessTo:)` is required: it lets WebKit read, from a `file://` page, every file of the folder passed as second argument (here `WebContent/`), hence `visioone.umd.cjs` next to `map.html`.
 
 ## 6. Info.plist
 
-Aucune entrée particulière n'est nécessaire :
+No specific entry is needed:
 
-- Le SDK charge les données de carte en **HTTPS** (`https://mapserver.visioglobe.com/` par défaut) : l'App Transport Security par défaut d'iOS l'autorise sans exception à déclarer.
-- Aucune permission (localisation, caméra, micro…) n'est demandée pour un affichage de carte standard. Si vous activez des fonctionnalités qui y font appel (ex. géolocalisation de l'utilisateur), ajoutez alors la clé `NSLocationWhenInUseUsageDescription` correspondante.
-- Si vous utilisez `GENERATE_INFOPLIST_FILE: YES` (Xcode moderne / XcodeGen), pensez à définir `CURRENT_PROJECT_VERSION` et `MARKETING_VERSION` dans les build settings : sans eux, `CFBundleVersion` est absent et l'installation sur simulateur/device échoue.
+- The SDK loads map data over **HTTPS** (`https://mapserver.visioglobe.com/` by default), which iOS's default App Transport Security allows without any exception.
+- No permission (location, camera, microphone…) is requested for standard map display. If you enable features that need one (e.g. the user's real location), add the matching key, such as `NSLocationWhenInUseUsageDescription`.
+- If you use `GENERATE_INFOPLIST_FILE: YES` (modern Xcode / XcodeGen), set `CURRENT_PROJECT_VERSION` and `MARKETING_VERSION` in the build settings: without them `CFBundleVersion` is missing and installing on a simulator/device fails.
 
 ## 7. Build & test
 
 ```bash
-xcodebuild -project MonApp.xcodeproj -scheme MonApp -sdk iphonesimulator \
+xcodebuild -project MyApp.xcodeproj -scheme MyApp -sdk iphonesimulator \
   -destination 'generic/platform=iOS Simulator' build
 ```
 
-Puis installation/lancement sur un simulateur démarré :
+Then install/launch on a booted simulator:
 
 ```bash
-xcrun simctl install <UDID> path/to/MonApp.app
-xcrun simctl launch <UDID> com.example.monapp
+xcrun simctl install <UDID> path/to/MyApp.app
+xcrun simctl launch <UDID> com.example.myapp
 ```
 
-Une capture d'écran (`xcrun simctl io <UDID> screenshot out.png`) permet de vérifier visuellement le rendu de la carte.
+A screenshot (`xcrun simctl io <UDID> screenshot out.png`) lets you check the map rendering visually.
 
-## Aller plus loin
+## Going further
 
-- **Communication native ↔ JS** : pour piloter la carte depuis Swift (ex. bouton natif qui centre la carte sur un POI), utilisez `webView.evaluateJavaScript(...)` pour appeler l'API JS, et un `WKScriptMessageHandler` pour faire remonter des événements JS (clic sur un POI, fin de navigation…) vers Swift.
-- **Personnalisation de l'UI**, **gestion des POI**, **routage multimodal**, **markers personnalisés** : voir la documentation complète sur [my.visioglobe.com/docs](https://my.visioglobe.com/docs/) et la démo officielle.
-- **Support** : [portail support Visioglobe](https://my.visioglobe.com/support).
+- **Native ↔ JS communication**: to drive the map from Swift (e.g. a native button centering the map on a POI) and to bring JS events (POI tap, navigation end…) back to Swift, see [`APP_SDK_COMMUNICATION.md`](./APP_SDK_COMMUNICATION.md).
+- **UI customization**, **POI management**, **multimodal routing**, **custom markers**: see the full documentation on [my.visioglobe.com/docs](https://my.visioglobe.com/docs/) and this repo's `docs/features/`.
+- **Support**: [Visioglobe support portal](https://my.visioglobe.com/support).

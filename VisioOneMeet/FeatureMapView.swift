@@ -2,14 +2,13 @@ import SwiftUI
 
 struct FeatureMapView: View {
     let feature: Feature
-    @StateObject private var bridge = VisioOneBridge()
 
     var body: some View {
         if feature == .authToken {
             // Code sample only: no map is loaded on this screen.
             AuthTokenSampleScreen(feature: feature)
         } else {
-            FeatureScreen(feature: feature, bridge: bridge)
+            FeatureScreen(feature: feature)
         }
     }
 }
@@ -35,26 +34,32 @@ private struct AuthTokenSampleScreen: View {
     }
 }
 
-/// The feature screen itself. Split from `FeatureMapView` so that
-/// screen-level state needing the bridge at construction time can be owned
-/// here as `@StateObject`s: the position-tracking simulation (and the
-/// geofencing zone) used by the four tracking screens lives at this level,
-/// not inside the `.sheet` content, so it survives the sheet being closed
-/// and reopened, and is stopped when the screen goes away. (The
-/// camera-showcase-carousel loop follows the same rule from the page itself,
-/// its state mirrored on the bridge.)
+/// The feature screen itself, one per map. Every piece of state the
+/// control panel shows is owned here (or on the bridge), never inside the
+/// `.sheet` content, which is recreated each time it opens: the values typed
+/// in the panel (`inputs`), the occupancy and position-tracking loops, the
+/// geofencing zone. So closing the panel to look at the map and reopening
+/// it shows the real current state, there is only ever one loop per screen,
+/// and leaving the screen stops everything. (The camera-showcase-carousel
+/// loop follows the same rule from the page itself, its state mirrored on
+/// the bridge.)
 private struct FeatureScreen: View {
     let feature: Feature
-    @ObservedObject var bridge: VisioOneBridge
+    @StateObject private var bridge: VisioOneBridge
+    @StateObject private var inputs: FeatureInputs
     @StateObject private var tracking: PositionTrackingController
     @StateObject private var geofence: GeofencingViewModel
+    @StateObject private var occupancy: OccupancySimulationController
     @State private var isControlPresented = false
 
-    init(feature: Feature, bridge: VisioOneBridge) {
+    init(feature: Feature) {
         self.feature = feature
-        self.bridge = bridge
+        let bridge = VisioOneBridge()
+        _bridge = StateObject(wrappedValue: bridge)
+        _inputs = StateObject(wrappedValue: FeatureInputs(feature: feature))
         _tracking = StateObject(wrappedValue: PositionTrackingController.forFeature(feature, bridge: bridge))
         _geofence = StateObject(wrappedValue: GeofencingViewModel(bridge: bridge))
+        _occupancy = StateObject(wrappedValue: OccupancySimulationController(bridge: bridge))
     }
 
     var body: some View {
@@ -113,10 +118,8 @@ private struct FeatureScreen: View {
             // native-ui-replacement's whole point is that the SDK's own
             // floor-selector widget starts hidden, unlike ui-part-visibility
             // (whose 5 switches leave the SDK's default alone until
-            // toggled). That deviation from the SDK's own default has to be
-            // enforced explicitly once `view` exists, not just implied by
-            // `isSdkFloorSelectorVisible`'s initial value on the bridge —
-            // see docs/features/native-ui-replacement.md.
+            // toggled): hide it explicitly once `view` exists. See
+            // docs/features/native-ui-replacement.md.
             guard feature == .nativeUiReplacement, newValue == .ready else { return }
             bridge.setSdkFloorSelectorVisible(false)
         }
@@ -132,8 +135,9 @@ private struct FeatureScreen: View {
         }
         .onDisappear {
             // Back to the menu: the map is recreated per screen, so the
-            // simulation must not outlive this one.
+            // simulations must not outlive this one.
             tracking.stopIfRunning()
+            occupancy.stopIfRunning()
             // Same for the camera tour, whose loop lives in the page: stop
             // it explicitly rather than relying on the WKWebView teardown.
             if feature == .cameraShowcaseCarousel {
@@ -168,14 +172,14 @@ private struct FeatureScreen: View {
 
     private func errorOverlay(message: String) -> some View {
         VStack(spacing: 16) {
-            Text("Impossible de charger la carte VisioOne")
+            Text("Could not load the VisioOne map")
                 .font(.headline)
                 .foregroundColor(.white)
-            Text(message)
+            Text(verbatim: message)
                 .font(.subheadline)
                 .foregroundColor(.white.opacity(0.8))
                 .multilineTextAlignment(.center)
-            Button("Réessayer") {
+            Button("Retry") {
                 bridge.reload()
             }
             .buttonStyle(.borderedProminent)
@@ -191,17 +195,17 @@ private struct FeatureScreen: View {
         case .resetView:
             ResetViewOverlay(bridge: bridge)
         case .occupancySimulated:
-            OccupancyOverlay(bridge: bridge)
+            OccupancyOverlay(controller: occupancy)
         case .poiClick:
             PoiClickOverlay(bridge: bridge)
         case .goToPoi:
-            GoToPoiOverlay(bridge: bridge)
+            GoToPoiOverlay(bridge: bridge, inputs: inputs)
         case .floorSelector:
             FloorSelectorOverlay(bridge: bridge)
         case .exploreMode:
             ExploreModeOverlay(bridge: bridge)
         case .computeNavigation:
-            ComputeNavigationOverlay(bridge: bridge)
+            ComputeNavigationOverlay(bridge: bridge, inputs: inputs)
         case .uiPartVisibility:
             UIPartVisibilityOverlay(bridge: bridge)
         case .nativeUiReplacement:
@@ -211,13 +215,13 @@ private struct FeatureScreen: View {
         case .cameraLockOnPosition:
             CameraLockOnPositionOverlay(bridge: bridge, controller: tracking)
         case .clickableSurface:
-            ClickableSurfaceOverlay(bridge: bridge)
+            ClickableSurfaceOverlay(bridge: bridge, inputs: inputs)
         case .customData:
-            CustomDataOverlay(bridge: bridge)
+            CustomDataOverlay(bridge: bridge, inputs: inputs)
         case .categoryHighlight:
             CategoryHighlightOverlay(bridge: bridge)
         case .dynamicPoiCrud:
-            DynamicPoiCrudOverlay(bridge: bridge)
+            DynamicPoiCrudOverlay(bridge: bridge, inputs: inputs)
         case .runtimeLocale:
             RuntimeLocaleOverlay(bridge: bridge)
         case .addLocale:
@@ -227,17 +231,17 @@ private struct FeatureScreen: View {
         case .customBaseUrl:
             CustomBaseUrlOverlay(bridge: bridge)
         case .customNavigationTrace:
-            CustomNavigationTraceOverlay(bridge: bridge)
+            CustomNavigationTraceOverlay(bridge: bridge, inputs: inputs)
         case .navigationExcludeModalities:
-            NavigationExcludeModalitiesOverlay(bridge: bridge)
+            NavigationExcludeModalitiesOverlay(bridge: bridge, inputs: inputs)
         case .accessibleMode:
-            AccessibleModeOverlay(bridge: bridge)
+            AccessibleModeOverlay(bridge: bridge, inputs: inputs)
         case .iconMarker3D:
-            IconMarkerOverlay(bridge: bridge)
+            IconMarkerOverlay(bridge: bridge, inputs: inputs)
         case .customTextLabel:
-            CustomTextLabelOverlay(bridge: bridge)
+            CustomTextLabelOverlay(bridge: bridge, inputs: inputs)
         case .htmlOverlayMarker:
-            HtmlOverlayMarkerOverlay(bridge: bridge)
+            HtmlOverlayMarkerOverlay(bridge: bridge, inputs: inputs)
         case .customTheme:
             CustomThemeOverlay(bridge: bridge)
         case .accuracyCircleStyle:
@@ -247,7 +251,7 @@ private struct FeatureScreen: View {
         case .cameraShowcaseCarousel:
             CameraShowcaseCarouselOverlay(bridge: bridge)
         case .authToken:
-            // Never reached: this feature has its own text-only screen.
+            // Not a map screen: FeatureMapView shows AuthTokenSampleScreen.
             EmptyView()
         }
     }

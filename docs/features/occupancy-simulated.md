@@ -7,34 +7,34 @@ Colors a POI's surface to reflect an occupancy status (free / soon busy / busy),
 ## SDK usage
 
 ```swift
-func updateOccupancy(planId: String, color: String?) {
-    guard let webView else { return }
-    let entry: [String: Any] = ["planId": planId, "color": color ?? NSNull()]
-    guard let data = try? JSONSerialization.data(withJSONObject: [entry]),
-          let json = String(data: data, encoding: .utf8) else { return }
-    webView.evaluateJavaScript("window.MapBridge.updateOccupancy(\(json))")
+func updateOccupancy(poiId: String, color: String?) {
+    // Arguments passed as real JS values, no string building.
+    webView?.callAsyncJavaScript(
+        "window.MapBridge.updateOccupancy(poiId, color);",
+        arguments: ["poiId": poiId, "color": color ?? NSNull()],
+        in: nil,
+        in: .page
+    )
 }
 ```
 
 ```js
 // window.MapBridge, JS side
-updateOccupancy: function (occupancy) {
-  if (!venue) return;
-  occupancy.forEach(function (entry) {
-    var poi = venue.pois.find(function (p) { return p.id === entry.planId; });
-    if (!poi) return;
-    poi.surfaces.forEach(function (surface) {
-      venue.updateSurface(surface, { color: entry.color });
-    });
+updateOccupancy: function (poiId, color) {
+  var poi = findPoi(poiId); // venue.pois.find(p => p.id === poiId)
+  if (!poi) return;
+  poi.surfaces.forEach(function (surface) {
+    venue.updateSurface(surface, { color: color || 'initial' });
   });
 },
 ```
 
 ## Things to know
 
-- `venue.pois.find(...)` fails silently if `planId` doesn't match any POI in the loaded map — nothing is raised on either side of the bridge.
-- Passing `color: nil` resets the surface to its default appearance. On the Swift side, `JSONSerialization` refuses a raw `nil` inside a dictionary/array, so it must be encoded explicitly as `NSNull()` — otherwise serialization fails silently (`try?` returns `nil`, and the JS call is never sent).
+- `venue.pois.find(...)` fails silently if `poiId` doesn't match any POI in the loaded map — nothing is raised on either side of the bridge.
+- **To reset a surface, pass `color: 'initial'`.** That is what restores the map's own color; `null`/`undefined` does not. Here `color: nil` on the Swift side becomes `'initial'` on the JS side (sent as `NSNull()`: a Swift `nil` can't be a dictionary value).
 - A POI can have multiple `surfaces`; `updateSurface` is called once per surface so the whole POI footprint changes color, not just one polygon.
+- **Run the update loop from exactly one place that outlives any transient UI** (here the map screen, not the control panel): otherwise reopening the panel can start a second loop and lose the handle needed to stop the first. Stop it, and reset the surface, when the screen goes away.
 - This demonstrates the **mechanism** of a real-time update, not a real IoT integration — a real deployment would replace the timer with a subscription to an actual data source (websocket, API polling) without changing `updateOccupancy` or the SDK call itself.
 
 ## Learn more

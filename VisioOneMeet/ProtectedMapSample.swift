@@ -21,7 +21,7 @@ import WebKit
 /// the protected map server, and the JWT. Injected into the page before its
 /// own scripts run (see `MapWebView.swift`), so the token never ends up in a
 /// URL.
-struct ProtectedMapOptions: Equatable {
+struct ProtectedMapOptions {
     let mapHash: String
     let baseURL: String
     let authorizationToken: String

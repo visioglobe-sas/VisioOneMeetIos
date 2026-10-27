@@ -27,10 +27,6 @@ enum CameraProjection: String, CaseIterable, Identifiable {
     }
 }
 
-/// A POI tapped on the map, forwarded by the SDK's `poiclick` event
-/// (see `docs/features/poi-click.md`). `name` mirrors whatever the SDK
-/// resolves as the POI's first label for the current locale — `nil` if the
-/// POI has no label at all.
 /// State of the camera-showcase-carousel tour, mirrored from `map.html`
 /// (which owns the loop) via the `carouselStateChanged` message. See
 /// `docs/features/camera-showcase-carousel.md`.
@@ -41,6 +37,10 @@ enum CarouselStatus: Equatable {
     case paused
 }
 
+/// A POI tapped on the map, forwarded by the SDK's `poiclick` event
+/// (see `docs/features/poi-click.md`). `name` mirrors whatever the SDK
+/// resolves as the POI's first label for the current locale — `nil` if the
+/// POI has no label at all.
 struct TappedPOI: Equatable {
     let id: String
     let name: String?
@@ -83,8 +83,8 @@ enum MapExploreMode: String, Equatable {
     case floor
 }
 
-/// A WGS84 point, as returned by `resolvePoiPosition` for a POI's marker,
-/// label, or image position (see `docs/features/simulated-position.md`).
+/// A WGS84 point, as returned by `resolvePoiPosition` for a POI's display
+/// position (see `docs/features/simulated-position.md`).
 struct GeoPosition: Equatable {
     let latitude: Double
     let longitude: Double
@@ -193,28 +193,51 @@ enum TextLabelSize: String, CaseIterable, Identifiable {
     }
 }
 
-/// Outcome of `placeTextLabel`/`updateTextLabelText`, one variant per
-/// discriminated result the JS side can report -- see
-/// `docs/features/custom-text-label.md`.
-enum TextLabelResult: Equatable {
+/// Outcome of the custom-text-label (`placeTextLabel`, `updateTextLabelText`)
+/// and html-overlay-marker (`placeHtmlBadge`, `updateHtmlBadgeText`) calls,
+/// one variant per result the JS side can report -- see
+/// `docs/features/custom-text-label.md` and
+/// `docs/features/html-overlay-marker.md`.
+enum MapOverlayResult: Equatable {
     case success
     case textRequired
     case poiNotFound
     case noPosition
-    case noLabel
-    case failure(String)
+    /// Nothing is placed to update (`'noLabel'` / `'noBadge'`).
+    case nothingPlaced
+    /// The SDK call itself threw (JS `{ status: 'error', message }`).
+    case sdkError(String)
+    /// The bridge call failed (WebKit error, unexpected response): what is
+    /// on the map is unknown, so the native state is left as it was.
+    case bridgeError(String)
 }
 
-/// Outcome of `placeHtmlBadge`/`updateHtmlBadgeText`, one variant per
-/// discriminated result the JS side can report -- see
-/// `docs/features/html-overlay-marker.md`.
-enum HtmlBadgeResult: Equatable {
-    case success
-    case textRequired
-    case poiNotFound
-    case noPosition
-    case noBadge
-    case failure(String)
+/// The SDK's 5 default UI parts that `view.setUIPartVisible()` can
+/// individually show/hide. Raw values match the JS SDK's `UIPart` type
+/// exactly (case-sensitive) — see docs/features/ui-part-visibility.md.
+enum MapUIPart: String, CaseIterable, Identifiable {
+    case floorSelector
+    case navigation
+    case poiDetails
+    case search
+    case userTracking
+
+    var id: String { rawValue }
+
+    var title: LocalizedStringResource {
+        switch self {
+        case .floorSelector:
+            return "feature.ui_part_visibility.part.floor_selector"
+        case .navigation:
+            return "feature.ui_part_visibility.part.navigation"
+        case .poiDetails:
+            return "feature.ui_part_visibility.part.poi_details"
+        case .search:
+            return "feature.ui_part_visibility.part.search"
+        case .userTracking:
+            return "feature.ui_part_visibility.part.user_tracking"
+        }
+    }
 }
 
 /// Color presets for the tracked position's precision circle, passed
@@ -279,8 +302,11 @@ struct NavigationTraceColors: Equatable {
 
 /// Two-way bridge to the SDK running inside `MapWebView`.
 ///
-/// - Native -> JS: calls into `window.MapBridge`, defined in `map.html`, via
-///   `evaluateJavaScript`.
+/// - Native -> JS: calls into `window.MapBridge`, defined in `map.html`,
+///   either via `evaluateJavaScript` (arguments JSON-encoded, or plain
+///   numbers/booleans/enum raw values computed on this side) or via
+///   `callAsyncJavaScript` (arguments passed as real JS values; used when the
+///   JS side returns a value or a Promise to wait for).
 /// - JS -> native: implements `WKScriptMessageHandler`, receiving `{type, message?}`
 ///   payloads posted from `map.html` via `window.webkit.messageHandlers.mapBridge`.
 ///   See `docs/APP_SDK_COMMUNICATION.md` for the pattern this follows.
@@ -376,23 +402,25 @@ final class VisioOneBridge: NSObject, WKScriptMessageHandler, ObservableObject {
     /// JSON-serializable, so only this key crosses the bridge.
     private static let iconImageId = "3d-icon-marker"
 
-    /// 96x96 PNG (blue disc + white star) passed as `createImage`'s `url`,
-    /// identical on every VisioOneMeet platform. Any image URL works,
+    /// 96x96 PNG (blue disc + white star) passed as `createImage`'s `url`.
+    /// Any image URL works,
     /// including `https://` ones. See `docs/features/3d-icon-marker.md`.
     static let iconDataURL = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAGAAAABgCAYAAADimHc4AAACBklEQVR42u3dWW4CMRBFUVbLarOn5JsIqRlsv6FuSfmE0O+IwS7bfbtR1GXdf34/+qMOhg2KcehgGIU+HsMt+DEQ7sHXQqQFXwWRHn4sQkvwkRCt4dsjtAdvDTEtfCuEqeFbIAgv/H/NQzAKfx6CYfhzEIzD70cQf+FFAGxFAEAIEBJ+J4LB7+04gKUIAAgBTEackQBfI4SG34MAgBDAaMIrHuAjBACEAGZTvhUAbyEAIAQwbHrUALyEAAAAcwGMe68V4V8iHAjJHeAI7mqAb0oNcOK1vwYgCP+di1E/334EMcDVRSmewx5gd60COPk6K94Bzy7u1OP4CAqrNQCCQdJ4gAcE0Uh1dPgrASYirB0Ri+dsRoa/A6AdYt+ckNksZn3wpwDSIc7NiprP69cFrwJwBdH3BUo6YLlN+qI2ZGZ7EgAA+AgqD99/ueKA8K0Q0veAxSMk7v+tQnABULQrvQZhQgBVv9gCQb00cXVoUQgOa0MBEALsCitvFlSEMBpAvT9gd0g5TRgATAGMe8Ru/ydul+TJULIBNiGMBlDvlFcE4rkGSISgCsICwOG0FGUIuQDCdaM121ydTs1S/wrJDP8gQN3pu44nJzo1RXLC56h6Ts4FAAROUCd8ELiLBuGDwJ2UCB8E7qhH8BMR4orgQZgdfjJEbRE8ELODd8KgBBjUQRSKuqo/fm7G7BpJ/VcAAAAASUVORK5CYII="
 
-    /// Whether the SDK's own default floor-selector widget is currently
-    /// shown alongside the app's native one, driven by the "Show SDK's own
-    /// floor selector" toggle on the `native-ui-replacement` screen. Starts
-    /// `false` (SDK widget hidden) — the opposite of the SDK's own default —
-    /// which `FeatureMapView` enforces with an explicit `setUIPartVisible`
-    /// call once the map turns `.ready`, since simply defaulting this
-    /// property to `false` wouldn't by itself change anything on the SDK
-    /// side. Kept on the bridge itself, not local view state, so it survives
-    /// the control sheet being dismissed and reopened, same idiom as
-    /// `highlightedCategoryId`/`currentLocale`. See
+    /// The SDK UI parts currently hidden via `setUIPartVisible` (empty =
+    /// the SDK default, everything shown). The SDK has no getter for this,
+    /// so it is tracked here, on the bridge, for both ui-part-visibility's
+    /// 5 switches and native-ui-replacement's toggle: they show the map's
+    /// real state whenever the panel is reopened. See
+    /// `docs/features/ui-part-visibility.md`.
+    @Published private(set) var hiddenUIParts: Set<MapUIPart> = []
+
+    /// Whether the SDK's own floor-selector widget is shown, for
+    /// native-ui-replacement. That screen hides it as soon as the map is
+    /// ready (`FeatureScreen` calls `setSdkFloorSelectorVisible(false)`), the
+    /// opposite of the SDK's default. See
     /// `docs/features/native-ui-replacement.md`.
-    @Published private(set) var isSdkFloorSelectorVisible = false
+    var isSdkFloorSelectorVisible: Bool { !hiddenUIParts.contains(.floorSelector) }
 
     /// The venue's current locale (`venue.currentLocale`), `nil` until first
     /// read via `refreshCurrentLocale()`. Kept on the bridge itself -- not
@@ -405,8 +433,7 @@ final class VisioOneBridge: NSObject, WKScriptMessageHandler, ObservableObject {
 
     /// The two keys `addSpanishLocale()` adds and reads back via `translate`,
     /// in display order: `'search-for-anything'` is one of the SDK's own
-    /// predefined UI keys (see `addLocale`'s TSDoc in the SDK's
-    /// `Translator.ts`), showing `addLocale` can override the SDK's own
+    /// predefined UI keys (listed in `addLocale`'s API reference), showing `addLocale` can override the SDK's own
     /// built-in UI text; `'welcome-message'` is a key the SDK itself has no
     /// built-in meaning for, showing this is a general-purpose key/value
     /// store also usable for the app's own strings. See
@@ -442,7 +469,7 @@ final class VisioOneBridge: NSObject, WKScriptMessageHandler, ObservableObject {
     /// The camera projection the next view gets created with (the
     /// `createView` `cameraProjection` option, threaded to `map.html` as a
     /// `?cameraProjection=` query item). Changing it changes
-    /// `FeatureMapView`'s `.id()` on `MapWebView`, which recreates the
+    /// `FeatureScreen`'s `.id()` on `MapWebView`, which recreates the
     /// `WKWebView` -- a fresh `loadVenue` + `createView`, the only way to
     /// switch projection since it's a creation-time option. Only the
     /// `camera-projection-toggle` feature changes it. See
@@ -485,6 +512,12 @@ final class VisioOneBridge: NSObject, WKScriptMessageHandler, ObservableObject {
     /// Set by `MapWebView.makeUIView` once the underlying `WKWebView` exists.
     weak var webView: WKWebView?
 
+    /// The page `MapWebView` loaded (with its query items) and the directory
+    /// WebKit may read from, kept so `reload()` can load it again even when
+    /// the first navigation failed (nothing to `WKWebView.reload()` then).
+    var pageURL: URL?
+    var pageReadAccessURL: URL?
+
     /// Recenters the camera on the venue via `view.goToGlobal()`.
     ///
     /// Silent no-op on the JS side if `view` isn't set yet (i.e. before
@@ -522,23 +555,20 @@ final class VisioOneBridge: NSObject, WKScriptMessageHandler, ObservableObject {
     }
 
     /// Updates a POI's surface color to reflect an occupancy status
-    /// (`color: nil` resets the surface to its normal appearance).
+    /// (`color: nil` resets the surface to its normal appearance). See
+    /// `docs/features/occupancy-simulated.md`.
     ///
-    /// Arguments are JSON-encoded via `JSONSerialization` before being
-    /// interpolated into the generated script — never raw string
-    /// concatenation, to avoid JS injection (same rule as the other
-    /// platforms' native<->JS bridges).
-    func updateOccupancy(planId: String, color: String?) {
-        guard let webView else { return }
-
-        let entry: [String: Any] = ["planId": planId, "color": color ?? NSNull()]
-        guard let data = try? JSONSerialization.data(withJSONObject: [entry]),
-              let json = String(data: data, encoding: .utf8) else {
-            return
-        }
-
-        webView.evaluateJavaScript("window.MapBridge.updateOccupancy(\(json))") { _, error in
-            if let error {
+    /// Arguments are passed by `callAsyncJavaScript` as real JS values —
+    /// never interpolated into the script as raw strings, to avoid JS
+    /// injection.
+    func updateOccupancy(poiId: String, color: String?) {
+        webView?.callAsyncJavaScript(
+            "window.MapBridge.updateOccupancy(poiId, color);",
+            arguments: ["poiId": poiId, "color": color ?? NSNull()],
+            in: nil,
+            in: .page
+        ) { result in
+            if case .failure(let error) = result {
                 print("VisioOneBridge: updateOccupancy failed: \(error.localizedDescription)")
             }
         }
@@ -548,8 +578,7 @@ final class VisioOneBridge: NSObject, WKScriptMessageHandler, ObservableObject {
     /// highlights its surfaces (see `docs/features/goto-poi.md`).
     ///
     /// `poiId` is JSON-encoded before being interpolated into the generated
-    /// script, same rule as `updateOccupancy` above — never raw string
-    /// concatenation.
+    /// script — never raw string concatenation.
     func goToPOI(_ poiId: String) {
         guard let webView else { return }
 
@@ -762,21 +791,19 @@ final class VisioOneBridge: NSObject, WKScriptMessageHandler, ObservableObject {
     }
 
     /// Shows/hides one of the SDK's own default UI overlays via
-    /// `view.setUIPartVisible()` (see `docs/features/ui-part-visibility.md`).
-    ///
-    /// `uiPart` must be one of the SDK's exact, case-sensitive `UIPart`
-    /// values (`floorSelector`, `navigation`, `poiDetails`, `search`,
-    /// `userTracking`) — see `MapUIPart` in `FeatureOverlays.swift`, which is
-    /// the only caller. It's JSON-encoded before being interpolated into the
-    /// generated script, same rule as the other bridge methods above.
-    func setUIPartVisible(_ uiPart: String, isVisible: Bool) {
-        guard let webView else { return }
+    /// `view.setUIPartVisible()` and records it in `hiddenUIParts` (see
+    /// `docs/features/ui-part-visibility.md`). The part's raw value is
+    /// JSON-encoded before being interpolated into the generated script.
+    func setUIPartVisible(_ part: MapUIPart, isVisible: Bool) {
+        guard let webView,
+              let data = try? JSONSerialization.data(withJSONObject: part.rawValue, options: [.fragmentsAllowed]),
+              let json = String(data: data, encoding: .utf8) else { return }
 
-        guard let data = try? JSONSerialization.data(withJSONObject: uiPart, options: [.fragmentsAllowed]),
-              let json = String(data: data, encoding: .utf8) else {
-            return
+        if isVisible {
+            hiddenUIParts.remove(part)
+        } else {
+            hiddenUIParts.insert(part)
         }
-
         webView.evaluateJavaScript("window.MapBridge.setUIPartVisible(\(json), \(isVisible))") { _, error in
             if let error {
                 print("VisioOneBridge: setUIPartVisible failed: \(error.localizedDescription)")
@@ -784,17 +811,10 @@ final class VisioOneBridge: NSObject, WKScriptMessageHandler, ObservableObject {
         }
     }
 
-    /// Shows/hides the SDK's own default floor-selector widget by delegating
-    /// to `setUIPartVisible('floorSelector', isVisible:)` above, additionally
-    /// mirroring the result into `isSdkFloorSelectorVisible` so the
-    /// `native-ui-replacement` toggle reflects the current state after the
-    /// control sheet is dismissed and reopened. The only caller of
-    /// `setUIPartVisible` for that specific part outside of
-    /// `UIPartVisibilityOverlay`'s generic 5-switch panel. See
-    /// `docs/features/native-ui-replacement.md`.
+    /// Shows/hides the SDK's own floor-selector widget, for
+    /// native-ui-replacement. See `docs/features/native-ui-replacement.md`.
     func setSdkFloorSelectorVisible(_ isVisible: Bool) {
-        isSdkFloorSelectorVisible = isVisible
-        setUIPartVisible("floorSelector", isVisible: isVisible)
+        setUIPartVisible(.floorSelector, isVisible: isVisible)
     }
 
     /// Resolves a POI's WGS84 position by ID via `window.MapBridge.resolvePoiPosition`
@@ -804,9 +824,11 @@ final class VisioOneBridge: NSObject, WKScriptMessageHandler, ObservableObject {
     /// lookup is a synchronous, side-effect-free JS computation (an array
     /// `find` + reading a nested `position`), so the existing native<->JS
     /// call already carries the answer back; no extra message channel is
-    /// needed. Returns `nil` if the POI id doesn't exist, or if it has no
-    /// marker/label/image to read a position from — both cases are
-    /// indistinguishable "POI not found" to the caller, matching the spec.
+    /// needed. The position is the POI's display position (first label,
+    /// else first image/marker, else first surface's centroid, see
+    /// `poiDisplayPosition` in `map.html`). Returns `nil` if the POI id
+    /// doesn't exist or has none of these — both are "POI not found" to the
+    /// caller.
     func resolvePoiPosition(_ poiId: String) async -> GeoPosition? {
         guard let webView else { return nil }
 
@@ -837,7 +859,7 @@ final class VisioOneBridge: NSObject, WKScriptMessageHandler, ObservableObject {
     /// `view.injectTrackedPosition()`, turning on `view.allowTracking` first
     /// (done JS-side, only when it isn't already on — re-setting it would
     /// re-lock the camera on every tick, see `map.html`). Meant to be called
-    /// repeatedly on a timer by the caller (see `SimulatedPositionOverlay`);
+    /// repeatedly on a timer by the caller (`PositionTrackingController`);
     /// this method itself is stateless. `latitude`/`longitude`/
     /// `precisionCircleRadius` are plain `Double`s computed on the Swift
     /// side (never raw user text), so they're interpolated directly into
@@ -898,15 +920,15 @@ final class VisioOneBridge: NSObject, WKScriptMessageHandler, ObservableObject {
     /// color to `'initial'` so the surface doesn't stay stuck on the custom
     /// color set while enabled.
     ///
-    /// `placeId` is JSON-encoded before being interpolated into the
+    /// `poiId` is JSON-encoded before being interpolated into the
     /// generated script, same rule as `goToPOI` above; `isInteractive` is a
     /// plain `Bool` computed on the Swift side (never raw user text), so
     /// it's interpolated directly, same as the boolean in
     /// `setUIPartVisible`.
-    func setSurfaceInteractive(_ placeId: String, isInteractive: Bool) {
+    func setSurfaceInteractive(_ poiId: String, isInteractive: Bool) {
         guard let webView else { return }
 
-        guard let data = try? JSONSerialization.data(withJSONObject: placeId, options: [.fragmentsAllowed]),
+        guard let data = try? JSONSerialization.data(withJSONObject: poiId, options: [.fragmentsAllowed]),
               let json = String(data: data, encoding: .utf8) else {
             return
         }
@@ -926,9 +948,8 @@ final class VisioOneBridge: NSObject, WKScriptMessageHandler, ObservableObject {
     /// `async` function — this is the only bridge method that needs to wait
     /// for a JS `Promise` to settle before reading a value back, hence
     /// `WKWebView.callAsyncJavaScript` rather than a plain
-    /// `evaluateJavaScript` string (see `docs/APP_SDK_COMMUNICATION.md`,
-    /// section 1.2, for why `evaluateJavaScript` alone doesn't wait on a
-    /// returned promise).
+    /// `evaluateJavaScript` string, which doesn't wait on a returned promise
+    /// (see `docs/APP_SDK_COMMUNICATION.md`, section 1.3).
     ///
     /// Returns `nil` on a bridge/JS failure (logged, not surfaced further);
     /// `.poiNotFound` when `poiId` doesn't resolve to a POI in the loaded
@@ -1093,10 +1114,10 @@ final class VisioOneBridge: NSObject, WKScriptMessageHandler, ObservableObject {
     /// + `'initial'`-to-revert idiom as `highlightCategory`). Fire-and-forget,
     /// called whenever the caller's point-in-polygon check flips the
     /// inside/outside state. See `docs/features/geofencing.md`.
-    func setZoneAlert(_ placeId: String, active: Bool) {
+    func setZoneAlert(_ poiId: String, active: Bool) {
         guard let webView else { return }
 
-        guard let data = try? JSONSerialization.data(withJSONObject: placeId, options: [.fragmentsAllowed]),
+        guard let data = try? JSONSerialization.data(withJSONObject: poiId, options: [.fragmentsAllowed]),
               let json = String(data: data, encoding: .utf8) else {
             return
         }
@@ -1110,8 +1131,8 @@ final class VisioOneBridge: NSObject, WKScriptMessageHandler, ObservableObject {
 
     /// Creates a bare POI (id/floor/categories only) via `venue.createPOI()`
     /// and attaches a visible `Label` to it via `venue.createLabel()`,
-    /// copying its position from an existing "anchor" POI's first label or
-    /// marker (see `docs/features/dynamic-poi-crud.md`). Like
+    /// copying its position from an existing "anchor" POI's display position
+    /// (see `docs/features/dynamic-poi-crud.md`). Like
     /// `loadCustomData` above, this is called via `WKWebView.callAsyncJavaScript`
     /// rather than a plain `evaluateJavaScript` string, so the result --
     /// success, a duplicate id (`venue.createPOI` throws `POIAlreadyExistsError`),
@@ -1204,9 +1225,9 @@ final class VisioOneBridge: NSObject, WKScriptMessageHandler, ObservableObject {
     }
 
     /// Places the demo icon in the 3D scene via `venue.createImage()`, owned
-    /// by the anchor POI `anchorId` and positioned at that POI's own
-    /// label/marker position -- the same anchor-position lookup
-    /// `createDynamicPOI` uses (`anchorPositionOf` in `map.html`). Any icon
+    /// by the anchor POI `anchorId` and positioned at that POI's display
+    /// position -- the same lookup `createDynamicPOI` uses
+    /// (`poiDisplayPosition` in `map.html`). Any icon
     /// already placed is removed first, so at most one exists at a time.
     /// Called via `callAsyncJavaScript`, same idiom as `createDynamicPOI`, so
     /// an unknown POI, a position-less POI, or `createImage` throwing all
@@ -1290,21 +1311,19 @@ final class VisioOneBridge: NSObject, WKScriptMessageHandler, ObservableObject {
     }
 
     /// Places free text on the map via `venue.createLabel()`, owned by the
-    /// anchor POI `anchorId` and positioned ~4 m off that POI's own
-    /// label/marker position -- the same anchor-position lookup
-    /// `createDynamicPOI`/`placeIcon` use (`anchorPositionOf` in
-    /// `map.html`) -- with the currently selected color/size/rotation. The
-    /// JS side validates everything (text, anchor POI, anchor position)
-    /// before touching an already placed label: a failed validation leaves
-    /// it in place and still usable; only once all checks pass is it
-    /// replaced, so at most one exists. Called via `callAsyncJavaScript`, same idiom as `placeIcon`, so every
-    /// outcome comes back as a normal value. See
-    /// `docs/features/custom-text-label.md`.
+    /// anchor POI `anchorId` and positioned ~4 m off that POI's display
+    /// position (`poiDisplayPosition` in `map.html`) -- with the currently
+    /// selected color/size/rotation. The JS side validates everything (text,
+    /// anchor POI, anchor position) before touching an already placed label:
+    /// a failed validation leaves it in place and still usable; only once
+    /// all checks pass is it replaced, so at most one exists. Called via
+    /// `callAsyncJavaScript`, same idiom as `placeIcon`, so every outcome
+    /// comes back as a normal value. See `docs/features/custom-text-label.md`.
     @MainActor
-    func placeTextLabel(anchorId: String, text: String) async -> TextLabelResult {
-        guard let webView else { return .failure("Map not ready") }
+    func placeTextLabel(anchorId: String, text: String) async -> MapOverlayResult {
+        guard let webView else { return .bridgeError("Map not ready") }
 
-        let result = await callTextLabelBridge(
+        let result = await callOverlayBridge(
             "return await window.MapBridge.placeTextLabel(anchorId, text, color, width, height, rotation);",
             arguments: [
                 "anchorId": anchorId,
@@ -1320,14 +1339,15 @@ final class VisioOneBridge: NSObject, WKScriptMessageHandler, ObservableObject {
         case .success:
             placedTextLabelAnchorId = anchorId
             placedTextLabelText = text
-        case .failure:
+        case .sdkError:
             // Validation passed and the previous label was already removed,
             // but venue.createLabel itself threw: nothing is placed anymore.
             placedTextLabelAnchorId = nil
             placedTextLabelText = nil
-        case .textRequired, .poiNotFound, .noPosition, .noLabel:
-            // Validation failed before anything was touched: the existing
-            // label (if any) is still placed and usable.
+        case .textRequired, .poiNotFound, .noPosition, .nothingPlaced, .bridgeError:
+            // Validation failed before anything was touched (the existing
+            // label, if any, is still placed and usable), or the bridge call
+            // itself failed (map state unknown): keep the native state.
             break
         }
         return result
@@ -1335,11 +1355,11 @@ final class VisioOneBridge: NSObject, WKScriptMessageHandler, ObservableObject {
 
     /// Changes the placed label's text via `venue.updateLabel(label, { text })`.
     @MainActor
-    func updateTextLabelText(_ text: String) async -> TextLabelResult {
-        guard let webView else { return .failure("Map not ready") }
-        guard placedTextLabelAnchorId != nil else { return .noLabel }
+    func updateTextLabelText(_ text: String) async -> MapOverlayResult {
+        guard let webView else { return .bridgeError("Map not ready") }
+        guard placedTextLabelAnchorId != nil else { return .nothingPlaced }
 
-        let result = await callTextLabelBridge(
+        let result = await callOverlayBridge(
             "return window.MapBridge.updateTextLabel({ text: text });",
             arguments: ["text": text],
             in: webView
@@ -1357,7 +1377,7 @@ final class VisioOneBridge: NSObject, WKScriptMessageHandler, ObservableObject {
         textLabelColor = color
         guard let webView, placedTextLabelAnchorId != nil else { return }
         Task { @MainActor in
-            _ = await callTextLabelBridge(
+            _ = await callOverlayBridge(
                 "return window.MapBridge.updateTextLabel({ color: color });",
                 arguments: ["color": color.rawValue],
                 in: webView
@@ -1373,7 +1393,7 @@ final class VisioOneBridge: NSObject, WKScriptMessageHandler, ObservableObject {
         textLabelSize = size
         guard let webView, placedTextLabelAnchorId != nil else { return }
         Task { @MainActor in
-            _ = await callTextLabelBridge(
+            _ = await callOverlayBridge(
                 "return window.MapBridge.updateTextLabel({ width: width, height: height });",
                 arguments: ["width": size.width, "height": size.height],
                 in: webView
@@ -1389,12 +1409,14 @@ final class VisioOneBridge: NSObject, WKScriptMessageHandler, ObservableObject {
         textLabelRotation = rotation
         guard let webView, placedTextLabelAnchorId != nil else { return }
         Task { @MainActor in
-            let result = await callTextLabelBridge(
+            let result = await callOverlayBridge(
                 "return window.MapBridge.setTextLabelRotation(rotation);",
                 arguments: ["rotation": rotation],
                 in: webView
             )
-            if result != .success {
+            // The label was removed, then recreating it threw: nothing is
+            // placed anymore. (A bridge failure leaves the state as is.)
+            if case .sdkError = result {
                 placedTextLabelAnchorId = nil
                 placedTextLabelText = nil
             }
@@ -1422,16 +1444,16 @@ final class VisioOneBridge: NSObject, WKScriptMessageHandler, ObservableObject {
         }
     }
 
-    /// Runs one of the text-label bridge functions and maps its
-    /// `{ status, message? }` result into a `TextLabelResult`.
+    /// Runs one of the text-label / HTML-badge bridge functions and maps its
+    /// `{ status, message? }` result into a `MapOverlayResult`.
     @MainActor
-    private func callTextLabelBridge(_ script: String, arguments: [String: Any], in webView: WKWebView) async -> TextLabelResult {
+    private func callOverlayBridge(_ script: String, arguments: [String: Any], in webView: WKWebView) async -> MapOverlayResult {
         await withCheckedContinuation { continuation in
             webView.callAsyncJavaScript(script, arguments: arguments, in: nil, in: .page) { result in
                 switch result {
                 case .success(let value):
                     guard let payload = value as? [String: Any], let status = payload["status"] as? String else {
-                        continuation.resume(returning: .failure("Unexpected bridge response"))
+                        continuation.resume(returning: .bridgeError("Unexpected bridge response"))
                         return
                     }
                     switch status {
@@ -1443,14 +1465,14 @@ final class VisioOneBridge: NSObject, WKScriptMessageHandler, ObservableObject {
                         continuation.resume(returning: .poiNotFound)
                     case "noPosition":
                         continuation.resume(returning: .noPosition)
-                    case "noLabel":
-                        continuation.resume(returning: .noLabel)
+                    case "noLabel", "noBadge":
+                        continuation.resume(returning: .nothingPlaced)
                     default:
-                        continuation.resume(returning: .failure(payload["message"] as? String ?? status))
+                        continuation.resume(returning: .sdkError(payload["message"] as? String ?? status))
                     }
                 case .failure(let error):
-                    print("VisioOneBridge: text label call failed: \(error.localizedDescription)")
-                    continuation.resume(returning: .failure(error.localizedDescription))
+                    print("VisioOneBridge: \(script) failed: \(error.localizedDescription)")
+                    continuation.resume(returning: .bridgeError(error.localizedDescription))
                 }
             }
         }
@@ -1458,9 +1480,9 @@ final class VisioOneBridge: NSObject, WKScriptMessageHandler, ObservableObject {
 
     /// Pins an interactive HTML badge on the map via
     /// `venue.createMarker({ poi, position, element })`, owned by the anchor
-    /// POI `anchorId` and positioned ~4 m off that POI's own label/marker
-    /// position -- the same anchor-position lookup as `placeTextLabel`
-    /// (`anchorPositionOf` in `map.html`). The badge element itself is
+    /// POI `anchorId` and positioned ~4 m off that POI's display position --
+    /// the same lookup as `placeTextLabel` (`poiDisplayPosition` in
+    /// `map.html`). The badge element itself is
     /// created by the JS side; its taps come back as `htmlBadgeTapped`
     /// messages (see `userContentController`). The JS side validates
     /// everything (text, anchor POI, anchor position) before touching an
@@ -1468,10 +1490,10 @@ final class VisioOneBridge: NSObject, WKScriptMessageHandler, ObservableObject {
     /// success the badge starts visible and the tap counter resets to 0.
     /// See `docs/features/html-overlay-marker.md`.
     @MainActor
-    func placeHtmlBadge(anchorId: String, text: String) async -> HtmlBadgeResult {
-        guard let webView else { return .failure("Map not ready") }
+    func placeHtmlBadge(anchorId: String, text: String) async -> MapOverlayResult {
+        guard let webView else { return .bridgeError("Map not ready") }
 
-        let result = await callHtmlBadgeBridge(
+        let result = await callOverlayBridge(
             "return await window.MapBridge.placeHtmlBadge(anchorId, text);",
             arguments: ["anchorId": anchorId, "text": text],
             in: webView
@@ -1482,14 +1504,15 @@ final class VisioOneBridge: NSObject, WKScriptMessageHandler, ObservableObject {
             placedHtmlBadgeText = text
             isHtmlBadgeVisible = true
             htmlBadgeTapCount = 0
-        case .failure:
+        case .sdkError:
             // Validation passed and the previous badge was already removed,
             // but venue.createMarker itself threw: nothing is placed anymore.
             placedHtmlBadgeAnchorId = nil
             placedHtmlBadgeText = nil
             isHtmlBadgeVisible = true
-        case .textRequired, .poiNotFound, .noPosition, .noBadge:
-            // Validation failed before anything was touched.
+        case .textRequired, .poiNotFound, .noPosition, .nothingPlaced, .bridgeError:
+            // Validation failed before anything was touched, or the bridge
+            // call itself failed (map state unknown): keep the native state.
             break
         }
         return result
@@ -1498,11 +1521,11 @@ final class VisioOneBridge: NSObject, WKScriptMessageHandler, ObservableObject {
     /// Changes the badge text -- a plain DOM edit on the marker's element on
     /// the JS side, no SDK call.
     @MainActor
-    func updateHtmlBadgeText(_ text: String) async -> HtmlBadgeResult {
-        guard let webView else { return .failure("Map not ready") }
-        guard placedHtmlBadgeAnchorId != nil else { return .noBadge }
+    func updateHtmlBadgeText(_ text: String) async -> MapOverlayResult {
+        guard let webView else { return .bridgeError("Map not ready") }
+        guard placedHtmlBadgeAnchorId != nil else { return .nothingPlaced }
 
-        let result = await callHtmlBadgeBridge(
+        let result = await callOverlayBridge(
             "return window.MapBridge.updateHtmlBadgeText(text);",
             arguments: ["text": text],
             in: webView
@@ -1519,7 +1542,7 @@ final class VisioOneBridge: NSObject, WKScriptMessageHandler, ObservableObject {
     func setHtmlBadgeVisible(_ isVisible: Bool) async {
         guard let webView, placedHtmlBadgeAnchorId != nil else { return }
 
-        let result = await callHtmlBadgeBridge(
+        let result = await callOverlayBridge(
             "return window.MapBridge.setHtmlBadgeVisible(isVisible);",
             arguments: ["isVisible": isVisible],
             in: webView
@@ -1547,40 +1570,6 @@ final class VisioOneBridge: NSObject, WKScriptMessageHandler, ObservableObject {
         ) { result in
             if case .failure(let error) = result {
                 print("VisioOneBridge: removeHtmlBadge failed: \(error.localizedDescription)")
-            }
-        }
-    }
-
-    /// Runs one of the HTML-badge bridge functions and maps its
-    /// `{ status, message? }` result into an `HtmlBadgeResult`.
-    @MainActor
-    private func callHtmlBadgeBridge(_ script: String, arguments: [String: Any], in webView: WKWebView) async -> HtmlBadgeResult {
-        await withCheckedContinuation { continuation in
-            webView.callAsyncJavaScript(script, arguments: arguments, in: nil, in: .page) { result in
-                switch result {
-                case .success(let value):
-                    guard let payload = value as? [String: Any], let status = payload["status"] as? String else {
-                        continuation.resume(returning: .failure("Unexpected bridge response"))
-                        return
-                    }
-                    switch status {
-                    case "placed", "updated":
-                        continuation.resume(returning: .success)
-                    case "textRequired":
-                        continuation.resume(returning: .textRequired)
-                    case "poiNotFound":
-                        continuation.resume(returning: .poiNotFound)
-                    case "noPosition":
-                        continuation.resume(returning: .noPosition)
-                    case "noBadge":
-                        continuation.resume(returning: .noBadge)
-                    default:
-                        continuation.resume(returning: .failure(payload["message"] as? String ?? status))
-                    }
-                case .failure(let error):
-                    print("VisioOneBridge: HTML badge call failed: \(error.localizedDescription)")
-                    continuation.resume(returning: .failure(error.localizedDescription))
-                }
             }
         }
     }
@@ -1789,7 +1778,7 @@ final class VisioOneBridge: NSObject, WKScriptMessageHandler, ObservableObject {
     /// SDK only stores them -- they're drawn at the next
     /// `injectTrackedPosition` -- and resets them to its defaults whenever
     /// tracking stops, so this is also called before the first inject of
-    /// every Start (see `AccuracyCircleStyleOverlay`). Safe to call while
+    /// every Start (`PositionTrackingController.onWillStartTracking`). Safe to call while
     /// not tracking. See `docs/features/accuracy-circle-style.md`.
     @MainActor
     func applyPositionTrackerStyle() {
@@ -1832,21 +1821,39 @@ final class VisioOneBridge: NSObject, WKScriptMessageHandler, ObservableObject {
         case .success(let value):
             guard let payload = value as? [String: Any], payload["status"] as? String == "applied" else {
                 let message = (value as? [String: Any])?["message"] as? String ?? "Unexpected bridge response"
-                print("VisioOneBridge: custom theme call failed: \(message)")
+                print("VisioOneBridge: call failed: \(message)")
                 return message
             }
             return nil
         case .failure(let error):
-            print("VisioOneBridge: custom theme call failed: \(error.localizedDescription)")
+            print("VisioOneBridge: call failed: \(error.localizedDescription)")
             return error.localizedDescription
         }
     }
 
-    /// Resets to `.loading` and reloads the page, rather than leaving the UI
-    /// stuck on `.error` until the next JS message arrives.
+    /// Resets to `.loading` and loads the page again (the error screen's
+    /// Retry button). `WKWebView.reload()` does nothing when the first
+    /// navigation never committed (e.g. `map.html` failed to load), so in
+    /// that case `pageURL` is loaded from scratch instead.
     func reload() {
         loadState = .loading
-        webView?.reload()
+        guard let webView else { return }
+        if webView.url == nil, let pageURL, let pageReadAccessURL {
+            webView.loadFileURL(pageURL, allowingReadAccessTo: pageReadAccessURL)
+        } else {
+            webView.reload()
+        }
+    }
+
+    /// Called by `MapWebView`'s navigation delegate when the page itself
+    /// failed to load (no SDK message will ever arrive then): shows the
+    /// error screen instead of an endless spinner. See
+    /// `docs/features/loading-state.md`.
+    func pageLoadFailed(_ error: Error) {
+        // A navigation cancelled by a newer one (e.g. Retry) is not a failure.
+        if (error as NSError).code == NSURLErrorCancelled { return }
+        print("VisioOneBridge: map page failed to load: \(error.localizedDescription)")
+        loadState = .error(error.localizedDescription)
     }
 
     /// Re-loads the venue against a caller-supplied `baseURL` -- unlike every
@@ -1854,18 +1861,19 @@ final class VisioOneBridge: NSObject, WKScriptMessageHandler, ObservableObject {
     /// on an already-loaded venue/view, so this can't just call into the
     /// existing page; it has to redo the whole page load. When `newBaseURL`
     /// differs from the current one, updating `baseURL` changes
-    /// `FeatureMapView`'s `.id(bridge.baseURL)` on `MapWebView`, which makes
+    /// `FeatureScreen`'s `.id(...)` on `MapWebView` (built from `baseURL`
+    /// and `requestedCameraProjection`), which makes
     /// SwiftUI tear down and recreate the underlying `WKWebView` from
     /// scratch (a fresh `loadFileURL` call with the new `?baseURL=` query
     /// item, see `MapWebView.swift`) -- otherwise (retrying the exact same
-    /// value) the `.id()` wouldn't change, so this falls back to a plain
-    /// `webView.reload()` instead. Either way `loadState` resets to
+    /// value) the `.id()` wouldn't change, so this falls back to `reload()`
+    /// instead. Either way `loadState` resets to
     /// `.loading` first so the UI doesn't sit on a stale `.ready`/`.error`
     /// while the new load is in flight. See `docs/features/custom-base-url.md`.
     func reloadWithBaseURL(_ newBaseURL: String) {
         loadState = .loading
         if newBaseURL == baseURL {
-            webView?.reload()
+            reload()
         } else {
             baseURL = newBaseURL
         }
@@ -1902,14 +1910,14 @@ final class VisioOneBridge: NSObject, WKScriptMessageHandler, ObservableObject {
             }
             loadState = .ready
         case "error":
-            loadState = .error(body["message"] as? String ?? "Erreur inconnue du SDK VisioOne")
+            loadState = .error(body["message"] as? String ?? String(localized: "Unknown VisioOne SDK error"))
         case Self.unauthorizedMessageType:
             // auth-token sample: loadVenue rejected with the SDK's
             // UnauthorizedError, reported apart from other load errors.
             // See docs/features/auth-token.md.
             let detail = body["message"] as? String ?? ""
             print("VisioOneBridge: protected map rejected: token invalid, expired or missing (\(detail))")
-            loadState = .error("Token invalid, expired or missing. \(detail)")
+            loadState = .error(String(localized: "Token invalid, expired or missing. \(detail)"))
         case "poiSelected":
             guard let payload = body["message"] as? [String: Any],
                   let id = payload["id"] as? String else { return }

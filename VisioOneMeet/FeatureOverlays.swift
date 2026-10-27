@@ -15,63 +15,156 @@ struct ResetViewOverlay: View {
     }
 }
 
+/// The values typed in a feature's control panel (POI ids, texts, route
+/// options...), owned by the feature screen rather than by the panel: the
+/// panel is recreated every time it opens, so keeping them here means
+/// closing the panel (to look at the map) and reopening it shows the same
+/// values. One instance per screen, pre-filled from `DemoMap` for that
+/// screen's feature.
+@MainActor
+final class FeatureInputs: ObservableObject {
+    /// The screen's main POI id field (goto-poi, clickable-surface,
+    /// custom-data, and the anchor POI of dynamic-poi-crud, 3d-icon-marker,
+    /// custom-text-label and html-overlay-marker).
+    @Published var poiId: String
+    /// Itinerary screens: origin / destination POI ids.
+    @Published var origin: String
+    @Published var destination: String
+    /// navigation-exclude-modalities: "Avoid elevator".
+    @Published var avoidElevator = false
+    /// accessible-mode: "Accessible route".
+    @Published var isAccessible = false
+    /// custom-navigation-trace: the color preset applied to the trace.
+    @Published var tracePreset: NavigationTracePreset = .visioglobeBlue
+    /// dynamic-poi-crud: id of the POI to create.
+    @Published var newPoiId: String
+    /// Free text: dynamic-poi-crud label, custom-text-label text,
+    /// html-overlay-marker badge text.
+    @Published var text: String
+    /// custom-data: the last lookup shown under the field.
+    @Published var customDataLookup: CustomDataLookup?
+    @Published var customDataLoadFailed = false
+
+    init(feature: Feature) {
+        switch feature {
+        case .goToPoi: poiId = DemoMap.gotoPoiId
+        case .clickableSurface: poiId = DemoMap.clickableSurfacePlaceId
+        case .customData: poiId = DemoMap.customDataPlaceId
+        case .dynamicPoiCrud, .iconMarker3D, .customTextLabel, .htmlOverlayMarker: poiId = DemoMap.anchorPoiId
+        default: poiId = ""
+        }
+        switch feature {
+        case .computeNavigation, .customNavigationTrace:
+            origin = DemoMap.itineraryFrom
+            destination = DemoMap.itineraryTo
+        case .navigationExcludeModalities:
+            origin = DemoMap.excludeModalitiesFrom
+            destination = DemoMap.excludeModalitiesTo
+        case .accessibleMode:
+            origin = DemoMap.accessibleFrom
+            destination = DemoMap.accessibleTo
+        default:
+            origin = ""
+            destination = ""
+        }
+        newPoiId = feature == .dynamicPoiCrud ? DemoMap.newPoiId : ""
+        switch feature {
+        case .dynamicPoiCrud: text = DemoMap.dynamicPoiLabelText
+        case .customTextLabel: text = DemoMap.textLabelText
+        case .htmlOverlayMarker: text = DemoMap.htmlBadgeText
+        default: text = ""
+        }
+    }
+
+    var trimmedPoiId: String { poiId.trimmingCharacters(in: .whitespaces) }
+}
+
 // Stand-in for a real occupancy sensor feed: cycles a POI's surface through
 // these colors on a timer. See docs/features/occupancy-simulated.md.
 private let occupancyColors = ["#2ECC71", "#F1C40F", "#E74C3C"]
 private let occupancyIntervalNanoseconds: UInt64 = 2_500_000_000
 
+/// Drives the occupancy-simulated loop. Owned by the feature screen, not by
+/// the panel (same model as `PositionTrackingController`): closing the panel
+/// leaves the simulation running, reopening it shows the running state (Stop
+/// button, same POI id), there is only ever one loop per screen, and leaving
+/// the screen stops it (`stopIfRunning()`).
+@MainActor
+final class OccupancySimulationController: ObservableObject {
+    @Published var placeId = DemoMap.occupancyPlaceId
+    @Published private(set) var isSimulating = false
+
+    private let bridge: VisioOneBridge
+    private var simulationTask: Task<Void, Never>?
+    private var simulatedPlaceId: String?
+
+    init(bridge: VisioOneBridge) {
+        self.bridge = bridge
+    }
+
+    var canStart: Bool { !placeId.trimmingCharacters(in: .whitespaces).isEmpty }
+
+    func toggle() {
+        if isSimulating {
+            stop()
+        } else {
+            start()
+        }
+    }
+
+    func start() {
+        guard simulationTask == nil else { return }
+        let target = placeId.trimmingCharacters(in: .whitespaces)
+        guard !target.isEmpty else { return }
+
+        isSimulating = true
+        simulatedPlaceId = target
+        simulationTask = Task { [bridge] in
+            var colorIndex = 0
+            while !Task.isCancelled {
+                bridge.updateOccupancy(poiId: target, color: occupancyColors[colorIndex])
+                colorIndex = (colorIndex + 1) % occupancyColors.count
+                try? await Task.sleep(nanoseconds: occupancyIntervalNanoseconds)
+            }
+        }
+    }
+
+    func stop() {
+        simulationTask?.cancel()
+        simulationTask = nil
+        isSimulating = false
+        // Reset the surface rather than leaving it stuck on the last color.
+        if let simulatedPlaceId {
+            bridge.updateOccupancy(poiId: simulatedPlaceId, color: nil)
+        }
+        simulatedPlaceId = nil
+    }
+
+    /// Called when the feature screen goes away (back to the menu).
+    func stopIfRunning() {
+        guard isSimulating else { return }
+        stop()
+    }
+}
+
 struct OccupancyOverlay: View {
-    @ObservedObject var bridge: VisioOneBridge
-    @State private var placeId = DemoMap.occupancyPlaceId
-    @State private var simulatingOccupancy = false
-    @State private var occupancySimulationTask: Task<Void, Never>?
+    @ObservedObject var controller: OccupancySimulationController
 
     var body: some View {
-        HStack {
-            TextField("Place ID", text: $placeId)
-                .textFieldStyle(.roundedBorder)
-                .autocorrectionDisabled()
+        VStack(alignment: .leading, spacing: 12) {
+            PoiIdField("Place ID", text: $controller.placeId)
+                .disabled(controller.isSimulating)
 
-            Button(simulatingOccupancy ? "Stop occupancy simulation" : "Simulate occupancy") {
-                toggleOccupancySimulation()
+            Button {
+                controller.toggle()
+            } label: {
+                Text(controller.isSimulating ? "Stop occupancy simulation" : "Simulate occupancy" as LocalizedStringKey)
+                    .frame(maxWidth: .infinity)
             }
+            .buttonStyle(.borderedProminent)
+            .disabled(!controller.isSimulating && !controller.canStart)
         }
         .padding()
-    }
-
-    private func toggleOccupancySimulation() {
-        if simulatingOccupancy {
-            stopOccupancySimulation()
-        } else {
-            startOccupancySimulation()
-        }
-    }
-
-    private func startOccupancySimulation() {
-        let targetPlaceId = placeId.trimmingCharacters(in: .whitespaces)
-        guard !targetPlaceId.isEmpty else { return }
-
-        simulatingOccupancy = true
-        occupancySimulationTask = Task {
-            var colorIndex = 0
-            bridge.updateOccupancy(planId: targetPlaceId, color: occupancyColors[colorIndex])
-
-            while !Task.isCancelled {
-                try? await Task.sleep(nanoseconds: occupancyIntervalNanoseconds)
-                guard !Task.isCancelled else { break }
-                colorIndex = (colorIndex + 1) % occupancyColors.count
-                bridge.updateOccupancy(planId: targetPlaceId, color: occupancyColors[colorIndex])
-            }
-
-            // Reset the surface rather than leaving it stuck on the last simulated color.
-            bridge.updateOccupancy(planId: targetPlaceId, color: nil)
-        }
-    }
-
-    private func stopOccupancySimulation() {
-        occupancySimulationTask?.cancel()
-        occupancySimulationTask = nil
-        simulatingOccupancy = false
     }
 }
 
@@ -79,31 +172,22 @@ struct OccupancyOverlay: View {
 /// `view.goToPOI()`. See docs/features/goto-poi.md.
 struct GoToPoiOverlay: View {
     @ObservedObject var bridge: VisioOneBridge
-    @State private var placeId = DemoMap.gotoPoiId
+    @ObservedObject var inputs: FeatureInputs
 
     var body: some View {
         HStack {
-            TextField("Place ID", text: $placeId)
-                .textFieldStyle(.roundedBorder)
-                .autocorrectionDisabled()
-                .textInputAutocapitalization(.never)
+            PoiIdField("Place ID", text: $inputs.poiId)
 
             Button("Go") {
-                goToPlace()
+                bridge.goToPOI(inputs.trimmedPoiId)
             }
-            .disabled(placeId.trimmingCharacters(in: .whitespaces).isEmpty)
+            .disabled(inputs.trimmedPoiId.isEmpty)
 
             Button("Clear") {
                 bridge.clearPOI()
             }
         }
         .padding()
-    }
-
-    private func goToPlace() {
-        let targetPlaceId = placeId.trimmingCharacters(in: .whitespaces)
-        guard !targetPlaceId.isEmpty else { return }
-        bridge.goToPOI(targetPlaceId)
     }
 }
 
@@ -245,7 +329,7 @@ struct ExploreModeOverlay: View {
         .padding()
     }
 
-    private var hint: String {
+    private var hint: LocalizedStringKey {
         switch bridge.currentExploreMode {
         case .global:
             return "Normal outside view. Fly the camera into a building to open it, or tap \"Building\" now for the exploded floor carousel."
@@ -268,7 +352,7 @@ struct ExploreModeOverlay: View {
 /// verbatim via `FloorSelectorList` above, not reimplemented — is a
 /// complete, fully-functional replacement for the SDK's own default
 /// floor-selector widget, via `view.setUIPartVisible('floorSelector', ...)`.
-/// The SDK widget starts hidden (`FeatureMapView` enforces
+/// The SDK widget starts hidden (`FeatureScreen` enforces
 /// `bridge.setSdkFloorSelectorVisible(false)` once the map turns `.ready`),
 /// so only the app's picker is visible/functional by default; the "Show
 /// SDK's own floor selector" toggle below reveals the SDK's widget alongside
@@ -303,47 +387,30 @@ struct NativeUiReplacementOverlay: View {
 
 /// Lets the user type two Place IDs and compute/display a route between
 /// them via `venue.computeNavigation()` + `view.setCurrentNavigationTrace()`.
-/// See docs/features/compute-navigation.md. `isAccessible` is hardcoded to
-/// `false` here — same choice as the React Native sibling — to keep this a
-/// minimal demonstration of the bridge call rather than a full accessibility
-/// toggle UI.
+/// See docs/features/compute-navigation.md. `isAccessible` is `false` here,
+/// to keep this a minimal demonstration of the call (accessible-mode has the
+/// toggle).
 struct ComputeNavigationOverlay: View {
     @ObservedObject var bridge: VisioOneBridge
-    @State private var originPlaceId = DemoMap.itineraryFrom
-    @State private var destinationPlaceId = DemoMap.itineraryTo
+    @ObservedObject var inputs: FeatureInputs
 
-    private var canComputeNavigation: Bool {
-        !originPlaceId.trimmingCharacters(in: .whitespaces).isEmpty
-            && !destinationPlaceId.trimmingCharacters(in: .whitespaces).isEmpty
+    private var route: (origin: String, destination: String)? {
+        OriginDestinationFields.trimmed(inputs.origin, inputs.destination)
     }
 
     var body: some View {
         VStack(spacing: 12) {
-            TextField("From (Place ID)", text: $originPlaceId)
-                .textFieldStyle(.roundedBorder)
-                .autocorrectionDisabled()
-                .textInputAutocapitalization(.never)
-
-            TextField("To (Place ID)", text: $destinationPlaceId)
-                .textFieldStyle(.roundedBorder)
-                .autocorrectionDisabled()
-                .textInputAutocapitalization(.never)
+            OriginDestinationFields(origin: $inputs.origin, destination: $inputs.destination)
 
             Button("Itinerary") {
-                computeNavigation()
+                guard let route else { return }
+                bridge.computeNavigation(origin: route.origin, destination: route.destination, isAccessible: false)
             }
             .frame(maxWidth: .infinity)
             .buttonStyle(.borderedProminent)
-            .disabled(!canComputeNavigation)
+            .disabled(route == nil)
         }
         .padding()
-    }
-
-    private func computeNavigation() {
-        let origin = originPlaceId.trimmingCharacters(in: .whitespaces)
-        let destination = destinationPlaceId.trimmingCharacters(in: .whitespaces)
-        guard !origin.isEmpty, !destination.isEmpty else { return }
-        bridge.computeNavigation(origin: origin, destination: destination, isAccessible: false)
     }
 }
 
@@ -353,8 +420,7 @@ struct ComputeNavigationOverlay: View {
 /// SDK's own documented defaults (`Line.color` `'#0094F0'`, the inactive/
 /// preview segment `'#C5C5C5'`) as an explicit preset -- there is no SDK
 /// "reset to default" call, see `docs/features/custom-navigation-trace.md` --
-/// rather than a fake no-op. Same 4 presets as the Vue sibling app's
-/// `TRACE_PRESETS`, so the catalogue stays consistent across platforms.
+/// rather than a fake no-op.
 enum NavigationTracePreset: String, CaseIterable, Identifiable {
     case visioglobeBlue
     case brandRed
@@ -404,7 +470,7 @@ enum NavigationTracePreset: String, CaseIterable, Identifiable {
     /// most visually distinctive part of each preset.
     var swatchColor: Color { Color(hex: colors.progressColor) }
 
-    var label: String {
+    var label: LocalizedStringKey {
         switch self {
         case .visioglobeBlue: return "VisioGlobe blue"
         case .brandRed: return "Brand red"
@@ -414,69 +480,36 @@ enum NavigationTracePreset: String, CaseIterable, Identifiable {
     }
 }
 
-private extension Color {
-    /// Minimal `#RRGGBB` parser for the fixed swatch colors above -- every
-    /// value in `NavigationTracePreset` is a known-good hex string, so this
-    /// doesn't need to handle shorthand/alpha forms.
-    init(hex: String) {
-        var sanitized = hex.trimmingCharacters(in: .whitespacesAndNewlines)
-        if sanitized.hasPrefix("#") { sanitized.removeFirst() }
-        var value: UInt64 = 0
-        Scanner(string: sanitized).scanHexInt64(&value)
-        self.init(
-            red: Double((value & 0xFF0000) >> 16) / 255,
-            green: Double((value & 0x00FF00) >> 8) / 255,
-            blue: Double(value & 0x0000FF) / 255
-        )
-    }
-}
-
 /// Restyles the route drawn by `compute-navigation` with a fixed color
 /// palette via `venue.updateNavigationTrace()`
-/// (`VisioOneBridge.updateNavigationTrace`), reusing the same
-/// origin/destination itinerary fields and `Itinerary` action as
-/// `ComputeNavigationOverlay` above rather than duplicating that logic --
-/// same idiom as `CameraLockOnPositionOverlay` reusing
-/// `SimulatedPositionOverlay`'s tracking loop. See
-/// `docs/features/custom-navigation-trace.md`.
+/// (`VisioOneBridge.updateNavigationTrace`), on top of the same
+/// origin/destination fields and `Itinerary` action as
+/// `ComputeNavigationOverlay`. See `docs/features/custom-navigation-trace.md`.
 ///
-/// `selectedPreset` is remembered on this screen so the next computed
-/// itinerary is immediately styled with it too (`computeNavigation()`
-/// below), and tapping a swatch re-applies it to whatever trace is already
-/// displayed (`applyPreset(_:)`) -- mirroring the Vue sibling's
-/// `applyTracePreset`/`computeStyledItinerary`. Tapping a swatch before any
-/// itinerary has been computed is a harmless no-op: `updateNavigationTrace`
-/// is a no-op JS-side when no trace exists yet (see `map.html`), so no extra
-/// state is needed here to guard against it.
+/// The selected preset (kept in `FeatureInputs`, so it survives the panel
+/// being reopened) styles the next computed itinerary too, and tapping a
+/// swatch re-applies it to whatever trace is already displayed. Tapping a
+/// swatch before any itinerary exists is a harmless no-op on the JS side.
 struct CustomNavigationTraceOverlay: View {
     @ObservedObject var bridge: VisioOneBridge
-    @State private var originPlaceId = DemoMap.itineraryFrom
-    @State private var destinationPlaceId = DemoMap.itineraryTo
-    @State private var selectedPreset: NavigationTracePreset = .visioglobeBlue
+    @ObservedObject var inputs: FeatureInputs
 
-    private var canComputeNavigation: Bool {
-        !originPlaceId.trimmingCharacters(in: .whitespaces).isEmpty
-            && !destinationPlaceId.trimmingCharacters(in: .whitespaces).isEmpty
+    private var route: (origin: String, destination: String)? {
+        OriginDestinationFields.trimmed(inputs.origin, inputs.destination)
     }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            TextField("From (Place ID)", text: $originPlaceId)
-                .textFieldStyle(.roundedBorder)
-                .autocorrectionDisabled()
-                .textInputAutocapitalization(.never)
-
-            TextField("To (Place ID)", text: $destinationPlaceId)
-                .textFieldStyle(.roundedBorder)
-                .autocorrectionDisabled()
-                .textInputAutocapitalization(.never)
+            OriginDestinationFields(origin: $inputs.origin, destination: $inputs.destination)
 
             Button("Itinerary") {
-                computeNavigation()
+                guard let route else { return }
+                bridge.computeNavigation(origin: route.origin, destination: route.destination, isAccessible: false)
+                bridge.updateNavigationTrace(inputs.tracePreset.colors)
             }
             .frame(maxWidth: .infinity)
             .buttonStyle(.borderedProminent)
-            .disabled(!canComputeNavigation)
+            .disabled(route == nil)
 
             Divider()
 
@@ -495,29 +528,17 @@ struct CustomNavigationTraceOverlay: View {
 
     private func swatch(for preset: NavigationTracePreset) -> some View {
         Button {
-            applyPreset(preset)
+            inputs.tracePreset = preset
+            bridge.updateNavigationTrace(preset.colors)
         } label: {
             Circle()
                 .fill(preset.swatchColor)
                 .frame(width: 36, height: 36)
                 .overlay(
-                    Circle().stroke(Color.primary, lineWidth: preset == selectedPreset ? 3 : 0)
+                    Circle().stroke(Color.primary, lineWidth: preset == inputs.tracePreset ? 3 : 0)
                 )
         }
-        .accessibilityLabel(preset.label)
-    }
-
-    private func computeNavigation() {
-        let origin = originPlaceId.trimmingCharacters(in: .whitespaces)
-        let destination = destinationPlaceId.trimmingCharacters(in: .whitespaces)
-        guard !origin.isEmpty, !destination.isEmpty else { return }
-        bridge.computeNavigation(origin: origin, destination: destination, isAccessible: false)
-        bridge.updateNavigationTrace(selectedPreset.colors)
-    }
-
-    private func applyPreset(_ preset: NavigationTracePreset) {
-        selectedPreset = preset
-        bridge.updateNavigationTrace(preset.colors)
+        .accessibilityLabel(Text(preset.label))
     }
 }
 
@@ -533,181 +554,102 @@ struct CustomNavigationTraceOverlay: View {
 /// on every change" idiom as the origin/destination fields themselves.
 struct NavigationExcludeModalitiesOverlay: View {
     @ObservedObject var bridge: VisioOneBridge
-    @State private var originPlaceId = DemoMap.excludeModalitiesFrom
-    @State private var destinationPlaceId = DemoMap.excludeModalitiesTo
-    @State private var avoidElevator = false
+    @ObservedObject var inputs: FeatureInputs
 
-    /// The real SDK attribute string for an elevator hop on this app's
-    /// shared demo venue -- *not* `'elevator'`, despite the SDK's own
-    /// `excludedAttributes` JSDoc comment suggesting otherwise (confirmed
-    /// live: excluding `'lift'` reroutes a route that otherwise takes a
-    /// single elevator hop through stairways instead; excluding `'elevator'`
-    /// has no effect). See `docs/features/navigation-exclude-modalities.md`.
+    /// The SDK attribute string for an elevator hop on this app's demo map:
+    /// `'lift'`, *not* `'elevator'` (excluding `'elevator'` has no effect).
+    /// See `docs/features/navigation-exclude-modalities.md`.
     private static let elevatorAttribute = "lift"
 
-    private var canComputeNavigation: Bool {
-        !originPlaceId.trimmingCharacters(in: .whitespaces).isEmpty
-            && !destinationPlaceId.trimmingCharacters(in: .whitespaces).isEmpty
+    private var route: (origin: String, destination: String)? {
+        OriginDestinationFields.trimmed(inputs.origin, inputs.destination)
     }
 
     var body: some View {
         VStack(spacing: 12) {
-            TextField("From (Place ID)", text: $originPlaceId)
-                .textFieldStyle(.roundedBorder)
-                .autocorrectionDisabled()
-                .textInputAutocapitalization(.never)
-
-            TextField("To (Place ID)", text: $destinationPlaceId)
-                .textFieldStyle(.roundedBorder)
-                .autocorrectionDisabled()
-                .textInputAutocapitalization(.never)
+            OriginDestinationFields(origin: $inputs.origin, destination: $inputs.destination)
 
             HStack {
                 Button("Itinerary") {
-                    computeNavigation()
+                    guard let route else { return }
+                    bridge.computeNavigationExcludingModalities(
+                        origin: route.origin,
+                        destination: route.destination,
+                        isAccessible: false,
+                        excludedAttributes: inputs.avoidElevator ? [Self.elevatorAttribute] : []
+                    )
                 }
                 .buttonStyle(.borderedProminent)
-                .disabled(!canComputeNavigation)
+                .disabled(route == nil)
 
                 Button("Clear") {
-                    originPlaceId = ""
-                    destinationPlaceId = ""
+                    inputs.origin = ""
+                    inputs.destination = ""
                     bridge.clearNavigationTrace()
                 }
             }
             .frame(maxWidth: .infinity)
 
-            Toggle("Avoid elevator", isOn: $avoidElevator)
+            Toggle("Avoid elevator", isOn: $inputs.avoidElevator)
         }
         .padding()
-    }
-
-    private func computeNavigation() {
-        let origin = originPlaceId.trimmingCharacters(in: .whitespaces)
-        let destination = destinationPlaceId.trimmingCharacters(in: .whitespaces)
-        guard !origin.isEmpty, !destination.isEmpty else { return }
-        bridge.computeNavigationExcludingModalities(
-            origin: origin,
-            destination: destination,
-            isAccessible: false,
-            excludedAttributes: avoidElevator ? [Self.elevatorAttribute] : []
-        )
     }
 }
 
 /// Lets the user type two Place IDs and compute/display a route between
-/// them like `ComputeNavigationOverlay` above, but additionally exposes an
-/// "Accessible route" toggle that forwards `isAccessible` to
-/// `VisioOneBridge.computeNavigation` -- the exact same bridge method
-/// `ComputeNavigationOverlay` already calls with `isAccessible` hardcoded to
-/// `false`. No new bridge/JS method was needed: `computeNavigation` already
-/// threads `isAccessible` all the way to `venue.computeNavigation()` (see
-/// `map.html`) -- this overlay is the first screen in this repo that
-/// actually flips it. See `docs/features/accessible-mode.md`.
-///
-/// `isAccessible: true` is the opposite direction from
-/// `navigation-exclude-modalities`'s "Avoid elevator" toggle: instead of
-/// manually excluding `'lift'` to force a stairway detour, it excludes the
-/// venue's own published accessible-route exclusions (stairs-only segments
-/// on this venue) to force a lift/ramp route.
-///
-/// Reuses `VisioOneBridge.clearNavigationTrace()` (added for
-/// `navigation-exclude-modalities`) for the "Clear" button, same as that
-/// overlay -- it clears whatever trace is current regardless of which
-/// bridge method created it.
-///
-/// The toggle is only read when "Itinerary" is pressed -- flipping it alone
-/// does not recompute an already-displayed route, same "read on submit, not
-/// on every change" idiom as the origin/destination fields themselves and
-/// as `NavigationExcludeModalitiesOverlay`'s "Avoid elevator" toggle.
+/// them like `ComputeNavigationOverlay` above, plus an "Accessible route"
+/// toggle forwarded as `venue.computeNavigation()`'s `isAccessible` option.
+/// It is the opposite direction from navigation-exclude-modalities' "Avoid
+/// elevator": instead of excluding `'lift'` to force a stairway detour, it
+/// applies the venue's own accessible-route exclusions (stairs-only segments
+/// here) to force a lift/ramp route. The toggle is only read when
+/// "Itinerary" is pressed. See `docs/features/accessible-mode.md`.
 struct AccessibleModeOverlay: View {
     @ObservedObject var bridge: VisioOneBridge
-    @State private var originPlaceId = DemoMap.accessibleFrom
-    @State private var destinationPlaceId = DemoMap.accessibleTo
-    @State private var isAccessible = false
+    @ObservedObject var inputs: FeatureInputs
 
-    private var canComputeNavigation: Bool {
-        !originPlaceId.trimmingCharacters(in: .whitespaces).isEmpty
-            && !destinationPlaceId.trimmingCharacters(in: .whitespaces).isEmpty
+    private var route: (origin: String, destination: String)? {
+        OriginDestinationFields.trimmed(inputs.origin, inputs.destination)
     }
 
     var body: some View {
         VStack(spacing: 12) {
-            TextField("From (Place ID)", text: $originPlaceId)
-                .textFieldStyle(.roundedBorder)
-                .autocorrectionDisabled()
-                .textInputAutocapitalization(.never)
-
-            TextField("To (Place ID)", text: $destinationPlaceId)
-                .textFieldStyle(.roundedBorder)
-                .autocorrectionDisabled()
-                .textInputAutocapitalization(.never)
+            OriginDestinationFields(origin: $inputs.origin, destination: $inputs.destination)
 
             HStack {
                 Button("Itinerary") {
-                    computeNavigation()
+                    guard let route else { return }
+                    bridge.computeNavigation(
+                        origin: route.origin,
+                        destination: route.destination,
+                        isAccessible: inputs.isAccessible
+                    )
                 }
                 .buttonStyle(.borderedProminent)
-                .disabled(!canComputeNavigation)
+                .disabled(route == nil)
 
                 Button("Clear") {
-                    originPlaceId = ""
-                    destinationPlaceId = ""
+                    inputs.origin = ""
+                    inputs.destination = ""
                     bridge.clearNavigationTrace()
                 }
             }
             .frame(maxWidth: .infinity)
 
-            Toggle("Accessible route", isOn: $isAccessible)
+            Toggle("Accessible route", isOn: $inputs.isAccessible)
         }
         .padding()
-    }
-
-    private func computeNavigation() {
-        let origin = originPlaceId.trimmingCharacters(in: .whitespaces)
-        let destination = destinationPlaceId.trimmingCharacters(in: .whitespaces)
-        guard !origin.isEmpty, !destination.isEmpty else { return }
-        bridge.computeNavigation(origin: origin, destination: destination, isAccessible: isAccessible)
-    }
-}
-
-/// The 5 UI parts the SDK's `view.setUIPartVisible()` can individually
-/// show/hide. Raw values match the JS SDK's `UIPart` type exactly
-/// (case-sensitive) — see docs/features/ui-part-visibility.md.
-enum MapUIPart: String, CaseIterable, Identifiable {
-    case floorSelector
-    case navigation
-    case poiDetails
-    case search
-    case userTracking
-
-    var id: String { rawValue }
-
-    var title: LocalizedStringResource {
-        switch self {
-        case .floorSelector:
-            return "feature.ui_part_visibility.part.floor_selector"
-        case .navigation:
-            return "feature.ui_part_visibility.part.navigation"
-        case .poiDetails:
-            return "feature.ui_part_visibility.part.poi_details"
-        case .search:
-            return "feature.ui_part_visibility.part.search"
-        case .userTracking:
-            return "feature.ui_part_visibility.part.user_tracking"
-        }
     }
 }
 
 /// Lets the user show/hide each of the SDK's own default UI overlays via
 /// `view.setUIPartVisible()`. All 5 toggles default to on/visible, matching
 /// the SDK's own default — nothing is hidden until the user flips a switch.
+/// The switches mirror `bridge.hiddenUIParts` (the SDK has no getter), so
+/// they still show the map's real state after the panel is reopened.
 /// See docs/features/ui-part-visibility.md.
 struct UIPartVisibilityOverlay: View {
     @ObservedObject var bridge: VisioOneBridge
-    @State private var visibility: [MapUIPart: Bool] = Dictionary(
-        uniqueKeysWithValues: MapUIPart.allCases.map { ($0, true) }
-    )
 
     var body: some View {
         List(MapUIPart.allCases) { part in
@@ -720,11 +662,8 @@ struct UIPartVisibilityOverlay: View {
 
     private func binding(for part: MapUIPart) -> Binding<Bool> {
         Binding(
-            get: { visibility[part, default: true] },
-            set: { newValue in
-                visibility[part] = newValue
-                bridge.setUIPartVisible(part.rawValue, isVisible: newValue)
-            }
+            get: { !bridge.hiddenUIParts.contains(part) },
+            set: { bridge.setUIPartVisible(part, isVisible: $0) }
         )
     }
 }
@@ -736,18 +675,14 @@ struct UIPartVisibilityOverlay: View {
 private let simulatedPositionIntervalNanoseconds: UInt64 = 150_000_000
 private let simulatedPositionStepFraction: Double = 0.02 // ~50 ticks (7.5s) per leg
 
-/// Drives the origin/destination-POI ping-pong loop shared by
-/// `SimulatedPositionOverlay` and `CameraLockOnPositionOverlay` (see
-/// `docs/features/simulated-position.md` and
-/// `docs/features/camera-lock-on-position.md`) — extracted so the ~60-line
-/// loop (resolve two POI ids once, then interpolate between them on a
-/// repeating timer) isn't duplicated between the two screens, which only
-/// differ in what they show alongside it (the latter adds a camera-lock
-/// toggle). Resolution + the loop itself are unchanged from the original
-/// `SimulatedPositionOverlay` implementation.
+/// Drives the origin/destination-POI ping-pong loop shared by the four
+/// tracking screens (simulated-position, camera-lock-on-position,
+/// geofencing, accuracy-circle-style): resolve two POI ids once, then
+/// interpolate between them on a repeating timer. See
+/// `docs/features/simulated-position.md`.
 ///
-/// Owned by the feature screen (`FeatureMapView`), not by the control
-/// sheet: the sheet's overlays only observe it. Dismissing the sheet
+/// Owned by the feature screen (`FeatureScreen` in `FeatureMapView.swift`),
+/// not by the control sheet: the sheet's overlays only observe it. Dismissing the sheet
 /// therefore leaves the simulation running (the user can pan/zoom the map
 /// while the position keeps moving), reopening it shows the same running
 /// controller (Stop button, filled fields), and there is only ever one loop
@@ -764,21 +699,17 @@ final class PositionTrackingController: ObservableObject {
     private var simulationTask: Task<Void, Never>?
 
     /// Optional per-tick hook, invoked with the same interpolated position
-    /// just sent to `injectTrackedPosition`. Added for
-    /// `GeofencingOverlay`/`GeofencingViewModel` (see
-    /// `docs/features/geofencing.md`) so it can run its own point-in-polygon
-    /// check on every tick without a second timer duplicating this loop;
-    /// `nil` (the default) leaves every other caller of this controller
-    /// unaffected.
+    /// just sent to `injectTrackedPosition`. Used by geofencing
+    /// (`GeofencingViewModel`) to run its point-in-polygon check on every
+    /// tick without a second timer. See `docs/features/geofencing.md`.
     var onTick: ((GeoPosition) -> Void)?
 
     /// Optional hook invoked once per Start, after both POIs resolved and
-    /// right before the first `injectTrackedPosition`. Added for
-    /// `AccuracyCircleStyleOverlay` (see
-    /// `docs/features/accuracy-circle-style.md`): the SDK resets the
-    /// position tracker's color/opacity whenever tracking stops, so the
-    /// selected style has to be re-sent before each new run. `nil` (the
-    /// default) leaves every other caller unaffected.
+    /// right before the first `injectTrackedPosition`. Used by
+    /// accuracy-circle-style: the SDK resets the position tracker's
+    /// color/opacity whenever tracking stops, so the selected style has to
+    /// be re-sent before each new run. See
+    /// `docs/features/accuracy-circle-style.md`.
     var onWillStartTracking: (() -> Void)?
 
     init(bridge: VisioOneBridge) {
@@ -818,7 +749,7 @@ final class PositionTrackingController: ObservableObject {
             let resolvedDestination = await destinationPosition
             guard !Task.isCancelled else { return }
             guard let originPos = resolvedOrigin, let destPos = resolvedDestination else {
-                errorMessage = "Origin or destination POI not found"
+                errorMessage = String(localized: "Origin or destination POI not found")
                 isSimulating = false
                 simulationTask = nil
                 return
@@ -891,27 +822,14 @@ final class PositionTrackingController: ObservableObject {
     }
 }
 
-/// The Origin/Destination POI ID fields + accuracy slider + Start/Stop
-/// button shared by `SimulatedPositionOverlay` and
-/// `CameraLockOnPositionOverlay` — factored out so this ~25-line block of UI
-/// isn't duplicated between the two screens; only the controller instance
-/// (and, for the camera-lock screen, an extra toggle appended below it in
-/// the caller) differs.
+/// The From/To POI id fields + accuracy slider + Start/Stop button shared by
+/// the four tracking screens; each screen adds its own controls around it.
 struct PositionTrackingControls: View {
     @ObservedObject var controller: PositionTrackingController
 
     var body: some View {
         Group {
-            TextField("Origin POI ID", text: $controller.originPlaceId)
-                .textFieldStyle(.roundedBorder)
-                .autocorrectionDisabled()
-                .textInputAutocapitalization(.never)
-                .disabled(controller.isSimulating)
-
-            TextField("Destination POI ID", text: $controller.destinationPlaceId)
-                .textFieldStyle(.roundedBorder)
-                .autocorrectionDisabled()
-                .textInputAutocapitalization(.never)
+            OriginDestinationFields(origin: $controller.originPlaceId, destination: $controller.destinationPlaceId)
                 .disabled(controller.isSimulating)
 
             VStack(alignment: .leading, spacing: 4) {
@@ -927,7 +845,7 @@ struct PositionTrackingControls: View {
                     .foregroundStyle(.red)
             }
 
-            Button(controller.isSimulating ? "Stop simulated position" : "Simulate position") {
+            Button(controller.isSimulating ? "Stop simulated position" : "Simulate position" as LocalizedStringKey) {
                 controller.toggle()
             }
             .frame(maxWidth: .infinity)
@@ -941,7 +859,7 @@ struct PositionTrackingControls: View {
 /// back and forth between two POIs via `view.injectTrackedPosition()`. Two
 /// Place ID fields resolve to WGS84 positions once at Start (through
 /// `VisioOneBridge.resolvePoiPosition`, itself backed by the POIs' own
-/// markers/labels/images — see `docs/features/simulated-position.md`), then
+/// label, image/marker or surface — see `docs/features/simulated-position.md`), then
 /// a repeating Swift-side loop — `PositionTrackingController` above, owned
 /// by the screen rather than this sheet — ping-pongs a linear interpolation
 /// between them, independent of whether this sheet stays open.
@@ -1106,13 +1024,13 @@ final class GeofencingViewModel: ObservableObject {
         Task {
             switch await bridge.resolveZonePolygon(id) {
             case .notFound:
-                zoneErrorMessage = "Zone POI not found"
+                zoneErrorMessage = String(localized: "Zone POI not found")
             case .noSurface:
-                zoneErrorMessage = "Zone POI has no surface geometry"
+                zoneErrorMessage = String(localized: "Zone POI has no surface geometry")
             case .zone(let positions):
                 zonePolygon = positions
             case .bridgeFailure:
-                zoneErrorMessage = "Zone POI not found"
+                zoneErrorMessage = String(localized: "Could not read the zone from the map")
             }
         }
     }
@@ -1175,7 +1093,7 @@ final class GeofencingViewModel: ObservableObject {
 /// `docs/features/geofencing.md`.
 ///
 /// Both the tracking controller and the geofence view model are owned by
-/// the screen (`FeatureMapView`), which also wires the per-tick
+/// the screen (`FeatureScreen`), which also wires the per-tick
 /// point-in-polygon check and the alert reset on stop -- so the zone and
 /// its alerts keep working while this sheet is closed.
 struct GeofencingOverlay: View {
@@ -1184,10 +1102,7 @@ struct GeofencingOverlay: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            TextField("Zone POI ID", text: $geofence.zonePlaceId)
-                .textFieldStyle(.roundedBorder)
-                .autocorrectionDisabled()
-                .textInputAutocapitalization(.never)
+            PoiIdField("Zone POI ID", text: $geofence.zonePlaceId)
 
             Button("Set zone") {
                 geofence.resolveZone()
@@ -1199,7 +1114,7 @@ struct GeofencingOverlay: View {
                     .font(.footnote)
                     .foregroundStyle(.red)
             } else if geofence.zonePolygon != nil {
-                Text(geofence.isInsideZone ? "Inside zone" : "Outside zone")
+                Text(geofence.isInsideZone ? "Inside zone" : "Outside zone" as LocalizedStringKey)
                     .font(.footnote)
                     .foregroundStyle(geofence.isInsideZone ? .red : .secondary)
             }
@@ -1260,32 +1175,23 @@ struct CustomBaseUrlOverlay: View {
 /// own. See docs/features/clickable-surface.md.
 struct ClickableSurfaceOverlay: View {
     @ObservedObject var bridge: VisioOneBridge
-    @State private var placeId = DemoMap.clickableSurfacePlaceId
+    @ObservedObject var inputs: FeatureInputs
 
     var body: some View {
         HStack {
-            TextField("Place ID", text: $placeId)
-                .textFieldStyle(.roundedBorder)
-                .autocorrectionDisabled()
-                .textInputAutocapitalization(.never)
+            PoiIdField("Place ID", text: $inputs.poiId)
 
             Button("Enable") {
-                setInteractive(true)
+                bridge.setSurfaceInteractive(inputs.trimmedPoiId, isInteractive: true)
             }
-            .disabled(placeId.trimmingCharacters(in: .whitespaces).isEmpty)
+            .disabled(inputs.trimmedPoiId.isEmpty)
 
             Button("Disable") {
-                setInteractive(false)
+                bridge.setSurfaceInteractive(inputs.trimmedPoiId, isInteractive: false)
             }
-            .disabled(placeId.trimmingCharacters(in: .whitespaces).isEmpty)
+            .disabled(inputs.trimmedPoiId.isEmpty)
         }
         .padding()
-    }
-
-    private func setInteractive(_ isInteractive: Bool) {
-        let targetPlaceId = placeId.trimmingCharacters(in: .whitespaces)
-        guard !targetPlaceId.isEmpty else { return }
-        bridge.setSurfaceInteractive(targetPlaceId, isInteractive: isInteractive)
     }
 }
 
@@ -1298,41 +1204,31 @@ struct ClickableSurfaceOverlay: View {
 /// cache almost always needs refreshing right before a lookup anyway. See
 /// docs/features/custom-data.md.
 ///
-/// This screen loads a dedicated map (`Feature.customData.mapHash`,
-/// threaded through by `FeatureMapView`/`MapWebView`) rather than the app's
-/// shared demo map, because the shared map has no CustomData published —
-/// looking up any POI there would always land on the empty state. The 3
-/// `knownPlaceIds` below are confirmed to carry real CustomData on that
-/// dedicated map (see docs/features/custom-data.md), offered as quick-select
-/// chips so opening this screen and tapping one + "Load" shows real,
-/// non-empty data with minimal effort, while the text field still accepts
-/// any other POI ID.
+/// This screen loads a dedicated map (`DemoMap.customDataMapHash`) rather
+/// than the app's shared demo map, which has no CustomData published. The
+/// POI ids of `DemoMap.customDataPlaceIds` carry real CustomData on that map
+/// and are offered as quick-select chips, while the text field still accepts
+/// any other POI ID. The field and the last result live in `FeatureInputs`,
+/// so they are still shown after the panel is reopened.
 struct CustomDataOverlay: View {
-    /// POI IDs confirmed to carry real CustomData on the dedicated map this
-    /// screen loads. See docs/features/custom-data.md.
     private static let knownPlaceIds = DemoMap.customDataPlaceIds
 
     @ObservedObject var bridge: VisioOneBridge
-    @State private var placeId = DemoMap.customDataPlaceId
+    @ObservedObject var inputs: FeatureInputs
     @State private var isLoading = false
-    @State private var lookup: CustomDataLookup?
-    @State private var loadFailed = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             knownPlaceIdChips
 
             HStack {
-                TextField("Place ID", text: $placeId)
-                    .textFieldStyle(.roundedBorder)
-                    .autocorrectionDisabled()
-                    .textInputAutocapitalization(.never)
+                PoiIdField("Place ID", text: $inputs.poiId)
                     .disabled(isLoading)
 
                 Button("Load") {
                     load()
                 }
-                .disabled(isLoading || placeId.trimmingCharacters(in: .whitespaces).isEmpty)
+                .disabled(isLoading || inputs.trimmedPoiId.isEmpty)
             }
 
             resultView
@@ -1345,7 +1241,7 @@ struct CustomDataOverlay: View {
             HStack(spacing: 8) {
                 ForEach(Self.knownPlaceIds, id: \.self) { knownPlaceId in
                     Button(knownPlaceId) {
-                        placeId = knownPlaceId
+                        inputs.poiId = knownPlaceId
                         load()
                     }
                     .font(.footnote)
@@ -1363,10 +1259,10 @@ struct CustomDataOverlay: View {
         if isLoading {
             ProgressView()
                 .frame(maxWidth: .infinity, alignment: .center)
-        } else if loadFailed {
+        } else if inputs.customDataLoadFailed {
             Text("Could not load custom data")
                 .foregroundStyle(.red)
-        } else if let lookup {
+        } else if let lookup = inputs.customDataLookup {
             switch lookup {
             case .poiNotFound:
                 Text("POI not found")
@@ -1391,20 +1287,20 @@ struct CustomDataOverlay: View {
     }
 
     private func load() {
-        let targetPlaceId = placeId.trimmingCharacters(in: .whitespaces)
+        let targetPlaceId = inputs.trimmedPoiId
         guard !targetPlaceId.isEmpty else { return }
 
         isLoading = true
-        loadFailed = false
-        lookup = nil
+        inputs.customDataLoadFailed = false
+        inputs.customDataLookup = nil
 
         Task {
             let result = await bridge.loadCustomData(targetPlaceId)
             isLoading = false
             if let result {
-                lookup = result
+                inputs.customDataLookup = result
             } else {
-                loadFailed = true
+                inputs.customDataLoadFailed = true
             }
         }
     }
@@ -1507,9 +1403,15 @@ struct PoiClickOverlay: View {
 
             if let poi = bridge.tappedPOI {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(poi.name ?? "(no name)")
-                        .font(.title3)
-                        .fontWeight(.semibold)
+                    Group {
+                        if let name = poi.name {
+                            Text(verbatim: name)
+                        } else {
+                            Text("(no name)")
+                        }
+                    }
+                    .font(.title3)
+                    .fontWeight(.semibold)
                     Text("ID: \(poi.id)")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
@@ -1538,80 +1440,64 @@ struct PoiClickOverlay: View {
 /// not crashes.
 struct DynamicPoiCrudOverlay: View {
     @ObservedObject var bridge: VisioOneBridge
-    @State private var newPoiId = DemoMap.newPoiId
-    @State private var anchorPoiId = DemoMap.anchorPoiId
-    @State private var labelText: String
+    @ObservedObject var inputs: FeatureInputs
     @State private var isCreating = false
     @State private var createError: String?
 
-    init(bridge: VisioOneBridge) {
-        self.bridge = bridge
-        // Seeds the field from whatever's already tracked, so reopening this
-        // sheet after a previous Create still shows (and can re-submit) the
-        // current label text via "Update text" -- this view is recreated
-        // fresh every time the sheet opens (see FeatureMapView.swift), while
-        // `bridge.dynamicPOI` itself persists across that.
-        _labelText = State(initialValue: bridge.dynamicPOI?.labelText ?? DemoMap.dynamicPoiLabelText)
-    }
-
     private var hasDynamicPOI: Bool { bridge.dynamicPOI != nil }
 
-    private var trimmedNewPoiId: String { newPoiId.trimmingCharacters(in: .whitespaces) }
-    private var trimmedAnchorPoiId: String { anchorPoiId.trimmingCharacters(in: .whitespaces) }
-    private var trimmedLabelText: String { labelText.trimmingCharacters(in: .whitespaces) }
+    private var trimmedNewPoiId: String { inputs.newPoiId.trimmingCharacters(in: .whitespaces) }
+    private var trimmedLabelText: String { inputs.text.trimmingCharacters(in: .whitespaces) }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            statusText
+        ScrollView {
+            VStack(alignment: .leading, spacing: 12) {
+                statusText
 
-            TextField("New POI ID", text: $newPoiId)
-                .textFieldStyle(.roundedBorder)
-                .autocorrectionDisabled()
-                .textInputAutocapitalization(.never)
-                .disabled(hasDynamicPOI || isCreating)
+                PoiIdField("New POI ID", text: $inputs.newPoiId)
+                    .disabled(hasDynamicPOI || isCreating)
 
-            TextField("Anchor POI ID", text: $anchorPoiId)
-                .textFieldStyle(.roundedBorder)
-                .autocorrectionDisabled()
-                .textInputAutocapitalization(.never)
-                .disabled(hasDynamicPOI || isCreating)
+                PoiIdField("Anchor POI ID", text: $inputs.poiId)
+                    .disabled(hasDynamicPOI || isCreating)
 
-            TextField("Label text", text: $labelText)
-                .textFieldStyle(.roundedBorder)
-                .disabled(isCreating)
+                TextField("Label text", text: $inputs.text)
+                    .textFieldStyle(.roundedBorder)
+                    .disabled(isCreating)
 
-            if let createError {
-                Text(createError)
-                    .font(.footnote)
-                    .foregroundStyle(.red)
+                if let createError {
+                    Text(createError)
+                        .font(.footnote)
+                        .foregroundStyle(.red)
+                }
+
+                HStack {
+                    Button("Create") {
+                        create()
+                    }
+                    .disabled(hasDynamicPOI || isCreating || trimmedNewPoiId.isEmpty || inputs.trimmedPoiId.isEmpty || trimmedLabelText.isEmpty)
+
+                    Button("Update text") {
+                        bridge.updateDynamicLabelText(trimmedLabelText)
+                    }
+                    .disabled(!hasDynamicPOI || trimmedLabelText.isEmpty)
+
+                    Button("Remove", role: .destructive) {
+                        createError = nil
+                        bridge.removeDynamicPOI()
+                    }
+                    .disabled(!hasDynamicPOI)
+                }
+                .buttonStyle(.bordered)
             }
-
-            HStack {
-                Button("Create") {
-                    create()
-                }
-                .disabled(hasDynamicPOI || isCreating || trimmedNewPoiId.isEmpty || trimmedAnchorPoiId.isEmpty || trimmedLabelText.isEmpty)
-
-                Button("Update text") {
-                    bridge.updateDynamicLabelText(trimmedLabelText)
-                }
-                .disabled(!hasDynamicPOI || trimmedLabelText.isEmpty)
-
-                Button("Remove", role: .destructive) {
-                    remove()
-                }
-                .disabled(!hasDynamicPOI)
-            }
-            .buttonStyle(.bordered)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding()
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding()
     }
 
     @ViewBuilder
     private var statusText: some View {
         if let dynamicPOI = bridge.dynamicPOI {
-            Text("Created: `\(dynamicPOI.id)` — \"\(dynamicPOI.labelText)\"")
+            Text("Created: \(dynamicPOI.id) — \"\(dynamicPOI.labelText)\"")
                 .font(.footnote)
                 .foregroundStyle(.secondary)
         } else {
@@ -1623,7 +1509,7 @@ struct DynamicPoiCrudOverlay: View {
 
     private func create() {
         let id = trimmedNewPoiId
-        let anchor = trimmedAnchorPoiId
+        let anchor = inputs.trimmedPoiId
         let text = trimmedLabelText
         guard !id.isEmpty, !anchor.isEmpty, !text.isEmpty else { return }
 
@@ -1635,26 +1521,17 @@ struct DynamicPoiCrudOverlay: View {
             isCreating = false
             switch result {
             case .created:
-                newPoiId = ""
-                anchorPoiId = ""
+                break
             case .duplicate:
-                createError = "A POI with id \"\(id)\" already exists"
+                createError = String(localized: "A POI with id \"\(id)\" already exists")
             case .anchorNotFound:
-                createError = "Anchor POI \"\(anchor)\" not found"
+                createError = String(localized: "Anchor POI \"\(anchor)\" not found")
             case .noPosition:
-                createError = "Anchor POI has no position to copy"
+                createError = String(localized: "Anchor POI has no position to copy")
             case .bridgeFailure:
-                createError = "Could not create the POI"
+                createError = String(localized: "Could not create the POI")
             }
         }
-    }
-
-    private func remove() {
-        bridge.removeDynamicPOI()
-        newPoiId = ""
-        anchorPoiId = ""
-        labelText = ""
-        createError = nil
     }
 }
 
@@ -1663,26 +1540,13 @@ struct DynamicPoiCrudOverlay: View {
 /// `venue.updateImage()`, and removes it via `venue.removeImage()` -- see
 /// docs/features/3d-icon-marker.md. After a successful place, the camera
 /// moves to the anchor POI via goto-poi's `bridge.goToPOI`. One icon at a
-/// time (`bridge.placedIconAnchorId`);
-/// an unknown or position-less anchor POI is shown as a plain status line,
-/// not a crash.
+/// time (`bridge.placedIconAnchorId`); an unknown or position-less anchor
+/// POI is shown as a plain status line, not a crash.
 struct IconMarkerOverlay: View {
-    /// "Restaurant", ground floor of the shared demo map's building B4: has
-    /// a label to read a position from, unlike surface-only POIs such as
-    /// `B3-UL00-ID0065` (which reports "This POI has no position").
-    private static let defaultAnchorPoiId = DemoMap.anchorPoiId
-
     @ObservedObject var bridge: VisioOneBridge
-    @State private var anchorPoiId: String
+    @ObservedObject var inputs: FeatureInputs
     @State private var isPlacing = false
     @State private var errorMessage: String?
-
-    init(bridge: VisioOneBridge) {
-        self.bridge = bridge
-        _anchorPoiId = State(initialValue: bridge.placedIconAnchorId ?? Self.defaultAnchorPoiId)
-    }
-
-    private var trimmedAnchorPoiId: String { anchorPoiId.trimmingCharacters(in: .whitespaces) }
 
     private var orientation: Binding<IconOrientation> {
         Binding(get: { bridge.iconOrientation }, set: { bridge.setIconOrientation($0) })
@@ -1690,10 +1554,7 @@ struct IconMarkerOverlay: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            TextField("Anchor POI ID", text: $anchorPoiId)
-                .textFieldStyle(.roundedBorder)
-                .autocorrectionDisabled()
-                .textInputAutocapitalization(.never)
+            PoiIdField("Anchor POI ID", text: $inputs.poiId)
                 .disabled(isPlacing)
 
             Text("Orientation")
@@ -1710,7 +1571,7 @@ struct IconMarkerOverlay: View {
                 Button("Place icon") {
                     place()
                 }
-                .disabled(isPlacing || trimmedAnchorPoiId.isEmpty)
+                .disabled(isPlacing || inputs.trimmedPoiId.isEmpty)
 
                 Button("Remove icon", role: .destructive) {
                     errorMessage = nil
@@ -1744,7 +1605,7 @@ struct IconMarkerOverlay: View {
     }
 
     private func place() {
-        let anchor = trimmedAnchorPoiId
+        let anchor = inputs.trimmedPoiId
         guard !anchor.isEmpty else { return }
 
         isPlacing = true
@@ -1760,13 +1621,34 @@ struct IconMarkerOverlay: View {
                 // (floor switch + view.goToPOI) so the icon is on screen.
                 bridge.goToPOI(anchor)
             case .poiNotFound:
-                errorMessage = "POI not found"
+                errorMessage = String(localized: "POI not found")
             case .noPosition:
-                errorMessage = "This POI has no position"
+                errorMessage = String(localized: "This POI has no position")
             case .failure(let message):
-                errorMessage = "Could not place the icon: \(message)"
+                errorMessage = String(localized: "Could not place the icon: \(message)")
             }
         }
+    }
+}
+
+/// User-facing message for a custom-text-label / html-overlay-marker call,
+/// `nil` on success.
+private func overlayErrorMessage(_ result: MapOverlayResult, isBadge: Bool) -> String? {
+    switch result {
+    case .success:
+        return nil
+    case .textRequired:
+        return String(localized: "Text is required")
+    case .poiNotFound:
+        return String(localized: "POI not found")
+    case .noPosition:
+        return String(localized: "This POI has no position")
+    case .nothingPlaced:
+        return isBadge ? String(localized: "No badge placed") : String(localized: "No label placed")
+    case .sdkError(let message), .bridgeError(let message):
+        return isBadge
+            ? String(localized: "Could not place the badge: \(message)")
+            : String(localized: "Could not place the label: \(message)")
     }
 }
 
@@ -1780,25 +1662,13 @@ struct IconMarkerOverlay: View {
 /// empty text or an unknown/position-less anchor POI is shown as a plain
 /// status line, not a crash.
 struct CustomTextLabelOverlay: View {
-    /// "Restaurant", ground floor of the shared demo map's building B4 --
-    /// same anchor as `IconMarkerOverlay`.
-    private static let defaultAnchorPoiId = DemoMap.anchorPoiId
-    private static var defaultText: String { DemoMap.textLabelText }
     private static let rotations = [0, 45, 90]
 
     @ObservedObject var bridge: VisioOneBridge
-    @State private var anchorPoiId: String
-    @State private var text: String
+    @ObservedObject var inputs: FeatureInputs
     @State private var isBusy = false
     @State private var errorMessage: String?
 
-    init(bridge: VisioOneBridge) {
-        self.bridge = bridge
-        _anchorPoiId = State(initialValue: bridge.placedTextLabelAnchorId ?? Self.defaultAnchorPoiId)
-        _text = State(initialValue: bridge.placedTextLabelText ?? Self.defaultText)
-    }
-
-    private var trimmedAnchorPoiId: String { anchorPoiId.trimmingCharacters(in: .whitespaces) }
     private var hasLabel: Bool { bridge.placedTextLabelAnchorId != nil }
 
     private var size: Binding<TextLabelSize> {
@@ -1812,13 +1682,10 @@ struct CustomTextLabelOverlay: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 12) {
-                TextField("Anchor POI ID", text: $anchorPoiId)
-                    .textFieldStyle(.roundedBorder)
-                    .autocorrectionDisabled()
-                    .textInputAutocapitalization(.never)
+                PoiIdField("Anchor POI ID", text: $inputs.poiId)
                     .disabled(isBusy)
 
-                TextField("Text", text: $text)
+                TextField("Text", text: $inputs.text)
                     .textFieldStyle(.roundedBorder)
                     .autocorrectionDisabled()
                     .disabled(isBusy)
@@ -1828,7 +1695,13 @@ struct CustomTextLabelOverlay: View {
                     .foregroundStyle(.secondary)
                 HStack(spacing: 8) {
                     ForEach(TextLabelColor.allCases) { color in
-                        colorChip(color)
+                        ColorSwatchChip(
+                            name: Self.name(color),
+                            hex: color.rawValue,
+                            isSelected: bridge.textLabelColor == color
+                        ) {
+                            bridge.setTextLabelColor(color)
+                        }
                     }
                 }
 
@@ -1847,7 +1720,7 @@ struct CustomTextLabelOverlay: View {
                     .foregroundStyle(.secondary)
                 Picker("Rotation", selection: rotation) {
                     ForEach(Self.rotations, id: \.self) { degrees in
-                        Text("\(degrees)\u{00B0}").tag(degrees)
+                        Text(verbatim: "\(degrees)\u{00B0}").tag(degrees)
                     }
                 }
                 .pickerStyle(.segmented)
@@ -1856,7 +1729,7 @@ struct CustomTextLabelOverlay: View {
                     Button("Place label") {
                         place()
                     }
-                    .disabled(isBusy || trimmedAnchorPoiId.isEmpty)
+                    .disabled(isBusy || inputs.trimmedPoiId.isEmpty)
 
                     Button("Update text") {
                         updateText()
@@ -1878,46 +1751,12 @@ struct CustomTextLabelOverlay: View {
         }
     }
 
-    private func colorChip(_ color: TextLabelColor) -> some View {
-        let isSelected = bridge.textLabelColor == color
-        return Button {
-            bridge.setTextLabelColor(color)
-        } label: {
-            HStack(spacing: 6) {
-                Circle()
-                    .fill(Self.swatch(color))
-                    .frame(width: 14, height: 14)
-                Text(Self.name(color))
-                    .font(.subheadline)
-            }
-            .padding(.horizontal, 10)
-            .padding(.vertical, 6)
-            .background(
-                Capsule().fill(isSelected ? Color.accentColor.opacity(0.2) : Color(.secondarySystemBackground))
-            )
-            .overlay(
-                Capsule().stroke(isSelected ? Color.accentColor : Color.clear, lineWidth: 2)
-            )
-        }
-        .buttonStyle(.plain)
-        .accessibilityAddTraits(isSelected ? .isSelected : [])
-    }
-
-    private static func name(_ color: TextLabelColor) -> String {
+    private static func name(_ color: TextLabelColor) -> LocalizedStringKey {
         switch color {
         case .red: return "Red"
         case .green: return "Green"
         case .blue: return "Blue"
         case .dark: return "Dark"
-        }
-    }
-
-    private static func swatch(_ color: TextLabelColor) -> Color {
-        switch color {
-        case .red: return Color(red: 0xE5 / 255, green: 0x39 / 255, blue: 0x35 / 255)
-        case .green: return Color(red: 0x43 / 255, green: 0xA0 / 255, blue: 0x47 / 255)
-        case .blue: return Color(red: 0x1E / 255, green: 0x88 / 255, blue: 0xE5 / 255)
-        case .dark: return Color(red: 0x21 / 255, green: 0x21 / 255, blue: 0x21 / 255)
         }
     }
 
@@ -1939,14 +1778,14 @@ struct CustomTextLabelOverlay: View {
     }
 
     private func place() {
-        let anchor = trimmedAnchorPoiId
+        let anchor = inputs.trimmedPoiId
         guard !anchor.isEmpty else { return }
 
         isBusy = true
         errorMessage = nil
 
         Task {
-            let result = await bridge.placeTextLabel(anchorId: anchor, text: text)
+            let result = await bridge.placeTextLabel(anchorId: anchor, text: inputs.text)
             isBusy = false
             if result == .success {
                 // A label is only drawn when its POI's floor is displayed:
@@ -1954,7 +1793,7 @@ struct CustomTextLabelOverlay: View {
                 // view.goToPOI), same as 3d-icon-marker.
                 bridge.goToPOI(anchor)
             } else {
-                errorMessage = message(for: result)
+                errorMessage = overlayErrorMessage(result, isBadge: false)
             }
         }
     }
@@ -1964,28 +1803,9 @@ struct CustomTextLabelOverlay: View {
         errorMessage = nil
 
         Task {
-            let result = await bridge.updateTextLabelText(text)
+            let result = await bridge.updateTextLabelText(inputs.text)
             isBusy = false
-            if result != .success {
-                errorMessage = message(for: result)
-            }
-        }
-    }
-
-    private func message(for result: TextLabelResult) -> String? {
-        switch result {
-        case .success:
-            return nil
-        case .textRequired:
-            return "Text is required"
-        case .poiNotFound:
-            return "POI not found"
-        case .noPosition:
-            return "This POI has no position"
-        case .noLabel:
-            return "No label placed"
-        case .failure(let message):
-            return "Could not place the label: \(message)"
+            errorMessage = overlayErrorMessage(result, isBadge: false)
         }
     }
 }
@@ -2001,36 +1821,20 @@ struct CustomTextLabelOverlay: View {
 /// empty text or an unknown/position-less anchor POI is shown as a plain
 /// status line, not a crash.
 struct HtmlOverlayMarkerOverlay: View {
-    /// "Restaurant", ground floor of the shared demo map's building B4 --
-    /// same anchor as `CustomTextLabelOverlay`.
-    private static let defaultAnchorPoiId = DemoMap.anchorPoiId
-    private static var defaultText: String { DemoMap.htmlBadgeText }
-
     @ObservedObject var bridge: VisioOneBridge
-    @State private var anchorPoiId: String
-    @State private var text: String
+    @ObservedObject var inputs: FeatureInputs
     @State private var isBusy = false
     @State private var errorMessage: String?
 
-    init(bridge: VisioOneBridge) {
-        self.bridge = bridge
-        _anchorPoiId = State(initialValue: bridge.placedHtmlBadgeAnchorId ?? Self.defaultAnchorPoiId)
-        _text = State(initialValue: bridge.placedHtmlBadgeText ?? Self.defaultText)
-    }
-
-    private var trimmedAnchorPoiId: String { anchorPoiId.trimmingCharacters(in: .whitespaces) }
     private var hasBadge: Bool { bridge.placedHtmlBadgeAnchorId != nil }
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 12) {
-                TextField("Anchor POI ID", text: $anchorPoiId)
-                    .textFieldStyle(.roundedBorder)
-                    .autocorrectionDisabled()
-                    .textInputAutocapitalization(.never)
+                PoiIdField("Anchor POI ID", text: $inputs.poiId)
                     .disabled(isBusy)
 
-                TextField("Badge text", text: $text)
+                TextField("Badge text", text: $inputs.text)
                     .textFieldStyle(.roundedBorder)
                     .autocorrectionDisabled()
                     .disabled(isBusy)
@@ -2039,7 +1843,7 @@ struct HtmlOverlayMarkerOverlay: View {
                     Button("Place badge") {
                         place()
                     }
-                    .disabled(isBusy || trimmedAnchorPoiId.isEmpty)
+                    .disabled(isBusy || inputs.trimmedPoiId.isEmpty)
 
                     Button("Update text") {
                         updateText()
@@ -2049,7 +1853,7 @@ struct HtmlOverlayMarkerOverlay: View {
                 .buttonStyle(.bordered)
 
                 HStack {
-                    Button(bridge.isHtmlBadgeVisible ? "Hide badge" : "Show badge") {
+                    Button(bridge.isHtmlBadgeVisible ? "Hide badge" : "Show badge" as LocalizedStringKey) {
                         toggleVisibility()
                     }
                     .disabled(isBusy || !hasBadge)
@@ -2076,11 +1880,15 @@ struct HtmlOverlayMarkerOverlay: View {
                 .font(.footnote)
                 .foregroundStyle(.red)
         } else if let anchorId = bridge.placedHtmlBadgeAnchorId {
-            Text(bridge.htmlBadgeTapCount > 0
-                 ? "Badge tapped (\(bridge.htmlBadgeTapCount))"
-                 : "Badge placed on \(anchorId)")
-                .font(.footnote)
-                .foregroundStyle(.secondary)
+            Group {
+                if bridge.htmlBadgeTapCount > 0 {
+                    Text("Badge tapped (\(bridge.htmlBadgeTapCount))")
+                } else {
+                    Text("Badge placed on \(anchorId)")
+                }
+            }
+            .font(.footnote)
+            .foregroundStyle(.secondary)
         } else {
             Text("No badge placed")
                 .font(.footnote)
@@ -2089,14 +1897,14 @@ struct HtmlOverlayMarkerOverlay: View {
     }
 
     private func place() {
-        let anchor = trimmedAnchorPoiId
+        let anchor = inputs.trimmedPoiId
         guard !anchor.isEmpty else { return }
 
         isBusy = true
         errorMessage = nil
 
         Task {
-            let result = await bridge.placeHtmlBadge(anchorId: anchor, text: text)
+            let result = await bridge.placeHtmlBadge(anchorId: anchor, text: inputs.text)
             isBusy = false
             if result == .success {
                 // The badge is only displayed while its POI's floor is the
@@ -2104,7 +1912,7 @@ struct HtmlOverlayMarkerOverlay: View {
                 // switch + view.goToPOI), same as custom-text-label.
                 bridge.goToPOI(anchor)
             } else {
-                errorMessage = message(for: result)
+                errorMessage = overlayErrorMessage(result, isBadge: true)
             }
         }
     }
@@ -2114,11 +1922,9 @@ struct HtmlOverlayMarkerOverlay: View {
         errorMessage = nil
 
         Task {
-            let result = await bridge.updateHtmlBadgeText(text)
+            let result = await bridge.updateHtmlBadgeText(inputs.text)
             isBusy = false
-            if result != .success {
-                errorMessage = message(for: result)
-            }
+            errorMessage = overlayErrorMessage(result, isBadge: true)
         }
     }
 
@@ -2129,23 +1935,6 @@ struct HtmlOverlayMarkerOverlay: View {
         Task {
             await bridge.setHtmlBadgeVisible(!bridge.isHtmlBadgeVisible)
             isBusy = false
-        }
-    }
-
-    private func message(for result: HtmlBadgeResult) -> String? {
-        switch result {
-        case .success:
-            return nil
-        case .textRequired:
-            return "Text is required"
-        case .poiNotFound:
-            return "POI not found"
-        case .noPosition:
-            return "This POI has no position"
-        case .noBadge:
-            return "No badge placed"
-        case .failure(let message):
-            return "Could not place the badge: \(message)"
         }
     }
 }
@@ -2235,14 +2024,20 @@ struct AddLocaleOverlay: View {
                         Text(key)
                             .font(.footnote)
                             .foregroundStyle(.secondary)
-                        Text(bridge.spanishTranslations?[key] ?? "(not added yet)")
+                        Group {
+                            if let value = bridge.spanishTranslations?[key] {
+                                Text(verbatim: value)
+                            } else {
+                                Text("(not added yet)")
+                            }
+                        }
                             .font(.body)
                             .foregroundStyle(bridge.spanishTranslations == nil ? .secondary : .primary)
                     }
                 }
             }
 
-            Button(bridge.spanishTranslations == nil ? "Add Spanish locale" : "Re-add Spanish locale") {
+            Button(bridge.spanishTranslations == nil ? "Add Spanish locale" : "Re-add Spanish locale" as LocalizedStringKey) {
                 addLocale()
             }
             .frame(maxWidth: .infinity)
@@ -2314,7 +2109,7 @@ struct CustomThemeOverlay: View {
                 HStack(spacing: 8) {
                     ForEach(ThemeAccentColor.allCases) { color in
                         ColorSwatchChip(
-                            name: LocalizedStringKey(Self.name(color)),
+                            name: Self.name(color),
                             hex: color.rawValue,
                             isSelected: bridge.themeAccentColor == color
                         ) {
@@ -2329,7 +2124,7 @@ struct CustomThemeOverlay: View {
                 HStack(spacing: 8) {
                     ForEach(ThemeTextAccentColor.allCases) { color in
                         ColorSwatchChip(
-                            name: LocalizedStringKey(Self.name(color)),
+                            name: Self.name(color),
                             hex: color.rawValue,
                             isSelected: bridge.themeTextAccentColor == color
                         ) {
@@ -2357,7 +2152,7 @@ struct CustomThemeOverlay: View {
         }
     }
 
-    private static func name(_ color: ThemeAccentColor) -> String {
+    private static func name(_ color: ThemeAccentColor) -> LocalizedStringKey {
         switch color {
         case .blue: return "Blue"
         case .red: return "Red"
@@ -2366,55 +2161,12 @@ struct CustomThemeOverlay: View {
         }
     }
 
-    private static func name(_ color: ThemeTextAccentColor) -> String {
+    private static func name(_ color: ThemeTextAccentColor) -> LocalizedStringKey {
         switch color {
         case .white: return "White"
         case .yellow: return "Yellow"
         case .black: return "Black"
         }
-    }
-}
-
-/// A capsule chip with a color swatch + name, used by the color pickers of
-/// `CustomThemeOverlay` and `AccuracyCircleStyleOverlay`.
-struct ColorSwatchChip: View {
-    let name: LocalizedStringKey
-    let hex: String
-    let isSelected: Bool
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            HStack(spacing: 6) {
-                Circle()
-                    .fill(Self.swatch(hex))
-                    .frame(width: 14, height: 14)
-                    // Keeps dark (and white) swatches visible on any panel.
-                    .overlay(Circle().stroke(Color.primary.opacity(0.5), lineWidth: 1))
-                Text(name)
-                    .font(.subheadline)
-            }
-            .padding(.horizontal, 10)
-            .padding(.vertical, 6)
-            .background(
-                Capsule().fill(isSelected ? Color.accentColor.opacity(0.2) : Color(.secondarySystemBackground))
-            )
-            .overlay(
-                Capsule().stroke(isSelected ? Color.accentColor : Color.clear, lineWidth: 2)
-            )
-        }
-        .buttonStyle(.plain)
-        .accessibilityAddTraits(isSelected ? .isSelected : [])
-    }
-
-    /// `#RRGGBB` -> SwiftUI color, for the swatch only.
-    private static func swatch(_ hex: String) -> Color {
-        let value = UInt32(hex.dropFirst(), radix: 16) ?? 0
-        return Color(
-            red: Double((value >> 16) & 0xFF) / 255,
-            green: Double((value >> 8) & 0xFF) / 255,
-            blue: Double(value & 0xFF) / 255
-        )
     }
 }
 

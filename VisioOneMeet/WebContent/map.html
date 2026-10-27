@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="fr">
+<html lang="en">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
@@ -72,24 +72,58 @@
       'background:#0B6BCB;color:#FFFFFF;font:600 14px sans-serif;padding:6px 12px;' +
       'border-radius:14px;white-space:nowrap;box-shadow:0 2px 6px rgba(0,0,0,.3);cursor:pointer';
 
-    // Reads a WGS84 position off an "anchor" POI's first label or marker --
-    // POIs have no direct lat/lng field of their own. Shared by
-    // createDynamicPOI, placeIconImage, placeTextLabel and placeHtmlBadge
-    // below, so all four features accept exactly the same anchor POIs.
-    // Returns null when the POI has neither.
-    // `exclude` (optional) is one of OUR OWN overlays, skipped when picking
-    // the label or the marker: custom-text-label passes its tracked label
-    // (it stays in the anchor's poi.labels), html-overlay-marker its tracked
-    // marker (it stays in the anchor's poi.markers), so a re-place never
-    // reads its position back from itself (the ~4 m offset would otherwise
-    // build up on an anchor that has no label of its own). See
-    // docs/features/dynamic-poi-crud.md.
-    function anchorPositionOf(poi, exclude) {
-      var label = (poi.labels || []).find(function (l) { return l !== exclude; });
-      var marker = (poi.markers || []).find(function (m) { return m !== exclude; });
-      var position = (label && label.position) || (marker && marker.position);
-      if (!position) return null;
-      return { latitude: position.latitude, longitude: position.longitude, altitude: position.altitude };
+    // A POI has no lat/lng field of its own: its display position is read
+    // off the objects attached to it, in this order:
+    //   1. its first label's `position`,
+    //   2. else its first image's `position`, else its first marker's,
+    //   3. else the centroid of its first surface's `positions`.
+    // Returns null when the POI has none of these. Every feature that needs
+    // "where is this POI" (simulated-position and the other tracking
+    // screens, dynamic-poi-crud, 3d-icon-marker, custom-text-label,
+    // html-overlay-marker) uses this one helper, so a given POI always
+    // resolves to the same point.
+    // `exclude` (optional) is one of OUR OWN objects attached to that POI
+    // (the text label, icon image or HTML badge marker this page placed on
+    // it), skipped so a re-place never reads its position back from itself
+    // (the ~4 m offset would otherwise build up).
+    function poiDisplayPosition(poi, exclude) {
+      function firstWithPosition(list) {
+        return (list || []).find(function (o) { return o !== exclude && o.position; });
+      }
+      var item = firstWithPosition(poi.labels) || firstWithPosition(poi.images) || firstWithPosition(poi.markers);
+      if (item) {
+        return { latitude: item.position.latitude, longitude: item.position.longitude, altitude: item.position.altitude };
+      }
+      var surface = (poi.surfaces || []).find(function (sf) { return sf.positions && sf.positions.length > 0; });
+      if (!surface) return null;
+      var sum = surface.positions.reduce(function (acc, p) {
+        return {
+          latitude: acc.latitude + p.latitude,
+          longitude: acc.longitude + p.longitude,
+          altitude: acc.altitude + (p.altitude || 0),
+        };
+      }, { latitude: 0, longitude: 0, altitude: 0 });
+      var count = surface.positions.length;
+      return { latitude: sum.latitude / count, longitude: sum.longitude / count, altitude: sum.altitude / count };
+    }
+
+    // `position` moved ~4 m north-east, so a label/badge placed next to a
+    // POI doesn't overlap the POI's own map label.
+    function offsetPosition(position) {
+      return {
+        latitude: position.latitude + 0.00004,
+        longitude: position.longitude + 0.00004,
+        altitude: position.altitude,
+      };
+    }
+
+    // Error -> message string, for the `{ status: 'error', message }` results.
+    function errorMessage(e) {
+      return e && e.message ? e.message : String(e);
+    }
+
+    function findPoi(poiId) {
+      return venue ? venue.pois.find(function (p) { return p.id === poiId; }) : undefined;
     }
 
     // Shared by placeTextLabel/setTextLabelRotation: calls venue.createLabel
@@ -100,7 +134,7 @@
       try {
         textLabel = venue.createLabel(options);
       } catch (e) {
-        return { status: 'error', message: e && e.message ? e.message : String(e) };
+        return { status: 'error', message: errorMessage(e) };
       }
       textLabelOptions = options;
       return { status: 'placed' };
@@ -165,9 +199,11 @@
       sendToNative('cameraLockChanged', { locked: view.lockCameraPositionOnTracking === true });
     }
 
-    // JS -> native: forward the loading lifecycle so the SwiftUI layer can
-    // show a spinner/error instead of a screen frozen on a black rectangle.
-    // See docs/APP_SDK_COMMUNICATION.md for the pattern.
+    // JS -> native: the single message channel back to Swift
+    // (window.webkit.messageHandlers.mapBridge, received by
+    // VisioOneBridge.userContentController). Carries the loading lifecycle
+    // ('ready'/'error') and every SDK event the native UI mirrors. See
+    // docs/APP_SDK_COMMUNICATION.md for the pattern.
     function sendToNative(type, message) {
       var handler = window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.mapBridge;
       if (!handler) {
@@ -223,9 +259,9 @@
     // in place (its promise resolves with isCanceled === true, the camera
     // stays where it is), so this starts a zero-length goToViewpoint on the
     // camera's current target, keeping the current heading/pitch.
-    // (animation.cancel() would also stop the camera where it is; its public
-    // typing wrongly says it puts the target in its final state, but the SDK
-    // core implementation and live measurements say otherwise.)
+    // (animation.cancel() also stops the camera where it is, despite its
+    // typing saying it puts the target in its final state; see
+    // docs/features/camera-showcase-carousel.md.)
     function interruptCarouselAnimation() {
       if (!view || !carouselAnimation) return;
       carouselAnimation = null;
@@ -251,7 +287,7 @@
     async function runCarousel(run) {
       while (run === carouselRun) {
         var poiId = CAROUSEL_STOP_IDS[carouselIndex];
-        var poi = venue.pois.find(function (p) { return p.id === poiId; });
+        var poi = findPoi(poiId);
         if (poi) {
           sendCarouselState();
           // Documented order: switch floor first, then goToPOI.
@@ -315,11 +351,34 @@
       if (carouselState === 'paused') onCarouselTouch();
     }, true);
 
-    // Native -> JS bridge: one method per command, called from Swift via
-    // WKWebView.evaluateJavaScript(). Swift JSON-encodes arguments before
-    // interpolating them into the generated script call, so what arrives
-    // here is already a real JS value (array/object), never a string to
-    // re-parse.
+    // Shared by computeNavigation/computeNavigationExcludingModalities:
+    // venue.computeNavigation() -> venue.createNavigationTrace() ->
+    // view.setCurrentNavigationTrace(), which replaces whatever route was
+    // current. Errors thrown by computeNavigation (e.g. unknown POI id, no
+    // route) propagate to the caller. See docs/features/compute-navigation.md.
+    function showNavigation(request, excludedAttributes) {
+      if (!venue || !view) return;
+      var options = {
+        origin: request.origin,
+        destination: request.destination,
+        isAccessible: request.isAccessible,
+        type: 'fastest',
+        firstNodeAsIntersection: false,
+        mergeFloorChangeInstructions: false,
+      };
+      if (excludedAttributes) options.excludedAttributes = excludedAttributes;
+      var navigationTrace = venue.createNavigationTrace(venue.computeNavigation(options));
+      currentNavigationTrace = navigationTrace;
+      view.setCurrentNavigationTrace(navigationTrace);
+    }
+
+    // Native -> JS bridge: one method per command, called from Swift either
+    // via WKWebView.evaluateJavaScript() (arguments JSON-encoded before being
+    // interpolated into the script) or via WKWebView.callAsyncJavaScript()
+    // (arguments passed as real JS values; required when Swift needs a
+    // returned Promise to settle). Either way, what arrives here is already
+    // a real JS value, never a string to re-parse. See
+    // docs/APP_SDK_COMMUNICATION.md.
     window.MapBridge = {
       goToGlobal: function () {
         if (view) view.goToGlobal();
@@ -332,7 +391,7 @@
         try {
           venue.setAuthorizationToken(token);
         } catch (e) {
-          return { status: 'error', message: e && e.message ? e.message : String(e) };
+          return { status: 'error', message: errorMessage(e) };
         }
         return { status: 'applied' };
       },
@@ -356,21 +415,21 @@
         carouselState = 'stopped';
         sendCarouselState();
       },
-      updateOccupancy: function (occupancy) {
-        if (!venue) return;
-        occupancy.forEach(function (entry) {
-          var poi = venue.pois.find(function (p) { return p.id === entry.planId; });
-          if (!poi) return;
-          poi.surfaces.forEach(function (surface) {
-            venue.updateSurface(surface, { color: entry.color });
-          });
+      // Colors a POI's surface(s) with an occupancy color, or resets them
+      // to the map's own color when `color` is null ('initial'). See
+      // docs/features/occupancy-simulated.md.
+      updateOccupancy: function (poiId, color) {
+        var poi = findPoi(poiId);
+        if (!poi) return;
+        poi.surfaces.forEach(function (surface) {
+          venue.updateSurface(surface, { color: color || 'initial' });
         });
       },
       // Centers/zooms the camera on a POI by ID and highlights its surfaces.
       // See docs/features/goto-poi.md.
       goToPOI: function (poiId) {
         if (!venue || !view) return;
-        var poi = venue.pois.find(function (p) { return p.id === poiId; });
+        var poi = findPoi(poiId);
         if (!poi) return;
 
         if (selectedPoi) {
@@ -437,18 +496,7 @@
       // handler on the Swift side rather than being caught here — see
       // docs/features/compute-navigation.md.
       computeNavigation: function (request) {
-        if (!venue || !view) return;
-        var navigation = venue.computeNavigation({
-          origin: request.origin,
-          destination: request.destination,
-          isAccessible: request.isAccessible,
-          type: 'fastest',
-          firstNodeAsIntersection: false,
-          mergeFloorChangeInstructions: false,
-        });
-        var navigationTrace = venue.createNavigationTrace(navigation);
-        currentNavigationTrace = navigationTrace;
-        view.setCurrentNavigationTrace(navigationTrace);
+        showNavigation(request, undefined);
       },
       // Restyles the currently displayed navigation trace via
       // venue.updateNavigationTrace(trace, options) -- colors only
@@ -457,17 +505,11 @@
       // after createNavigationTrace()). No-op if computeNavigation hasn't
       // created a trace yet. See docs/features/custom-navigation-trace.md.
       //
-      // venue.updateNavigationTrace() throws an internal TypeError ("Cannot
-      // read properties of undefined (reading 'material')", deep in the
-      // SDK's own line-rendering pipeline) when called right after creating
-      // a fresh trace on this app's own vendored SDK bundle + shared demo
-      // venue -- reproduced live, 4/4 times, via a standalone browser
-      // harness driving this exact map.html/visioone.umd.cjs pair (see
-      // docs/features/custom-navigation-trace.md). The Vue sibling app,
-      // which hit the same error on the same venue, additionally confirmed
-      // every color in `options` is still applied correctly before it
-      // throws. Caught here either way so it never surfaces as a
-      // WKJavaScriptExceptionMessage failure on the Swift side.
+      // venue.updateNavigationTrace() can throw an internal TypeError
+      // ("Cannot read properties of undefined (reading 'material')") right
+      // after a fresh trace is created, while still applying every color in
+      // `options`. Caught here so it never surfaces as a script failure on
+      // the Swift side. See docs/features/custom-navigation-trace.md.
       updateNavigationTrace: function (options) {
         if (!venue || !currentNavigationTrace) return;
         try {
@@ -479,35 +521,12 @@
       // Computes a route like computeNavigation above, but additionally
       // excludes one or more segment "particularities" (e.g. elevators,
       // stairs) via venue.computeNavigation()'s excludedAttributes option.
-      // Added as its own handler rather than a param on computeNavigation,
-      // same "new method, not a signature change" idiom as
-      // updateNavigationTrace above.
-      //
-      // On this app's shared demo venue, the attribute string for an
-      // elevator hop is 'lift' -- not 'elevator', despite the SDK's own
-      // JSDoc comment on excludedAttributes (confirmed live: excluding
-      // 'lift' reroutes a route that otherwise takes a single elevator hop
-      // through stairways instead; excluding 'elevator' has no effect). See
+      // On this app's demo map, an elevator hop's attribute is 'lift', not
+      // 'elevator'. Errors (e.g. no route survives the exclusion) propagate
+      // to the Swift side, same as computeNavigation. See
       // docs/features/navigation-exclude-modalities.md.
-      //
-      // Errors thrown by computeNavigation (e.g. no route survives the
-      // exclusion) propagate to the evaluateJavaScript completion handler on
-      // the Swift side rather than being caught here, same as
-      // computeNavigation above.
       computeNavigationExcludingModalities: function (request) {
-        if (!venue || !view) return;
-        var navigation = venue.computeNavigation({
-          origin: request.origin,
-          destination: request.destination,
-          isAccessible: request.isAccessible,
-          type: 'fastest',
-          firstNodeAsIntersection: false,
-          mergeFloorChangeInstructions: false,
-          excludedAttributes: request.excludedAttributes,
-        });
-        var navigationTrace = venue.createNavigationTrace(navigation);
-        currentNavigationTrace = navigationTrace;
-        view.setCurrentNavigationTrace(navigationTrace);
+        showNavigation(request, request.excludedAttributes);
       },
       // Clears whatever navigation trace is currently displayed via
       // view.removeCurrentNavigationTrace(), so
@@ -535,22 +554,16 @@
         if (!view) return;
         view.setUIPartVisible(uiPart, isVisible);
       },
-      // Resolves a POI's WGS84 position by ID, read from its first marker,
-      // label, or image (POIs have no direct lat/lng field of their own).
-      // Returns null for an unknown POI id or one with none of those three
-      // sub-objects — both are "POI not found" to the native caller. Unlike
-      // the other MapBridge methods, this one is read straight from
-      // evaluateJavaScript's return value on the Swift side rather than
-      // pushed back via sendToNative, since it's a synchronous lookup with
-      // no event to react to. See docs/features/simulated-position.md.
+      // Resolves a POI's WGS84 display position by ID (poiDisplayPosition
+      // above: label, else image/marker, else surface centroid). Returns
+      // null for an unknown POI id or one with none of those -- both are
+      // "POI not found" to the native caller. A synchronous lookup, read
+      // straight from the call's return value on the Swift side. See
+      // docs/features/simulated-position.md.
       resolvePoiPosition: function (poiId) {
-        if (!venue) return null;
-        var poi = venue.pois.find(function (p) { return p.id === poiId; });
+        var poi = findPoi(poiId);
         if (!poi) return null;
-        var position =
-          (poi.markers && poi.markers[0] && poi.markers[0].position) ||
-          (poi.labels && poi.labels[0] && poi.labels[0].position) ||
-          (poi.images && poi.images[0] && poi.images[0].position);
+        var position = poiDisplayPosition(poi);
         if (!position) return null;
         return { latitude: position.latitude, longitude: position.longitude };
       },
@@ -600,9 +613,9 @@
       // either side of the bridge for that part. Disabling resets the base
       // color to 'initial' so the surface doesn't stay stuck on the custom
       // color set here. See docs/features/clickable-surface.md.
-      setSurfaceInteractive: function (placeId, isInteractive) {
+      setSurfaceInteractive: function (poiId, isInteractive) {
         if (!venue) return;
-        var poi = venue.pois.find(function (p) { return p.id === placeId; });
+        var poi = findPoi(poiId);
         if (!poi) return;
         poi.surfaces.forEach(function (surface) {
           venue.updateSurface(
@@ -626,8 +639,7 @@
       //
       // refreshCustomData() rejects (rather than resolving) when the venue
       // has no CustomData published yet -- e.g. a 404 on its customData.json
-      // surfaces here as an "Error: Hash not found" rejection, confirmed
-      // live against this repo's demo map. That's a normal "nothing to
+      // surfaces here as an "Error: Hash not found" rejection. That's a normal "nothing to
       // load yet" outcome, not a real failure, so it's swallowed here and
       // the lookup proceeds against whatever the (possibly still-empty)
       // cache holds, rather than propagating as a WKJavaScriptExceptionMessage
@@ -639,7 +651,7 @@
         } catch (e) {
           // Intentionally ignored -- see comment above.
         }
-        var poi = venue.pois.find(function (p) { return p.id === poiId; });
+        var poi = findPoi(poiId);
         if (!poi) return { found: false };
         return { found: true, data: venue.getPOICustomData(poi) };
       },
@@ -652,8 +664,7 @@
       // docs/features/category-highlight.md.
       //
       // category.id is a raw internal identifier (a numeric string on this
-      // demo's shared map, e.g. "1".."11"), not itself human-readable --
-      // confirmed live, contrary to what's assumed elsewhere. The
+      // demo's shared map, e.g. "1".."11"), not itself human-readable. The
       // human-readable name comes from venue.translator.translateCategory(),
       // same idiom sendFloorsState() already uses for building/floor labels
       // above. Both id (used for filtering/highlighting) and label (used for
@@ -714,7 +725,7 @@
       // docs/features/geofencing.md.
       resolveZonePolygon: function (poiId) {
         if (!venue) return { status: 'notFound' };
-        var poi = venue.pois.find(function (p) { return p.id === poiId; });
+        var poi = findPoi(poiId);
         if (!poi) return { status: 'notFound' };
         var surface = (poi.surfaces || []).find(function (s) { return s.positions && s.positions.length >= 3; });
         if (!surface) return { status: 'noSurface' };
@@ -729,9 +740,9 @@
       // its point-in-polygon check (against resolveZonePolygon's positions)
       // flips the tracked position's inside/outside state. See
       // docs/features/geofencing.md.
-      setZoneAlert: function (placeId, active) {
+      setZoneAlert: function (poiId, active) {
         if (!venue) return;
-        var poi = venue.pois.find(function (p) { return p.id === placeId; });
+        var poi = findPoi(poiId);
         if (!poi) return;
         poi.surfaces.forEach(function (surface) {
           venue.updateSurface(surface, { color: active ? '#E74C3C' : 'initial' });
@@ -742,7 +753,7 @@
       // docs/features/dynamic-poi-crud.md) via venue.createPOI(), then
       // attaches a Label to it via venue.createLabel() so it's actually
       // visible on the map, copying its position from an existing "anchor"
-      // POI's first label or marker (this demo has no "tap to place" UI).
+      // POI (poiDisplayPosition above; this demo has no "tap to place" UI).
       // Returns a discriminated result rather than letting an exception
       // propagate, so every outcome -- including venue.createPOI() throwing
       // POIAlreadyExistsError on a duplicate id -- is a normal state on the
@@ -750,15 +761,15 @@
       //   { status: 'created', id }        on success
       //   { status: 'duplicate' }          id already used in the venue
       //   { status: 'anchorNotFound' }     anchorId doesn't resolve to a POI
-      //   { status: 'noPosition' }         anchor POI has no label/marker to copy
+      //   { status: 'noPosition' }         anchor POI has no position to copy
       // Declared async / called via callAsyncJavaScript from Swift, mirroring
       // loadCustomData's bridge shape above, even though nothing here awaits
       // a real Promise -- see docs/features/dynamic-poi-crud.md.
       createDynamicPOI: async function (newId, anchorId, labelText) {
         if (!venue) return { status: 'anchorNotFound' };
-        var anchor = venue.pois.find(function (p) { return p.id === anchorId; });
+        var anchor = findPoi(anchorId);
         if (!anchor) return { status: 'anchorNotFound' };
-        var position = anchorPositionOf(anchor);
+        var position = poiDisplayPosition(anchor);
         if (!position) return { status: 'noPosition' };
 
         var poi;
@@ -797,23 +808,23 @@
         dynamicLabel = null;
       },
       // Places an image (an icon here) in the 3D scene via venue.createImage(),
-      // owned by an existing "anchor" POI and positioned at that POI's own
-      // label/marker position (anchorPositionOf above, shared with
-      // createDynamicPOI). width/height are in meters; url can be any image
+      // owned by an existing "anchor" POI and positioned at that POI's
+      // display position (poiDisplayPosition above, skipping the icon this
+      // page already placed there). width/height are in meters; url can be any image
       // URL, including a data: URL. Any image already stored under imageId
       // is removed first, so a key never holds two images. Returns a
       // discriminated result rather than throwing, same shape as
       // createDynamicPOI:
       //   { status: 'placed', id }       on success
       //   { status: 'poiNotFound' }      anchorId doesn't resolve to a POI
-      //   { status: 'noPosition' }       anchor POI has no label/marker
+      //   { status: 'noPosition' }       anchor POI has no position
       //   { status: 'error', message }   venue.createImage threw
       // See docs/features/3d-icon-marker.md.
       placeIconImage: async function (imageId, anchorId, url, orientationType) {
         if (!venue) return { status: 'poiNotFound' };
-        var anchor = venue.pois.find(function (p) { return p.id === anchorId; });
+        var anchor = findPoi(anchorId);
         if (!anchor) return { status: 'poiNotFound' };
-        var position = anchorPositionOf(anchor);
+        var position = poiDisplayPosition(anchor, iconImages[imageId]);
         if (!position) return { status: 'noPosition' };
 
         if (iconImages[imageId]) {
@@ -831,7 +842,7 @@
             orientationType: orientationType,
           });
         } catch (e) {
-          return { status: 'error', message: e && e.message ? e.message : String(e) };
+          return { status: 'error', message: errorMessage(e) };
         }
         return { status: 'placed', id: imageId };
       },
@@ -853,29 +864,28 @@
         delete iconImages[imageId];
       },
       // Places free text on the map via venue.createLabel(), owned by an
-      // existing "anchor" POI and positioned at that POI's own label/marker
-      // position (anchorPositionOf above, shared with createDynamicPOI and
-      // placeIconImage), offset by ~4 m so it doesn't overlap the anchor's
+      // existing "anchor" POI and positioned at that POI's display position
+      // (poiDisplayPosition above), offset by ~4 m so it doesn't overlap the anchor's
       // own map label. width/height are in meters; height is ALWAYS passed
       // explicitly (the SDK defaults it to width otherwise -- a square box).
       // Everything is validated first (text, anchor POI, anchor position);
       // only then is any text label already placed removed and the new one
       // created -- one at a time, and a failed place leaves the existing
       // label untouched. The anchor position never comes from our own
-      // label (anchorPositionOf's excludeLabel). Returns a discriminated
+      // label (poiDisplayPosition's `exclude`). Returns a discriminated
       // result rather than throwing:
       //   { status: 'placed' }           on success
       //   { status: 'textRequired' }     text is empty after trimming
       //   { status: 'poiNotFound' }      anchorId doesn't resolve to a POI
-      //   { status: 'noPosition' }       anchor POI has no label/marker
+      //   { status: 'noPosition' }       anchor POI has no position
       //   { status: 'error', message }   venue.createLabel threw
       // See docs/features/custom-text-label.md.
       placeTextLabel: async function (anchorId, text, color, width, height, rotation) {
         if (!venue) return { status: 'poiNotFound' };
         if (!text || !String(text).trim()) return { status: 'textRequired' };
-        var anchor = venue.pois.find(function (p) { return p.id === anchorId; });
+        var anchor = findPoi(anchorId);
         if (!anchor) return { status: 'poiNotFound' };
-        var anchorPosition = anchorPositionOf(anchor, textLabel);
+        var anchorPosition = poiDisplayPosition(anchor, textLabel);
         if (!anchorPosition) return { status: 'noPosition' };
 
         if (textLabel) {
@@ -886,11 +896,7 @@
 
         var options = {
           poi: anchor,
-          position: {
-            latitude: anchorPosition.latitude + 0.00004,
-            longitude: anchorPosition.longitude + 0.00004,
-            altitude: anchorPosition.altitude,
-          },
+          position: offsetPosition(anchorPosition),
           width: width,
           height: height,
           text: text,
@@ -915,7 +921,7 @@
         try {
           venue.updateLabel(textLabel, options);
         } catch (e) {
-          return { status: 'error', message: e && e.message ? e.message : String(e) };
+          return { status: 'error', message: errorMessage(e) };
         }
         Object.assign(textLabelOptions, options);
         return { status: 'updated' };
@@ -944,8 +950,8 @@
       },
       // Pins an interactive HTML element (a badge) on the map via
       // venue.createMarker({ poi, position, element }), owned by an existing
-      // "anchor" POI and positioned ~4 m off that POI's own label/marker
-      // position (anchorPositionOf above, excluding our own badge marker),
+      // "anchor" POI and positioned ~4 m off that POI's display position
+      // (poiDisplayPosition above, excluding our own badge marker),
       // same offset as placeTextLabel. Unlike a Label/Image, the element
       // lives in the DOM above the 3D scene: always facing the screen, never
       // hidden by geometry, and tappable. Validates everything first; only
@@ -954,15 +960,15 @@
       //   { status: 'placed' }           on success
       //   { status: 'textRequired' }     text is empty after trimming
       //   { status: 'poiNotFound' }      anchorId doesn't resolve to a POI
-      //   { status: 'noPosition' }       anchor POI has no label/marker
+      //   { status: 'noPosition' }       anchor POI has no position
       //   { status: 'error', message }   venue.createMarker threw
       // See docs/features/html-overlay-marker.md.
       placeHtmlBadge: async function (anchorId, text) {
         if (!venue) return { status: 'poiNotFound' };
         if (!text || !String(text).trim()) return { status: 'textRequired' };
-        var anchor = venue.pois.find(function (p) { return p.id === anchorId; });
+        var anchor = findPoi(anchorId);
         if (!anchor) return { status: 'poiNotFound' };
-        var anchorPosition = anchorPositionOf(anchor, htmlBadge);
+        var anchorPosition = poiDisplayPosition(anchor, htmlBadge);
         if (!anchorPosition) return { status: 'noPosition' };
 
         if (htmlBadge) {
@@ -979,15 +985,11 @@
         try {
           htmlBadge = venue.createMarker({
             poi: anchor,
-            position: {
-              latitude: anchorPosition.latitude + 0.00004,
-              longitude: anchorPosition.longitude + 0.00004,
-              altitude: anchorPosition.altitude,
-            },
+            position: offsetPosition(anchorPosition),
             element: element,
           });
         } catch (e) {
-          return { status: 'error', message: e && e.message ? e.message : String(e) };
+          return { status: 'error', message: errorMessage(e) };
         }
         // createMarker forces pointer-events:none on the element (taps would
         // fall through to the map); it doesn't rewrite it afterwards.
@@ -1085,7 +1087,7 @@
         try {
           view.setTheme(name);
         } catch (e) {
-          return { status: 'error', message: e && e.message ? e.message : String(e) };
+          return { status: 'error', message: errorMessage(e) };
         }
         return { status: 'applied' };
       },
@@ -1101,7 +1103,7 @@
           if (accentColor != null) view.accentColor = accentColor;
           if (textAccentColor != null) view.textAccentColor = textAccentColor;
         } catch (e) {
-          return { status: 'error', message: e && e.message ? e.message : String(e) };
+          return { status: 'error', message: errorMessage(e) };
         }
         return { status: 'applied' };
       },
@@ -1120,16 +1122,16 @@
         try {
           view.updatePositionTrackerGraphicOptions({ color: color, opacity: opacity });
         } catch (e) {
-          return { status: 'error', message: e && e.message ? e.message : String(e) };
+          return { status: 'error', message: errorMessage(e) };
         }
         return { status: 'applied' };
       },
     };
 
     // Map hash to load, always passed by native as a `?vg_maphash=` query
-    // param (MapWebView.swift; the values live in DemoMap.swift, so there is
-    // no second copy here): the shared demo map for every screen, a
-    // dedicated one for custom-data (see docs/features/custom-data.md).
+    // param (MapWebView.swift; the values live in DemoMap.swift): the shared
+    // demo map for every screen, a dedicated one for custom-data (see
+    // docs/features/custom-data.md).
     // Since SDK 1.0.6 the SDK itself also reads `?vg_maphash=` from the page
     // URL as an override of LoadOptions.vg_maphash, so both paths agree on
     // the same value.
@@ -1199,9 +1201,7 @@
       // direct camera/map interaction -- e.g. moving the camera in/out of
       // a building in 'global' mode, or a click auto-switching 'building'
       // to 'floor'). See docs/features/explore-mode.md.
-      view.addEventListener('exploremodechanged', function (event) {
-        sendToNative('exploreModeChanged', { currentExploreMode: event.currentExploreMode });
-      });
+      view.addEventListener('exploremodechanged', sendExploreModeState);
 
       // JS -> native: mirror view.lockCameraPositionOnTracking into the
       // camera-lock toggle. The SDK changes it on its own: allowTracking =
@@ -1224,7 +1224,7 @@
 
     function onLoadError(error) {
       visioOne.showError(error, container);
-      sendToNative('error', error && error.message ? error.message : String(error));
+      sendToNative('error', errorMessage(error));
     }
 
     // ---- auth-token code sample -------------------------------------------

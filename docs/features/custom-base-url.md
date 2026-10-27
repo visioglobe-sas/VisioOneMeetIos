@@ -40,14 +40,14 @@ if let baseURLOverride {
 ```swift
 // VisioOneBridge.swift — baseURL can't be mutated on a live venue/view, so
 // "Reload" has to redo the whole page load rather than call into the
-// existing one. Updating `baseURL` changes FeatureMapView's
-// `.id(bridge.baseURL)` on MapWebView, which tears down and recreates the
+// existing one. The view hosting MapWebView keys it with .id(...) built
+// from `baseURL`, so updating `baseURL` tears down and recreates the
 // WKWebView (a fresh loadFileURL with the new ?baseURL= query item);
-// retrying the exact same value falls back to a plain webView.reload().
+// retrying the exact same value just loads the page again.
 func reloadWithBaseURL(_ newBaseURL: String) {
     loadState = .loading
     if newBaseURL == baseURL {
-        webView?.reload()
+        reload()
     } else {
         baseURL = newBaseURL
     }
@@ -59,8 +59,8 @@ func reloadWithBaseURL(_ newBaseURL: String) {
 ## Things to know
 
 - **`baseURL` is a load-time option, not a live property.** Every other feature in this app mutates an already-loaded `venue`/`view` (colors, locale, tracked position, …); this one is the exception — changing it requires a full venue reload, which is why "Reload" here recreates the whole `WKWebView` rather than calling a bridge method on the existing one.
-- **A bad `baseURL` is a clean, catchable failure, not a hang.** Confirmed live with a standalone `WKWebView` harness loading this exact `map.html` + the vendored SDK bundle: passing an unreachable `baseURL` rejects `loadVenue`'s promise almost immediately with `Error: Cannot load the venue` — the same error path a bad hash already takes, not a stall or an uncaught exception.
-- **Passing the SDK's own real default value through explicitly behaves identically to omitting it.** Confirmed live with the same harness: `?baseURL=https://mapserver.visioglobe.com/` loads exactly like no override at all — proving the parameter is genuinely wired through to `loadVenue`, not just a UI field with no effect.
+- **A bad `baseURL` is a clean, catchable failure, not a hang.** Passing an unreachable `baseURL` rejects `loadVenue`'s promise almost immediately with `Error: Cannot load the venue` — the same error path a bad hash already takes, not a stall or an uncaught exception.
+- **Passing the SDK's own real default value through explicitly behaves identically to omitting it.** `?baseURL=https://mapserver.visioglobe.com/` loads exactly like no override at all — proving the parameter is genuinely wired through to `loadVenue`, not just a UI field with no effect.
 - There is no second real map-hosting environment to demonstrate an actual working alternate deployment against — hosting one is a separate infrastructure decision, out of scope for this demo app (see the hub's `docs/features/custom-base-url.md`). The error-state case above is the honest substitute: it proves the plumbing works without fabricating infrastructure that doesn't exist.
 
 ## Learn more

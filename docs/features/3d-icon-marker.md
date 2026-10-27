@@ -16,7 +16,7 @@ placeIconImage: async function (imageId, anchorId, url, orientationType) {
   if (!venue) return { status: 'poiNotFound' };
   var anchor = venue.pois.find(function (p) { return p.id === anchorId; });
   if (!anchor) return { status: 'poiNotFound' };
-  var position = anchorPositionOf(anchor); // first label's, else first marker's .position
+  var position = poiDisplayPosition(anchor, iconImages[imageId]); // skips our own icon; see simulated-position.md
   if (!position) return { status: 'noPosition' };
 
   if (iconImages[imageId]) {
@@ -104,7 +104,7 @@ Passing the data URL and ids through `callAsyncJavaScript`'s `arguments` (rather
 - **`createImage` throws synchronously on an invalid `orientationType`** (`"Invalid orientation type"`) — only the three literal strings are accepted. The JS side above wraps the call in `try/catch` so it comes back as a normal `{ status: 'error' }` outcome.
 - **`'flat'`/`'facing'` on runtime-created images require SDK ≥ 1.0.9.** In 1.0.5, an image created with `createImage`, or switched with `updateImage`, to `'flat'` or `'facing'` lay flat on the ground and never turned with the camera. This was an SDK bug, fixed in 1.0.9. `'fixed'` works on both versions.
 - **The owning POI keeps its own visuals.** An anchor POI that already has an SDK icon keeps it: after `createImage`, `poi.images` holds both. `removeImage` only removes the one you pass.
-- **POIs have no direct lat/lng field.** A position can only be read from an attached label, marker or image. A POI that only has a surface (for example `B3-UL00-ID0065` on the shared demo map, while `B4-UL00-ID0009` "Restaurant" has a label) has nothing to copy, and this demo reports "This POI has no position" for it.
+- **POIs have no direct lat/lng field.** The position is read off what is attached to the POI: first label, else first image, else first marker, else the centroid of its first surface (see `docs/features/simulated-position.md`). A surface-only POI (for example `B3-UL00-ID0065` on the shared demo map) therefore resolves to the middle of its surface.
 - **Images follow their floor's visibility.** An image placed on an indoor floor is not drawn in the global (outside) view, like everything else on that floor. Move the camera to that floor (for example with `view.goToFloor()` + `view.goToPOI()`, see `docs/features/goto-poi.md`) to show it.
 - Runtime images are not persisted: they live in the SDK's in-memory venue model for the current page load only.
 

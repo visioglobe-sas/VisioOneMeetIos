@@ -4,7 +4,7 @@
 
 Pins an HTML element — here a small "Open now · 12:00–14:00" badge — on the map at a geographic position via `venue.createMarker({ poi, position, element })`. Unlike a `Label` or an `Image`, which live inside the 3D scene, a marker's element is a regular DOM node drawn on top of the map: it always faces the screen, is never hidden by walls or other 3D geometry, and — the point of this demo — it is **interactive**: tapping it reaches the app. The text is changed with a plain DOM edit, the badge is shown/hidden via `venue.updateMarker(marker, { isVisible })`, and removed via `venue.removeMarker(marker)`.
 
-Every marker must belong to a POI. This demo uses an existing "anchor" POI (resolved by id, `B4-UL00-ID0009` "Restaurant" by default) as the owner, reads that POI's position from its first label or marker (the same lookup as `docs/features/dynamic-poi-crud.md`, `docs/features/3d-icon-marker.md` and `docs/features/custom-text-label.md`), and offsets it by `+0.00004` in latitude and longitude (about 4 m). One badge is tracked at a time. Placing again validates everything first (text, anchor POI, anchor position) and only then replaces the previous badge, so a failed place leaves the existing one untouched.
+Every marker must belong to a POI. This demo uses an existing "anchor" POI (resolved by id, `B4-UL00-ID0009` "Restaurant" by default) as the owner, reads that POI's display position (first label, else image, else marker, else surface centroid; the same lookup as `docs/features/dynamic-poi-crud.md`, `docs/features/3d-icon-marker.md` and `docs/features/custom-text-label.md`), and offsets it by `+0.00004` in latitude and longitude (about 4 m). One badge is tracked at a time. Placing again validates everything first (text, anchor POI, anchor position) and only then replaces the previous badge, so a failed place leaves the existing one untouched.
 
 In this iOS app the element is created by the JS side inside the `WKWebView`; its `click` is forwarded to Swift through the `WKScriptMessageHandler` bridge, where the tap is counted.
 
@@ -15,13 +15,15 @@ In this iOS app the element is created by the JS side inside the `WKWebView`; it
 // JSON-serializable, so it never crosses the bridge.
 var htmlBadge = null;
 
-// First label's, else first marker's .position -- skipping `exclude` (one of our own overlays).
-function anchorPositionOf(poi, exclude) {
-  var label = (poi.labels || []).find(function (l) { return l !== exclude; });
-  var marker = (poi.markers || []).find(function (m) { return m !== exclude; });
-  var position = (label && label.position) || (marker && marker.position);
-  if (!position) return null;
-  return { latitude: position.latitude, longitude: position.longitude, altitude: position.altitude };
+// A POI's display position: first label, else first image, else first marker
+// (skipping `exclude`, one of our own objects attached to it), else the
+// centroid of its first surface. See simulated-position.md.
+function poiDisplayPosition(poi, exclude) {
+  function first(list) { return list.find(function (o) { return o !== exclude && o.position; }); }
+  var item = first(poi.labels) || first(poi.images) || first(poi.markers);
+  if (item) return item.position;
+  var surface = poi.surfaces.find(function (s) { return s.positions.length > 0; });
+  return surface ? centroidOf(surface.positions) : null;
 }
 
 placeHtmlBadge: async function (anchorId, text) {
@@ -30,7 +32,7 @@ placeHtmlBadge: async function (anchorId, text) {
   var anchor = venue.pois.find(function (p) { return p.id === anchorId; });
   if (!anchor) return { status: 'poiNotFound' };
   // Our own marker is in anchor.markers too: never read the position from it.
-  var anchorPosition = anchorPositionOf(anchor, htmlBadge);
+  var anchorPosition = poiDisplayPosition(anchor, htmlBadge);
   if (!anchorPosition) return { status: 'noPosition' };
 
   if (htmlBadge) {                       // one badge at a time
@@ -48,11 +50,7 @@ placeHtmlBadge: async function (anchorId, text) {
   try {
     htmlBadge = venue.createMarker({
       poi: anchor,
-      position: {
-        latitude: anchorPosition.latitude + 0.00004,
-        longitude: anchorPosition.longitude + 0.00004,
-        altitude: anchorPosition.altitude,
-      },
+      position: offsetPosition(anchorPosition), // ~4 m north-east of the anchor
       element: element,
     });
   } catch (e) {
@@ -93,12 +91,12 @@ removeHtmlBadge: function () {
 // Native -> JS: callAsyncJavaScript with `arguments`, so the text is passed
 // safely (no string interpolation); the { status, message? } object comes
 // back as a [String: Any].
-let placed = await callHtmlBadgeBridge(
+let placed = await callOverlayBridge(
     "return await window.MapBridge.placeHtmlBadge(anchorId, text);",
     arguments: ["anchorId": "B4-UL00-ID0009", "text": "Open now \u{00B7} 12:00\u{2013}14:00"]
 )
-_ = await callHtmlBadgeBridge("return window.MapBridge.updateHtmlBadgeText(text);", arguments: ["text": "Closed today"])
-_ = await callHtmlBadgeBridge("return window.MapBridge.setHtmlBadgeVisible(isVisible);", arguments: ["isVisible": false])
+_ = await callOverlayBridge("return window.MapBridge.updateHtmlBadgeText(text);", arguments: ["text": "Closed today"])
+_ = await callOverlayBridge("return window.MapBridge.setHtmlBadgeVisible(isVisible);", arguments: ["isVisible": false])
 webView.callAsyncJavaScript("window.MapBridge.removeHtmlBadge();", arguments: [:], in: nil, in: .page) { _ in }
 
 // JS -> native: the badge's click arrives through the WKScriptMessageHandler
@@ -123,6 +121,7 @@ After a successful place, the demo moves the camera to the anchor POI with the s
 
 ## Things to know
 
+- **Only forget the placed badge when the SDK says it is gone.** A re-place removes the previous badge and then calls `venue.createMarker`: if that SDK call throws (`{ status: 'error' }`), nothing is placed anymore. But a failure of the bridge call itself (WebKit error, unexpected response) says nothing about the map, so keep your native state as it was in that case.
 - **`element` is required.** Without it, `createMarker` throws `Cannot createMarker, invalid element provided, options.element is missing`.
 - **The SDK owns the element's layout.** It moves the element into its own overlay container and sets `position: absolute; top: 0; left: 0; translate: -50% -50%` (the element is **centered** on the position), a per-frame `transform: translate(x, y)` and a `z-index`. Don't set those properties on the element yourself; wrap your content in a child element if you need your own transforms.
 - **The element is not tappable by default.** `createMarker` sets `pointer-events: none` on it, so taps fall through to the map and open the POI card of whatever is underneath. Set `element.style.pointerEvents = 'auto'` right after `createMarker` (the SDK doesn't rewrite it later, including after camera moves), and call `event.stopPropagation()` in your click handler so the tap doesn't also reach the map.
@@ -131,7 +130,7 @@ After a successful place, the demo moves the camera to the anchor POI with the s
 - **`updateMarker` only accepts `position` and `isVisible`.** `isVisible: false` sets `display: none` (the element stays in the DOM). Content changes are plain DOM edits on `marker.element`.
 - **Double remove / update after remove throws.** Once removed, the marker is no longer registered: `removeMarker` or `updateMarker` on it again throws `Provided marker is not registered`. Drop your reference after removing.
 - **The marker belongs to its POI.** After `createMarker`, the anchor's `poi.markers` contains your marker. Skip it when reading the anchor's position again (for a re-place), otherwise an anchor without a label of its own would hand back your marker's already-offset position.
-- **POIs have no direct lat/lng field.** The position can only be read from an attached label, marker or image. A surface-only POI (for example `B3-UL00-ID0065` on the shared demo map) has nothing to copy.
+- **POIs have no direct lat/lng field.** The position is read off what is attached to the POI: first label, else first image, else first marker, else the centroid of its first surface (see `docs/features/simulated-position.md`). A surface-only POI (for example `B3-UL00-ID0065` on the shared demo map) therefore resolves to the middle of its surface.
 - Runtime markers are not persisted: they live in the SDK's in-memory venue model for the current page load only.
 
 ## Learn more
