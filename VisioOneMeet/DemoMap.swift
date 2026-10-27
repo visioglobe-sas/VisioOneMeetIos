@@ -29,8 +29,7 @@ enum DemoMap {
     static let accessibleTo = "B4-UL01-ID0014"
 
     /// simulated-position, camera-lock-on-position, geofencing and
-    /// accuracy-circle-style: origin and destination of the simulated walk
-    /// (both need a label, marker or image to read a position from).
+    /// accuracy-circle-style: origin and destination of the simulated walk.
     static let trackingFrom = "B4-UL00-ID0009"
     static let trackingTo = "B4-UL00-ID0010"
     /// geofencing: a POI with a surface, used as the zone.
@@ -43,9 +42,9 @@ enum DemoMap {
 
     /// dynamic-poi-crud: id of the POI to create.
     static let newPoiId = "demo-poi"
-    /// "Restaurant", ground floor of building B4: has a label to read a
-    /// position from (a surface-only POI such as `B3-UL00-ID0065` has none).
-    /// Anchor of dynamic-poi-crud, 3d-icon-marker, custom-text-label and
+    /// "Restaurant", ground floor of building B4 (it has a label, so the
+    /// placed objects sit right next to its name). Anchor of
+    /// dynamic-poi-crud, 3d-icon-marker, custom-text-label and
     /// html-overlay-marker.
     static let anchorPoiId = "B4-UL00-ID0009"
 

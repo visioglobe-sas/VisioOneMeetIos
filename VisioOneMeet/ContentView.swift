@@ -21,7 +21,7 @@ struct ContentView: View {
         .safeAreaInset(edge: .top) {
             header
         }
-        .navigationTitle("VisioOne Meet")
+        .navigationTitle(Text(verbatim: appDisplayName))
     }
 
     private var header: some View {
