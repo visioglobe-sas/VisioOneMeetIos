@@ -11,66 +11,73 @@ The theme choices are built at runtime from `view.themes`, not hardcoded. The SD
 
 ## SDK usage
 
-The view must be created with `enableShadows: true`, otherwise `setTheme` has no visible effect (see "Things to know"):
+The view must be created with `enableShadows: true`, otherwise `setTheme` has no visible effect (see "Things to know"). This screen passes `?enableShadows=1` to the page, which `MapCore.start()` turns into the `createView` option:
 
 ```js
-visioOne.loadVenue({ vg_maphash: hash }, container)
-  .then(function (venue) {
-    return visioOne.createView(container, venue, { enableShadows: true });
-  });
+// VisioOneMeet/WebContent/bridge/core.js
+var viewOptions = {};
+if (enableShadows) viewOptions.enableShadows = true;
+// ... then visioOne.createView(container, venue, viewOptions)
 ```
-
-JS side (`window.MapBridge`, in the page hosting the SDK):
 
 ```js
-// view.themes: readonly string[] -- synchronous read.
-getThemes: function () {
-  return (view.themes || []).slice();
-},
+// VisioOneMeet/WebContent/features/custom-theme.js
+core.register({
+  // view.themes: readonly string[] -- synchronous read.
+  getThemes: function () {
+    if (!core.view) return [];
+    return (core.view.themes || []).slice();
+  },
 
-// view.setTheme(name: string): void -- throws on an unregistered id.
-setTheme: function (name) {
-  try {
-    view.setTheme(name);
-  } catch (e) {
-    return { status: 'error', message: e.message };
-  }
-  return { status: 'applied' };
-},
+  // view.setTheme(name: string): void -- throws on an unregistered id.
+  setTheme: function (name) {
+    if (!core.view) return { status: 'error', message: 'view not ready' };
+    try {
+      core.view.setTheme(name);
+    } catch (e) {
+      return { status: 'error', message: core.errorMessage(e) };
+    }
+    return { status: 'applied' };
+  },
 
-// view.accentColor / view.textAccentColor: string (hex, rgba() or hsl()) --
-// throw on an invalid color. null leaves that color unchanged.
-setAccentColors: function (accentColor, textAccentColor) {
-  try {
-    if (accentColor != null) view.accentColor = accentColor;
-    if (textAccentColor != null) view.textAccentColor = textAccentColor;
-  } catch (e) {
-    return { status: 'error', message: e.message };
-  }
-  return { status: 'applied' };
-},
+  // view.accentColor / view.textAccentColor: string (hex, rgba() or hsl()) --
+  // throw on an invalid color. null leaves that color unchanged.
+  setAccentColors: function (accentColor, textAccentColor) {
+    var view = core.view;
+    if (!view) return { status: 'error', message: 'view not ready' };
+    try {
+      if (accentColor != null) view.accentColor = accentColor;
+      if (textAccentColor != null) view.textAccentColor = textAccentColor;
+    } catch (e) {
+      return { status: 'error', message: core.errorMessage(e) };
+    }
+    return { status: 'applied' };
+  },
+});
 ```
-
-Native side (Swift, `WKWebView`):
 
 ```swift
-// Read the theme list (synchronous JS value).
-webView.evaluateJavaScript("window.MapBridge.getThemes()") { result, _ in
-    let themes = result as? [String] ?? []   // ["day", "night", "goldenHour"]
+// VisioOneMeet/Features/CustomTheme/CustomTheme+Bridge.swift
+extension VisioOneBridge {
+    // ["day", "night", "goldenHour"], nil on a bridge failure.
+    func getThemes() async -> [String]? {
+        guard case .success(let value) = await callForResult("getThemes") else { return nil }
+        return value as? [String]
+    }
+
+    // .success, or .sdkError(message) for an unregistered id.
+    func setTheme(_ name: String) async -> BridgeResult {
+        await callForStatus("setTheme", args: [name])
+    }
+
+    // nil leaves that color alone; a non-success outcome is logged.
+    func setAccentColors(accent: String?, text: String?) {
+        callReportingStatus("setAccentColors", args: [accent, text])
+    }
 }
-
-// Switch theme.
-webView.callAsyncJavaScript(
-    "return window.MapBridge.setTheme(name);",
-    arguments: ["name": "night"], in: nil, in: .page
-) { result in /* { status: "applied" } or { status: "error", message } */ }
-
-// Recolor the SDK buttons.
-webView.callAsyncJavaScript(
-    "return window.MapBridge.setAccentColors(accent, text);",
-    arguments: ["accent": "#E53935", "text": "#FFEB3B"], in: nil, in: .page
-) { _ in }
 ```
+
+The SDK has no current-theme getter, so `CustomThemeModel` (`VisioOneMeet/Features/CustomTheme/CustomThemeModel.swift`) tracks the applied theme and colors, and rolls the theme back when `setTheme` doesn't return `.success`.
 
 Defaults (what a "reset" sends back): theme `day`, accent `#0094F0`, text accent `#FFFFFF`.
 
@@ -87,4 +94,4 @@ Defaults (what a "reset" sends back): theme `day`, accent `#0094F0`, text accent
 
 ## Learn more
 
-- Both accent colors can also be set at load time through the page URL parameters `accentColor` / `textAccentColor` (SDK `URLParameters`), e.g. `map.html?accentColor=E53935&textAccentColor=FFEB3B` — hex values go **without** the `#` (the SDK prepends it); `rgb(...)`, `rgba(...)` and `hsl(...)` are passed as-is.
+- Both accent colors can also be set at load time through the page URL parameters `accentColor` / `textAccentColor` (SDK `URLParameters`), e.g. `map.html?accentColor=E53935&textAccentColor=FFEB3B` (the page URL) — hex values go **without** the `#` (the SDK prepends it); `rgb(...)`, `rgba(...)` and `hsl(...)` are passed as-is.

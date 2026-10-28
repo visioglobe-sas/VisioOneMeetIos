@@ -11,40 +11,45 @@ The SDK changes this property on its own (tracking on/off, user pans), so the de
 Setting the lock (native -> JS):
 
 ```js
-// window.MapBridge, JS side
+// VisioOneMeet/WebContent/features/camera-lock-on-position.js
 setCameraLockOnPosition: function (locked) {
-  if (!view) return;
-  view.lockCameraPositionOnTracking = locked;
+  if (!core.view) return;
+  core.view.lockCameraPositionOnTracking = locked;
 },
 ```
 
 ```swift
+// VisioOneMeet/Features/CameraLockOnPosition/CameraLockOnPosition+Bridge.swift
 func setCameraLockOnPosition(_ locked: Bool) {
-    webView?.evaluateJavaScript("window.MapBridge.setCameraLockOnPosition(\(locked))")
+    call("setCameraLockOnPosition", args: [locked])
 }
 ```
 
 Mirroring the lock state (JS -> native), subscribed once right after `createView`:
 
 ```js
+// VisioOneMeet/WebContent/features/camera-lock-on-position.js
 function sendCameraLockState() {
-  window.webkit.messageHandlers.mapBridge.postMessage({
-    type: 'cameraLockChanged',
-    message: { locked: view.lockCameraPositionOnTracking === true },
-  });
+  var view = core.view;
+  if (!view) return;
+  // window.webkit.messageHandlers.mapBridge.postMessage({ type, message })
+  core.sendToNative('cameraLockChanged', { locked: view.lockCameraPositionOnTracking === true });
 }
 
-['trackingon', 'trackingoff', 'trackingchanged'].forEach(function (eventName) {
-  view.addEventListener(eventName, sendCameraLockState);
+core.onViewCreated(function (view) {
+  ['trackingon', 'trackingoff', 'trackingchanged'].forEach(function (eventName) {
+    view.addEventListener(eventName, sendCameraLockState);
+  });
 });
 ```
 
 ```swift
-// WKScriptMessageHandler
-case "cameraLockChanged":
-    guard let payload = body["message"] as? [String: Any],
+// VisioOneMeet/Features/CameraLockOnPosition/CameraLockOnPositionModel.swift
+bridge.onMessage("cameraLockChanged") { [weak self] payload in
+    guard let payload = payload as? [String: Any],
           let locked = payload["locked"] as? Bool else { return }
-    isCameraLockedOnPosition = locked   // @Published, drives the toggle
+    self?.isCameraLockedOnPosition = locked   // @Published, drives the toggle
+}
 ```
 
 The toggle reads `isCameraLockedOnPosition` and, when the user flips it, only calls `setCameraLockOnPosition(newValue)`; the UI then follows the `trackingchanged` event.

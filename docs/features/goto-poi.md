@@ -7,13 +7,15 @@ Centers and zooms the camera on a POI given its ID, via `view.goToPOI(poi, anima
 ## SDK usage
 
 ```js
-// window.MapBridge, JS side
+// VisioOneMeet/WebContent/features/goto-poi.js
 var selectedPoi = null; // currently-highlighted POI, so clearPOI knows what to reset
 
-window.MapBridge = {
+core.register({
   goToPOI: function (poiId) {
+    var venue = core.venue;
+    var view = core.view;
     if (!venue || !view) return;
-    var poi = venue.pois.find(function (p) { return p.id === poiId; });
+    var poi = core.findPoi(poiId);
     if (!poi) return;
 
     if (selectedPoi) {
@@ -37,36 +39,37 @@ window.MapBridge = {
     });
   },
   clearPOI: function () {
+    var venue = core.venue;
     if (!venue || !selectedPoi) return;
     selectedPoi.surfaces.forEach(function (surface) {
       venue.updateSurface(surface, { selectionColor: undefined });
     });
     selectedPoi = null;
   },
-};
+});
 ```
 
 ```swift
-func goToPOI(_ poiId: String) {
-    guard let webView else { return }
-    guard let data = try? JSONSerialization.data(withJSONObject: poiId, options: [.fragmentsAllowed]),
-          let json = String(data: data, encoding: .utf8) else { return }
-    webView.evaluateJavaScript("window.MapBridge.goToPOI(\(json))")
-}
+// VisioOneMeet/Features/GotoPoi/GotoPoi+Bridge.swift
+extension VisioOneBridge {
+    func goToPOI(_ poiId: String) {
+        call("goToPOI", args: [poiId])
+    }
 
-func clearPOI() {
-    webView?.evaluateJavaScript("window.MapBridge.clearPOI()")
+    func clearPOI() {
+        call("clearPOI")
+    }
 }
 ```
 
-`JSONSerialization.data(withJSONObject:options:[.fragmentsAllowed])` encodes a bare `String` directly as a JSON literal — without `.fragmentsAllowed`, `JSONSerialization` rejects a root value that isn't an `Array`/`Dictionary`.
+`call` (`VisioOneMeet/Bridge/VisioOneBridge.swift`) runs `window.MapBridge.goToPOI(a0)` through `WKWebView.callAsyncJavaScript`, with `poiId` passed as a real JS string argument — never interpolated into the script, so no escaping is needed.
 
 ## Things to know
 
 - **`view.goToFloor` before `view.goToPOI` is not optional.** The SDK's own documentation is explicit: "the caller is responsible to call goToFloor prior goToPOI, otherwise the currentFloor/Building will remain active." On a single-floor map this has no visible effect, but targeting a POI on a floor that isn't currently displayed would otherwise move the camera to coordinates that never render.
 - `goToFloor`/`goToPOI` both return an `AnimationPromise` (a `Promise<void>` extended with `isCanceled`/`cancel()`), so `.then()` chains directly off them.
 - Highlighting via `selectionColor` is a UX addition, not something `goToPOI` provides on its own. Reset the previous highlight (`selectionColor: undefined`) before applying a new one, or the previously targeted POI stays highlighted indefinitely.
-- `venue.pois.find(...)` fails silently (no error, no callback) if `poiId` doesn't match any POI in the loaded map.
+- `venue.pois.find(...)` (`core.findPoi`) fails silently (no error, no callback) if `poiId` doesn't match any POI in the loaded map.
 - Clearing the highlight does not recenter the camera — `clearPOI` only undoes the surface highlight left by `goToPOI`, it doesn't touch the viewpoint (see `docs/features/reset-view.md` for that).
 
 ## Learn more

@@ -7,49 +7,47 @@ Switches the map's displayed language — POI/label names — at runtime, withou
 ## SDK usage
 
 ```js
-// window.MapBridge, JS side
-getCurrentLocale: function () {
-  if (!venue) return null;
-  return venue.currentLocale;
-},
-setCurrentLocale: function (locale) {
-  if (!venue) return Promise.reject(new Error('venue not loaded'));
-  return venue.setCurrentLocale(locale);
-},
+// VisioOneMeet/WebContent/features/runtime-locale.js
+core.register({
+  getCurrentLocale: function () {
+    if (!core.venue) return null;
+    return core.venue.currentLocale;
+  },
+  setCurrentLocale: function (locale) {
+    if (!core.venue) return Promise.reject(new Error('venue not loaded'));
+    return core.venue.setCurrentLocale(locale);
+  },
+});
 ```
 
 ```swift
-/// Reads venue.currentLocale (synchronous JS property, no promise involved).
-func refreshCurrentLocale() async {
-    guard let webView else { return }
-    let result: String? = await withCheckedContinuation { continuation in
-        webView.evaluateJavaScript("window.MapBridge.getCurrentLocale()") { result, error in
-            // ... continuation.resume(returning: result as? String)
-        }
-    }
-    if let result { currentLocale = result }
+// VisioOneMeet/Features/RuntimeLocale/RuntimeLocale+Bridge.swift
+/// Reads venue.currentLocale; nil on a bridge failure.
+func getCurrentLocale() async -> String? {
+    guard case .success(let value) = await callForResult("getCurrentLocale") else { return nil }
+    return value as? String
 }
 
-/// Calls venue.setCurrentLocale(locale) and awaits its Promise via
-/// callAsyncJavaScript, only updating `currentLocale` once it resolves.
+/// Calls venue.setCurrentLocale(locale) and returns once its Promise has
+/// settled: false on a bridge/JS failure.
 @discardableResult
 func setCurrentLocale(_ locale: String) async -> Bool {
-    guard let webView else { return false }
-    return await withCheckedContinuation { continuation in
-        webView.callAsyncJavaScript(
-            "return await window.MapBridge.setCurrentLocale(locale);",
-            arguments: ["locale": locale],
-            in: nil,
-            in: .page
-        ) { result in
-            // ... on success: currentLocale = locale; continuation.resume(returning: true)
-            // ... on failure: continuation.resume(returning: false)
-        }
+    if case .success = await callForResult("setCurrentLocale", args: [locale]) {
+        return true
+    }
+    return false
+}
+
+// VisioOneMeet/Features/RuntimeLocale/RuntimeLocaleModel.swift
+/// The current locale is only updated once the SDK's promise resolved.
+func switchLocale(to code: String) async {
+    if await bridge.setCurrentLocale(code) {
+        currentLocale = code
     }
 }
 ```
 
-`venue.currentLocale: string` is a readonly, synchronous property — read straight from `evaluateJavaScript`'s own return value, the same idiom used for `venue.categories` in `docs/features/category-highlight.md`. `venue.setCurrentLocale(locale: string): Promise<void>` is the actual call that performs the switch; because it returns a real `Promise` the SDK awaits internally, the native side calls it via `WKWebView.callAsyncJavaScript` (the same idiom `docs/features/custom-data.md` and `docs/features/dynamic-poi-crud.md` use for their own promise-returning calls) rather than a plain `evaluateJavaScript` string, and only reflects the new locale as "current" once that promise actually settles.
+`venue.currentLocale: string` is a readonly, synchronous property. `venue.setCurrentLocale(locale: string): Promise<void>` is the actual call that performs the switch; it returns a real `Promise` the SDK awaits internally, and `callForResult` (`WKWebView.callAsyncJavaScript` under the hood) waits for that promise to settle, so the native side only reflects the new locale as "current" once it actually has.
 
 The full set of locales a venue supports is exposed as `venue.translator.allLocales: string[]`, not used directly by this demo's UI (see below).
 

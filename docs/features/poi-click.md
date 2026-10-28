@@ -7,41 +7,37 @@ Shows a POI's ID and label when the user taps it on the map, by subscribing to t
 ## SDK usage
 
 ```js
-// map.html, once `view` is resolved by createView
-view.addEventListener('poiclick', function (event) {
-  var poi = event.pois && event.pois[0];
-  if (!poi) return;
-  window.webkit.messageHandlers.mapBridge.postMessage({
-    type: 'poiSelected',
-    message: {
+// VisioOneMeet/WebContent/features/poi-click.js
+core.onViewCreated(function (view) {
+  view.addEventListener('poiclick', function (event) {
+    var poi = event.pois && event.pois[0];
+    if (!poi) return;
+    core.sendToNative('poiSelected', {
       id: poi.id,
       name: poi.labels && poi.labels.length ? poi.labels[0].text : null,
-    },
+    });
   });
 });
 ```
 
 ```swift
-// VisioOneBridge.swift, WKScriptMessageHandler
-func userContentController(_ c: WKUserContentController, didReceive message: WKScriptMessage) {
-    guard let body = message.body as? [String: Any],
-          let type = body["type"] as? String else { return }
-    switch type {
-    case "poiSelected":
-        guard let payload = body["message"] as? [String: Any],
+// VisioOneMeet/Features/PoiClick/PoiClickModel.swift
+init(bridge: VisioOneBridge) {
+    bridge.onMessage("poiSelected") { [weak self] payload in
+        guard let payload = payload as? [String: Any],
               let id = payload["id"] as? String else { return }
-        tappedPOI = TappedPOI(id: id, name: payload["name"] as? String)
-    default:
-        break
+        self?.tappedPOI = TappedPOI(id: id, name: payload["name"] as? String)
     }
 }
 ```
+
+`VisioOneBridge` (the `WKScriptMessageHandler`) hands each message's `message` payload to the handlers registered for its `type` with `onMessage(_:_:)`.
 
 ## Things to know
 
 - `event.pois` is the (possibly empty) array of POIs under the tapped point, ordered by proximity to the camera; only the first entry is used here.
 - `poi.labels` can be empty even when the POI exists (no label in the current locale) — guard `poi.labels[0].text` accordingly, and treat a `null` name on the native side as expected, not an error.
-- `WKScriptMessage.body` only carries property-list-compatible types (`NSString`, `NSNumber`, `NSArray`, `NSDictionary`, `NSNull`, `NSDate`) across the bridge — never force-cast it; fall back silently (`default: break`) on an unexpected shape.
+- `WKScriptMessage.body` only carries property-list-compatible types (`NSString`, `NSNumber`, `NSArray`, `NSDictionary`, `NSNull`, `NSDate`) across the bridge — never force-cast it; fall back silently (`guard ... else { return }`) on an unexpected shape.
 - The SDK's own `poiDetails` UI part still shows its default panel on tap (see `docs/features/ui-part-visibility.md`); this native panel doesn't replace it. Call `view.setUIPartVisible('poiDetails', false)` if the native version should be the only one shown.
 
 ## Learn more

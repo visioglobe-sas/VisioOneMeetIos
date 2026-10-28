@@ -9,21 +9,28 @@ The SDK widget starts hidden by default, so only the app's native picker is visi
 ## SDK usage
 
 ```js
-// window.MapBridge, JS side — identical call already used by ui-part-visibility
-setUIPartVisible: function (uiPart, isVisible) {
-  if (!view) return;
-  view.setUIPartVisible(uiPart, isVisible);
-},
+// VisioOneMeet/WebContent/features/ui-part-visibility.js — the same call ui-part-visibility uses
+core.register({
+  setUIPartVisible: function (uiPart, isVisible) {
+    if (!core.view) return;
+    core.view.setUIPartVisible(uiPart, isVisible);
+  },
+});
 ```
 
 ```swift
-// Swift side — the same VisioOneBridge.setUIPartVisible(_:isVisible:) as
-// ui-part-visibility (which also records the hidden parts, the SDK having no
-// getter), called with the one part this feature cares about.
-func setSdkFloorSelectorVisible(_ isVisible: Bool) {
-    setUIPartVisible(.floorSelector, isVisible: isVisible)
+// VisioOneMeet/Features/UiPartVisibility/UiPartVisibility+Bridge.swift
+func setUIPartVisible(_ part: MapUIPart, isVisible: Bool) {
+    call("setUIPartVisible", args: [part.rawValue, isVisible])
 }
-var isSdkFloorSelectorVisible: Bool { !hiddenUIParts.contains(.floorSelector) }
+
+// VisioOneMeet/Features/NativeUiReplacement/NativeUiReplacementModel.swift
+// Hides the SDK's widget once `view` exists (the opposite of the SDK default).
+// `uiParts` (UiPartVisibilityModel) also records the hidden parts, the SDK
+// having no getter.
+func mapDidBecomeReady() {
+    uiParts.setVisible(.floorSelector, false)
+}
 ```
 
 `view.setUIPartVisible(uiPart: UIPart, isVisible: boolean): void` — one of the SDK's exact, case-sensitive `UIPart` values (`'floorSelector'` here); see [`ui-part-visibility`](./ui-part-visibility.md) for the full set and its pitfalls.

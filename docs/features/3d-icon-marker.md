@@ -9,85 +9,86 @@ Every `Image` must belong to a POI. This demo uses an existing "anchor" POI (res
 ## SDK usage
 
 ```js
-// window.MapBridge, JS side. iconImages holds the Image objects, keyed by an
-// id chosen by the native side -- Image isn't JSON-serializable, so only the
-// key crosses the bridge.
-placeIconImage: async function (imageId, anchorId, url, orientationType) {
-  if (!venue) return { status: 'poiNotFound' };
-  var anchor = venue.pois.find(function (p) { return p.id === anchorId; });
-  if (!anchor) return { status: 'poiNotFound' };
-  var position = poiDisplayPosition(anchor, iconImages[imageId]); // skips our own icon; see simulated-position.md
-  if (!position) return { status: 'noPosition' };
+// VisioOneMeet/WebContent/features/3d-icon-marker.js
+// iconImages holds the Image objects, keyed by an id chosen by the native
+// side -- Image isn't JSON-serializable, so only the key crosses the bridge.
+var iconImages = {};
 
-  if (iconImages[imageId]) {
-    venue.removeImage(iconImages[imageId]);
+core.register({
+  placeIconImage: async function (imageId, anchorId, url, orientationType) {
+    var venue = core.venue;
+    if (!venue) return { status: 'poiNotFound' };
+    var anchor = core.findPoi(anchorId);
+    if (!anchor) return { status: 'poiNotFound' };
+    var position = core.poiDisplayPosition(anchor, iconImages[imageId]); // skips our own icon; see simulated-position.md
+    if (!position) return { status: 'noPosition' };
+
+    if (iconImages[imageId]) {
+      venue.removeImage(iconImages[imageId]);
+      delete iconImages[imageId];
+    }
+
+    try {
+      iconImages[imageId] = venue.createImage({
+        poi: anchor,
+        position: position,       // WGS84 { latitude, longitude, altitude? }
+        width: 6,                 // meters
+        height: 6,                // meters
+        url: url,                 // any image URL, data: URLs included
+        orientationType: orientationType, // 'fixed' | 'flat' | 'facing'
+      });
+    } catch (e) {
+      return { status: 'error', message: core.errorMessage(e) };
+    }
+    return { status: 'placed', id: imageId };
+  },
+  updateIconImageOrientation: function (imageId, orientationType) {
+    if (!core.venue || !iconImages[imageId]) return;
+    core.venue.updateImage(iconImages[imageId], { orientationType: orientationType });
+  },
+  removeIconImage: function (imageId) {
+    if (!core.venue || !iconImages[imageId]) return;
+    core.venue.removeImage(iconImages[imageId]);
     delete iconImages[imageId];
-  }
-
-  try {
-    iconImages[imageId] = venue.createImage({
-      poi: anchor,
-      position: position,       // WGS84 { latitude, longitude, altitude? }
-      width: 6,                 // meters
-      height: 6,                // meters
-      url: url,                 // any image URL, data: URLs included
-      orientationType: orientationType, // 'fixed' | 'flat' | 'facing'
-    });
-  } catch (e) {
-    return { status: 'error', message: e && e.message ? e.message : String(e) };
-  }
-  return { status: 'placed', id: imageId };
-},
-updateIconImageOrientation: function (imageId, orientationType) {
-  if (!venue || !iconImages[imageId]) return;
-  venue.updateImage(iconImages[imageId], { orientationType: orientationType });
-},
-removeIconImage: function (imageId) {
-  if (!venue || !iconImages[imageId]) return;
-  venue.removeImage(iconImages[imageId]);
-  delete iconImages[imageId];
-},
+  },
+});
 ```
 
 ```swift
-enum IconOrientation: String, CaseIterable {
+// VisioOneMeet/Features/3dIconMarker/IconMarker3D+Bridge.swift
+enum IconOrientation: String, CaseIterable, Identifiable {
     case fixed, flat, facing   // raw values = the SDK's OrientationType strings
+    var id: String { rawValue }
 }
 
-func placeIcon(anchorId: String) async -> PlaceIconResult {
-    guard let webView else { return .failure("Map not ready") }
-    return await withCheckedContinuation { continuation in
-        webView.callAsyncJavaScript(
-            "return await window.MapBridge.placeIconImage(imageId, anchorId, url, orientationType);",
-            arguments: [
-                "imageId": "3d-icon-marker",
-                "anchorId": anchorId,
-                "url": Self.iconDataURL,          // "data:image/png;base64,..."
-                "orientationType": iconOrientation.rawValue,
-            ],
-            in: nil,
-            in: .page
-        ) { result in
-            // ... maps { status: 'placed' | 'poiNotFound' | 'noPosition' | 'error', message? }
-            // into PlaceIconResult
-        }
+extension VisioOneBridge {
+    /// { status: 'placed' | 'poiNotFound' | 'noPosition' | 'error', message? },
+    /// mapped to a BridgeResult (.success, .poiNotFound, .noPosition, .sdkError).
+    func placeIconImage(imageId: String, anchorId: String, url: String, orientation: IconOrientation) async -> BridgeResult {
+        await callForStatus("placeIconImage", args: [imageId, anchorId, url, orientation.rawValue])
+    }
+
+    func updateIconImageOrientation(imageId: String, orientation: IconOrientation) {
+        call("updateIconImageOrientation", args: [imageId, orientation.rawValue])
+    }
+
+    func removeIconImage(imageId: String) {
+        call("removeIconImage", args: [imageId])
     }
 }
 
-func setIconOrientation(_ orientation: IconOrientation) {
-    webView?.callAsyncJavaScript(
-        "window.MapBridge.updateIconImageOrientation(imageId, orientationType);",
-        arguments: ["imageId": "3d-icon-marker", "orientationType": orientation.rawValue],
-        in: nil, in: .page
-    ) { _ in }
-}
-
-func removeIcon() {
-    webView?.callAsyncJavaScript(
-        "window.MapBridge.removeIconImage(imageId);",
-        arguments: ["imageId": "3d-icon-marker"],
-        in: nil, in: .page
-    ) { _ in }
+// VisioOneMeet/Features/3dIconMarker/IconMarker3DModel.swift
+func place(anchorId: String) async -> BridgeResult {
+    let result = await bridge.placeIconImage(
+        imageId: Self.iconImageId,      // "3d-icon-marker"
+        anchorId: anchorId,
+        url: Self.iconDataURL,          // "data:image/png;base64,..."
+        orientation: orientation
+    )
+    if result == .success {
+        placedAnchorId = anchorId
+    }
+    return result
 }
 ```
 
@@ -96,7 +97,7 @@ func removeIcon() {
 - `venue.removeImage(image)` — removes that image only; the owning POI and its other visual elements are untouched.
 - `OrientationType`: `'fixed'` lies flat on the ground with a fixed heading (`rotation`); `'flat'` lies flat on the ground but turns to face the camera; `'facing'` is a billboard that always faces the camera.
 
-Passing the data URL and ids through `callAsyncJavaScript`'s `arguments` (rather than interpolating them into a script string) keeps arbitrary strings safe to send across the bridge.
+The bridge helpers pass the data URL and ids as `callAsyncJavaScript` arguments (rather than interpolating them into a script string), which keeps arbitrary strings safe to send across the bridge.
 
 ## Things to know
 

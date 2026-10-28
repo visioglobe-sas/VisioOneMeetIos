@@ -7,10 +7,11 @@ Changes floor (and building, when the venue has more than one) via `view.goToFlo
 ## SDK usage
 
 ```js
-// window.MapBridge, JS side
+// VisioOneMeet/WebContent/features/floor-selector.js
 
 // A floor ID is unique across the whole venue, not just within its building.
 function findFloorById(floorId) {
+  var venue = core.venue;
   if (!venue) return null;
   var buildings = venue.venueLayout.buildings;
   for (var i = 0; i < buildings.length; i++) {
@@ -21,6 +22,8 @@ function findFloorById(floorId) {
 }
 
 function sendFloorsState() {
+  var venue = core.venue;
+  var view = core.view;
   if (!venue || !view) return;
   var locale = venue.currentLocale;
   var buildings = venue.venueLayout.buildings.map(function (building) {
@@ -35,42 +38,58 @@ function sendFloorsState() {
     return { id: building.id, label: label, floors: floors };
   });
 
-  window.webkit.messageHandlers.mapBridge.postMessage({
-    type: 'floorsChanged',
-    message: {
-      buildings: buildings,
-      currentBuildingId: view.currentBuilding ? view.currentBuilding.id : null,
-      currentFloorId: view.currentFloor ? view.currentFloor.id : null,
-    },
+  core.sendToNative('floorsChanged', {
+    buildings: buildings,
+    currentBuildingId: view.currentBuilding ? view.currentBuilding.id : null,
+    currentFloorId: view.currentFloor ? view.currentFloor.id : null,
   });
 }
 
-window.MapBridge = {
+// Push state once after createView (onReady), and again on every subsequent
+// change -- including changes triggered by something other than the two
+// commands below (the SDK's own default floor selector widget, a computed
+// route, ...).
+core.onViewCreated(function (view) {
+  view.addEventListener('currentfloorchanged', function () {
+    sendFloorsState();
+  });
+});
+core.onReady(sendFloorsState);
+
+core.register({
   goToFloor: function (floorId) {
-    if (!venue || !view) return;
+    if (!core.venue || !core.view) return;
     var floor = findFloorById(floorId);
     if (!floor) return;
-    view.goToFloor(floor);
+    core.view.goToFloor(floor);
   },
   goToBuilding: function (buildingId) {
-    if (!venue || !view) return;
+    var venue = core.venue;
+    if (!venue || !core.view) return;
     var building = venue.venueLayout.buildings.find(function (b) { return b.id === buildingId; });
     if (!building) return;
-    view.goToBuilding(building);
+    core.view.goToBuilding(building);
   },
-};
-
-// Push state once after createView, and again on every subsequent change —
-// including changes triggered by something other than the two commands
-// above (the SDK's own default floor selector widget, a computed route, …).
-view.addEventListener('currentfloorchanged', function () {
-  sendFloorsState();
 });
 ```
 
-`goToFloor`/`goToBuilding` on the native side follow the same JSON-encoding pattern as `goToPOI` (a single string argument, JSON-encoded with `.fragmentsAllowed`). The `floorsChanged` payload is read on the Swift side through the `WKScriptMessageHandler` (see `docs/features/loading-state.md`) into:
+```swift
+// VisioOneMeet/Features/FloorSelector/FloorSelector+Bridge.swift
+extension VisioOneBridge {
+    func goToFloor(_ floorId: String) {
+        call("goToFloor", args: [floorId])
+    }
+
+    func goToBuilding(_ buildingId: String) {
+        call("goToBuilding", args: [buildingId])
+    }
+}
+```
+
+The `floorsChanged` payload comes back through the bridge's `WKScriptMessageHandler` (see `docs/features/loading-state.md`) and is parsed by `FloorSelectorModel` into:
 
 ```swift
+// VisioOneMeet/Features/FloorSelector/FloorSelectorModel.swift
 struct VenueFloor: Equatable, Identifiable {
     let id: String
     let label: String
@@ -86,6 +105,11 @@ struct FloorSelection: Equatable {
     let buildings: [VenueBuilding]
     let currentBuildingId: String?
     let currentFloorId: String?
+}
+
+bridge.onMessage("floorsChanged") { [weak self] payload in
+    guard let payload = payload as? [String: Any] else { return }
+    self?.floorSelection = Self.parseFloorSelection(payload)
 }
 ```
 

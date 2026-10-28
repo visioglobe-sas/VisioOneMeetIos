@@ -195,5 +195,6 @@ A screenshot (`xcrun simctl io <UDID> screenshot out.png`) lets you check the ma
 ## Going further
 
 - **Native ↔ JS communication**: to drive the map from Swift (e.g. a native button centering the map on a POI) and to bring JS events (POI tap, navigation end…) back to Swift, see [`APP_SDK_COMMUNICATION.md`](./APP_SDK_COMMUNICATION.md).
+- **Growing the page past one script**: once the JS side holds more than a few commands, split it into classic `<script src>` files loaded in order from `map.html` (never `type="module"`, which fails under `file://`) — this repo uses `WebContent/bridge/core.js` (loading, `window.MapBridge`, shared helpers), one `WebContent/features/<slug>.js` per feature, then `WebContent/bridge/bootstrap.js`. Subfolders of a folder reference are copied as-is, and `loadFileURL(_:allowingReadAccessTo:)` on the `WebContent/` directory lets the page read them. See the README's "Architecture" section.
 - **UI customization**, **POI management**, **multimodal routing**, **custom markers**: see the full documentation on [my.visioglobe.com/docs](https://my.visioglobe.com/docs/) and this repo's `docs/features/`.
 - **Support**: [Visioglobe support portal](https://my.visioglobe.com/support).

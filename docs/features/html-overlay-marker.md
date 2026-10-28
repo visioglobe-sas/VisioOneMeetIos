@@ -11,104 +11,109 @@ In this iOS app the element is created by the JS side inside the `WKWebView`; it
 ## SDK usage
 
 ```js
-// window.MapBridge, JS side. htmlBadge holds the Marker -- not
-// JSON-serializable, so it never crosses the bridge.
+// VisioOneMeet/WebContent/features/html-overlay-marker.js
+// htmlBadge holds the Marker -- not JSON-serializable, so it never crosses
+// the bridge.
 var htmlBadge = null;
+var HTML_BADGE_STYLE =
+  'background:#0B6BCB;color:#FFFFFF;font:600 14px sans-serif;padding:6px 12px;' +
+  'border-radius:14px;white-space:nowrap;box-shadow:0 2px 6px rgba(0,0,0,.3);cursor:pointer';
 
-// A POI's display position: first label, else first image, else first marker
-// (skipping `exclude`, one of our own objects attached to it), else the
-// centroid of its first surface. See simulated-position.md.
-function poiDisplayPosition(poi, exclude) {
-  function first(list) { return list.find(function (o) { return o !== exclude && o.position; }); }
-  var item = first(poi.labels) || first(poi.images) || first(poi.markers);
-  if (item) return item.position;
-  var surface = poi.surfaces.find(function (s) { return s.positions.length > 0; });
-  return surface ? centroidOf(surface.positions) : null;
-}
+core.register({
+  placeHtmlBadge: async function (anchorId, text) {
+    var venue = core.venue;
+    if (!venue) return { status: 'poiNotFound' };
+    // Validate everything before touching the badge already placed.
+    if (!text || !String(text).trim()) return { status: 'textRequired' };
+    var anchor = core.findPoi(anchorId);
+    if (!anchor) return { status: 'poiNotFound' };
+    // Our own marker is in anchor.markers too: never read the position from it.
+    var anchorPosition = core.poiDisplayPosition(anchor, htmlBadge);
+    if (!anchorPosition) return { status: 'noPosition' };
 
-placeHtmlBadge: async function (anchorId, text) {
-  // Validate everything before touching the badge already placed.
-  if (!text || !String(text).trim()) return { status: 'textRequired' };
-  var anchor = venue.pois.find(function (p) { return p.id === anchorId; });
-  if (!anchor) return { status: 'poiNotFound' };
-  // Our own marker is in anchor.markers too: never read the position from it.
-  var anchorPosition = poiDisplayPosition(anchor, htmlBadge);
-  if (!anchorPosition) return { status: 'noPosition' };
+    if (htmlBadge) {                       // one badge at a time
+      venue.removeMarker(htmlBadge);
+      htmlBadge = null;
+    }
 
-  if (htmlBadge) {                       // one badge at a time
-    venue.removeMarker(htmlBadge);
-    htmlBadge = null;
-  }
+    // Content styling only -- the SDK owns position/top/left/translate/transform/z-index.
+    var element = document.createElement('div');
+    element.setAttribute('style', HTML_BADGE_STYLE);
+    element.textContent = text;
 
-  // Content styling only -- the SDK owns position/top/left/translate/transform/z-index.
-  var element = document.createElement('div');
-  element.setAttribute('style',
-    'background:#0B6BCB;color:#FFFFFF;font:600 14px sans-serif;padding:6px 12px;' +
-    'border-radius:14px;white-space:nowrap;box-shadow:0 2px 6px rgba(0,0,0,.3);cursor:pointer');
-  element.textContent = text;
+    try {
+      htmlBadge = venue.createMarker({
+        poi: anchor,
+        position: core.offsetPosition(anchorPosition), // ~4 m north-east of the anchor
+        element: element,
+      });
+    } catch (e) {
+      return { status: 'error', message: core.errorMessage(e) };
+    }
 
-  try {
-    htmlBadge = venue.createMarker({
-      poi: anchor,
-      position: offsetPosition(anchorPosition), // ~4 m north-east of the anchor
-      element: element,
+    // createMarker sets pointer-events:none on the element: make it tappable.
+    element.style.pointerEvents = 'auto';
+    element.addEventListener('click', function (event) {
+      event.stopPropagation();   // don't let the tap reach the map underneath
+      core.sendToNative('htmlBadgeTapped');
     });
-  } catch (e) {
-    return { status: 'error', message: e.message };
-  }
+    return { status: 'placed' };
+  },
 
-  // createMarker sets pointer-events:none on the element: make it tappable.
-  element.style.pointerEvents = 'auto';
-  element.addEventListener('click', function (event) {
-    event.stopPropagation();   // don't let the tap reach the map underneath
-    window.webkit.messageHandlers.mapBridge.postMessage({ type: 'htmlBadgeTapped' });
-  });
-  return { status: 'placed' };
-},
+  // Content change: a plain DOM edit on the live element, no SDK call.
+  updateHtmlBadgeText: function (text) {
+    if (!htmlBadge) return { status: 'noBadge' };
+    if (!text || !String(text).trim()) return { status: 'textRequired' };
+    htmlBadge.element.textContent = text;
+    return { status: 'updated' };
+  },
 
-// Content change: a plain DOM edit on the live element, no SDK call.
-updateHtmlBadgeText: function (text) {
-  if (!htmlBadge) return { status: 'noBadge' };
-  if (!text || !String(text).trim()) return { status: 'textRequired' };
-  htmlBadge.element.textContent = text;
-  return { status: 'updated' };
-},
+  setHtmlBadgeVisible: function (isVisible) {
+    if (!core.venue || !htmlBadge) return { status: 'noBadge' };
+    core.venue.updateMarker(htmlBadge, { isVisible: isVisible });
+    return { status: 'updated' };
+  },
 
-setHtmlBadgeVisible: function (isVisible) {
-  if (!htmlBadge) return { status: 'noBadge' };
-  venue.updateMarker(htmlBadge, { isVisible: isVisible });
-  return { status: 'updated' };
-},
+  removeHtmlBadge: function () {
+    if (!core.venue || !htmlBadge) return;   // the SDK throws on a double remove
+    core.venue.removeMarker(htmlBadge);
+    htmlBadge = null;
+  },
+});
+```
 
-removeHtmlBadge: function () {
-  if (!htmlBadge) return;   // the SDK throws on a double remove
-  venue.removeMarker(htmlBadge);
-  htmlBadge = null;
-},
+`core.poiDisplayPosition` and `core.offsetPosition` live in `VisioOneMeet/WebContent/bridge/core.js` (the POI position rule is described in `docs/features/simulated-position.md`).
+
+```swift
+// VisioOneMeet/Features/HtmlOverlayMarker/HtmlOverlayMarker+Bridge.swift
+// Native -> JS: callForStatus passes the text as a real JS value (no string
+// interpolation) and maps the { status, message? } object to a BridgeResult.
+extension VisioOneBridge {
+    func placeHtmlBadge(anchorId: String, text: String) async -> BridgeResult {
+        await callForStatus("placeHtmlBadge", args: [anchorId, text])
+    }
+
+    func updateHtmlBadgeText(_ text: String) async -> BridgeResult {
+        await callForStatus("updateHtmlBadgeText", args: [text])
+    }
+
+    func setHtmlBadgeVisible(_ isVisible: Bool) async -> BridgeResult {
+        await callForStatus("setHtmlBadgeVisible", args: [isVisible])
+    }
+
+    func removeHtmlBadge() {
+        call("removeHtmlBadge")
+    }
+}
 ```
 
 ```swift
-// Native -> JS: callAsyncJavaScript with `arguments`, so the text is passed
-// safely (no string interpolation); the { status, message? } object comes
-// back as a [String: Any].
-let placed = await callOverlayBridge(
-    "return await window.MapBridge.placeHtmlBadge(anchorId, text);",
-    arguments: ["anchorId": "B4-UL00-ID0009", "text": "Open now \u{00B7} 12:00\u{2013}14:00"]
-)
-_ = await callOverlayBridge("return window.MapBridge.updateHtmlBadgeText(text);", arguments: ["text": "Closed today"])
-_ = await callOverlayBridge("return window.MapBridge.setHtmlBadgeVisible(isVisible);", arguments: ["isVisible": false])
-webView.callAsyncJavaScript("window.MapBridge.removeHtmlBadge();", arguments: [:], in: nil, in: .page) { _ in }
-
-// JS -> native: the badge's click arrives through the WKScriptMessageHandler
-// registered as "mapBridge" (registered via a weak proxy to avoid a retain cycle).
-func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
-    guard let body = message.body as? [String: Any], let type = body["type"] as? String else { return }
-    switch type {
-    case "htmlBadgeTapped":
-        htmlBadgeTapCount += 1
-    default:
-        break
-    }
+// VisioOneMeet/Features/HtmlOverlayMarker/HtmlOverlayMarkerModel.swift
+// JS -> native: the badge's click arrives through the bridge's
+// WKScriptMessageHandler ("mapBridge", registered via a weak proxy to avoid a
+// retain cycle), dispatched to the handlers registered for its type.
+bridge.onMessage("htmlBadgeTapped") { [weak self] _ in
+    self?.tapCount += 1
 }
 ```
 

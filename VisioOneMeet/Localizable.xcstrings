@@ -1418,13 +1418,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "This feature is a code sample only: this demo has no protected map to load. See VisioOneMeet/ProtectedMapSample.swift, loadProtectedVenue() in VisioOneMeet/WebContent/map.html and docs/features/auth-token.md, then replace the placeholder map hash and token with your own values."
+            "value" : "This feature is a code sample only: this demo has no protected map to load. See VisioOneMeet/Features/AuthToken/ProtectedMapSample.swift, loadProtectedVenue() in VisioOneMeet/WebContent/features/auth-token.js and docs/features/auth-token.md, then replace the placeholder map hash and token with your own values."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Cette feature est uniquement un exemple de code : cette démo n'a pas de carte protégée à charger. Voir VisioOneMeet/ProtectedMapSample.swift, loadProtectedVenue() dans VisioOneMeet/WebContent/map.html et docs/features/auth-token.md, puis remplacer le hash de carte et le jeton fictifs par vos propres valeurs."
+            "value" : "Cette feature est uniquement un exemple de code : cette démo n'a pas de carte protégée à charger. Voir VisioOneMeet/Features/AuthToken/ProtectedMapSample.swift, loadProtectedVenue() dans VisioOneMeet/WebContent/features/auth-token.js et docs/features/auth-token.md, puis remplacer le hash de carte et le jeton fictifs par vos propres valeurs."
           }
         }
       }

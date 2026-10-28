@@ -7,39 +7,47 @@ Highlights a zone — an existing POI's surface boundary — whenever a tracked 
 ## SDK usage
 
 ```js
-// window.MapBridge, JS side
-resolveZonePolygon: function (poiId) {
-  if (!venue) return { status: 'notFound' };
-  var poi = venue.pois.find(function (p) { return p.id === poiId; });
-  if (!poi) return { status: 'notFound' };
-  var surface = (poi.surfaces || []).find(function (s) { return s.positions && s.positions.length >= 3; });
-  if (!surface) return { status: 'noSurface' };
-  return {
-    status: 'ok',
-    positions: surface.positions.map(function (p) { return { latitude: p.latitude, longitude: p.longitude }; }),
-  };
-},
-setZoneAlert: function (poiId, active) {
-  if (!venue) return;
-  var poi = venue.pois.find(function (p) { return p.id === poiId; });
-  if (!poi) return;
-  poi.surfaces.forEach(function (surface) {
-    venue.updateSurface(surface, { color: active ? '#E74C3C' : 'initial' });
-  });
-},
+// VisioOneMeet/WebContent/features/geofencing.js
+core.register({
+  resolveZonePolygon: function (poiId) {
+    if (!core.venue) return { status: 'notFound' };
+    var poi = core.findPoi(poiId);
+    if (!poi) return { status: 'notFound' };
+    var surface = (poi.surfaces || []).find(function (s) { return s.positions && s.positions.length >= 3; });
+    if (!surface) return { status: 'noSurface' };
+    return {
+      status: 'ok',
+      positions: surface.positions.map(function (p) { return { latitude: p.latitude, longitude: p.longitude }; }),
+    };
+  },
+  setZoneAlert: function (poiId, active) {
+    var venue = core.venue;
+    if (!venue) return;
+    var poi = core.findPoi(poiId);
+    if (!poi) return;
+    poi.surfaces.forEach(function (surface) {
+      venue.updateSurface(surface, { color: active ? '#E74C3C' : 'initial' });
+    });
+  },
+});
 ```
 
 ```swift
-func resolveZonePolygon(_ poiId: String) async -> ResolveZoneResult {
-    // evaluateJavaScript("window.MapBridge.resolveZonePolygon(...)"), reading
-    // { status: 'notFound' | 'noSurface' | 'ok', positions? }
+// VisioOneMeet/Features/Geofencing/Geofencing+Bridge.swift
+extension VisioOneBridge {
+    // .success with the polygon; .poiNotFound / .noSurface / .bridgeError without.
+    func resolveZonePolygon(_ poiId: String) async -> (result: BridgeResult, positions: [GeoPosition]) {
+        // callForResult("resolveZonePolygon", args: [poiId]), reading
+        // { status: 'notFound' | 'noSurface' | 'ok', positions? }
+    }
+
+    func setZoneAlert(_ poiId: String, active: Bool) {
+        call("setZoneAlert", args: [poiId, active])
+    }
 }
 
-func setZoneAlert(_ poiId: String, active: Bool) {
-    webView?.evaluateJavaScript("window.MapBridge.setZoneAlert(\(json), \(active))")
-}
-
-// On every simulated tracked-position tick:
+// VisioOneMeet/Features/Geofencing/GeofencingModel.swift -- on every simulated
+// tracked-position tick (PositionTrackingController.onTick):
 private static func contains(polygon: [GeoPosition], point: GeoPosition) -> Bool {
     // standard ray-casting point-in-polygon, lat/lng treated as planar x/y
 }

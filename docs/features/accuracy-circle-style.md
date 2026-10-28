@@ -12,27 +12,34 @@ view.injectTrackedPosition({ position, precisionCircleRadius }) // radius in met
 ```
 
 ```js
-// window.MapBridge, JS side
-updatePositionTrackerGraphicOptions: function (color, opacity) {
-  if (!view) return { status: 'error', message: 'view not ready' };
-  try {
-    view.updatePositionTrackerGraphicOptions({ color: color, opacity: opacity });
-  } catch (e) {
-    return { status: 'error', message: e && e.message ? e.message : String(e) };
-  }
-  return { status: 'applied' };
-},
+// VisioOneMeet/WebContent/features/accuracy-circle-style.js
+core.register({
+  updatePositionTrackerGraphicOptions: function (color, opacity) {
+    if (!core.view) return { status: 'error', message: 'view not ready' };
+    try {
+      core.view.updatePositionTrackerGraphicOptions({ color: color, opacity: opacity });
+    } catch (e) {
+      return { status: 'error', message: core.errorMessage(e) };
+    }
+    return { status: 'applied' };
+  },
+});
 ```
 
 ```swift
-// Native side. callAsyncJavaScript passes the color string and the opacity
-// number as real JS arguments, so nothing is hand-escaped.
-webView.callAsyncJavaScript(
-    "return window.MapBridge.updatePositionTrackerGraphicOptions(color, opacity);",
-    arguments: ["color": "#e53935", "opacity": 0.5],
-    in: nil,
-    in: .page
-) { result in /* { status: "applied" } or { status: "error", message } */ }
+// VisioOneMeet/Features/AccuracyCircleStyle/AccuracyCircleStyle+Bridge.swift
+// The color string and the opacity number are passed as real JS arguments,
+// so nothing is hand-escaped; a status other than 'applied' is logged.
+func updatePositionTrackerGraphicOptions(color: String, opacity: Double) {
+    callReportingStatus("updatePositionTrackerGraphicOptions", args: [color, opacity])
+}
+
+// VisioOneMeet/Features/AccuracyCircleStyle/AccuracyCircleStyleModel.swift
+// The SDK resets the style whenever tracking stops: re-send it right before
+// the first injectTrackedPosition of every start.
+tracking.onWillStartTracking = { [weak self] in
+    self?.applyStyle()
+}
 ```
 
 ## Things to know

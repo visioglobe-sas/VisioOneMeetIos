@@ -7,24 +7,34 @@ Shows/hides each of the SDK's 5 default UI parts independently, via `view.setUIP
 ## SDK usage
 
 ```js
-// window.MapBridge, JS side
-setUIPartVisible: function (uiPart, isVisible) {
-  if (!view) return;
-  view.setUIPartVisible(uiPart, isVisible);
-},
+// VisioOneMeet/WebContent/features/ui-part-visibility.js
+core.register({
+  setUIPartVisible: function (uiPart, isVisible) {
+    if (!core.view) return;
+    core.view.setUIPartVisible(uiPart, isVisible);
+  },
+});
 ```
 
 ```swift
-// The SDK has no getter for this: the bridge records what it hid, so the
+// VisioOneMeet/Features/UiPartVisibility/UiPartVisibility+Bridge.swift
+func setUIPartVisible(_ part: MapUIPart, isVisible: Bool) {
+    call("setUIPartVisible", args: [part.rawValue, isVisible])
+}
+
+// VisioOneMeet/Features/UiPartVisibility/UiPartVisibilityModel.swift
+// The SDK has no getter for this: the model records what it hid, so the
 // native switches always show the map's real state.
 @Published private(set) var hiddenUIParts: Set<MapUIPart> = []
 
-func setUIPartVisible(_ part: MapUIPart, isVisible: Bool) {
-    guard let webView,
-          let data = try? JSONSerialization.data(withJSONObject: part.rawValue, options: [.fragmentsAllowed]),
-          let json = String(data: data, encoding: .utf8) else { return }
-    if isVisible { hiddenUIParts.remove(part) } else { hiddenUIParts.insert(part) }
-    webView.evaluateJavaScript("window.MapBridge.setUIPartVisible(\(json), \(isVisible))")
+func setVisible(_ part: MapUIPart, _ isVisible: Bool) {
+    guard bridge.webView != nil else { return }
+    if isVisible {
+        hiddenUIParts.remove(part)
+    } else {
+        hiddenUIParts.insert(part)
+    }
+    bridge.setUIPartVisible(part, isVisible: isVisible)
 }
 ```
 
