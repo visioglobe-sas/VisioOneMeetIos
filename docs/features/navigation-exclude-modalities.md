@@ -7,42 +7,45 @@ Adapts a computed route to a given profile by excluding one or more segment "par
 ## SDK usage
 
 ```js
-// window.MapBridge, JS side
-computeNavigationExcludingModalities: function (request) {
+// VisioOneMeet/WebContent/bridge/core.js — shared with compute-navigation
+function showNavigation(request, excludedAttributes) {
   if (!venue || !view) return;
-  var navigation = venue.computeNavigation({
+  var options = {
     origin: request.origin,
     destination: request.destination,
     isAccessible: request.isAccessible,
     type: 'fastest',
     firstNodeAsIntersection: false,
     mergeFloorChangeInstructions: false,
-    excludedAttributes: request.excludedAttributes,
-  });
-  var navigationTrace = venue.createNavigationTrace(navigation);
-  currentNavigationTrace = navigationTrace;
+  };
+  if (excludedAttributes) options.excludedAttributes = excludedAttributes;
+  var navigationTrace = venue.createNavigationTrace(venue.computeNavigation(options));
+  core.currentNavigationTrace = navigationTrace;
   view.setCurrentNavigationTrace(navigationTrace);
-},
+}
+
+// VisioOneMeet/WebContent/features/navigation-exclude-modalities.js
+core.register({
+  computeNavigationExcludingModalities: function (request) {
+    core.showNavigation(request, request.excludedAttributes);
+  },
+});
 ```
 
 ```swift
-// VisioOneBridge, native side
+// VisioOneMeet/Features/NavigationExcludeModalities/NavigationExcludeModalities+Bridge.swift
 func computeNavigationExcludingModalities(
     origin: String,
     destination: String,
     isAccessible: Bool,
     excludedAttributes: [String]
 ) {
-    guard let webView else { return }
-    let request: [String: Any] = [
+    call("computeNavigationExcludingModalities", args: [[
         "origin": origin,
         "destination": destination,
         "isAccessible": isAccessible,
         "excludedAttributes": excludedAttributes,
-    ]
-    guard let data = try? JSONSerialization.data(withJSONObject: request),
-          let json = String(data: data, encoding: .utf8) else { return }
-    webView.evaluateJavaScript("window.MapBridge.computeNavigationExcludingModalities(\(json))")
+    ]])
 }
 ```
 
@@ -52,13 +55,13 @@ This demo adds `computeNavigationExcludingModalities` as its own bridge method r
 
 ## Things to know
 
-- **The attribute string for an elevator is `'lift'`, not `'elevator'`.** The SDK's own JSDoc comment on `excludedAttributes` is misleading here — confirmed live against this app's own `map.html` + vendored SDK bundle, on this shared demo venue, with the exact request this feature uses (`origin: 'B1-LL01-ID0013'`, `destination: 'B1-UL02-ID0012'`):
+- **The attribute string for an elevator is `'lift'`, not `'elevator'`.** The SDK's own JSDoc comment on `excludedAttributes` is misleading here — confirmed live against this app's own page + vendored SDK bundle, on this shared demo venue, with the exact request this feature uses (`origin: 'B1-LL01-ID0013'`, `destination: 'B1-UL02-ID0012'`):
   - No exclusion: 4 instructions, one carrying `attributes: ['lift', 'B1-lift-1']` (a single elevator hop).
   - `excludedAttributes: ['lift']`: 5 instructions, the elevator hop replaced by three separate stairway segments (`['stairway', 'B1-stairs1']`, `['stairway', 'B1-stairs2']`, `['stairway', 'B1-stairs3']`) — a genuinely different, longer route.
   - `excludedAttributes: ['elevator']`: identical to no exclusion at all (still 4 instructions, still the `'lift'` hop) — the route computer doesn't recognize that string, so nothing is actually excluded.
 
   Don't trust the parameter's own doc comment for the exact string to pass — verify against a real instruction's `attributes` array on your venue instead, since attribute vocabulary is per-map data, not an SDK-wide enum.
-- **A route that no longer has a valid path after exclusion still throws, but not with the same message as an unreachable/unknown POI.** Confirmed live on the same venue: excluding every attribute connecting the two floors (`excludedAttributes: ['lift', 'stairway']` on the request above) throws `Error: Cannot compute navigation if no segments are provided in parameters.`, whereas an unresolvable destination ID throws `Error: Cannot compute Navigation as destination is an unknown POI.` — different text, but both are plain, uncaught `Error`s that propagate the same way: neither is caught JS-side, so both surface identically to the `evaluateJavaScript` completion handler on the Swift side (see [`compute-navigation`](./compute-navigation.md)'s "Things to know" for that propagation). Don't rely on the message text to distinguish "exclusion left no route" from any other `computeNavigation` failure.
+- **A route that no longer has a valid path after exclusion still throws, but not with the same message as an unreachable/unknown POI.** Confirmed live on the same venue: excluding every attribute connecting the two floors (`excludedAttributes: ['lift', 'stairway']` on the request above) throws `Error: Cannot compute navigation if no segments are provided in parameters.`, whereas an unresolvable destination ID throws `Error: Cannot compute Navigation as destination is an unknown POI.` — different text, but both are plain, uncaught `Error`s that propagate the same way: neither is caught JS-side, so both surface identically as a failed bridge call on the Swift side (logged by `VisioOneBridge.call`) (see [`compute-navigation`](./compute-navigation.md)'s "Things to know" for that propagation). Don't rely on the message text to distinguish "exclusion left no route" from any other `computeNavigation` failure.
 - **Exclusion only takes effect on the next `computeNavigation()` call** — there's no way to apply/remove an exclusion on a route already displayed; recompute the route to change it, same as changing `origin`/`destination` themselves.
 - **`excludedAttributes` is independent of `isAccessible`.** Setting `isAccessible: true` already excludes step-only segments; `excludedAttributes` composes with that rather than replacing it — you can request an accessible route *and* explicitly avoid elevators (or any other attribute) in the same call.
 

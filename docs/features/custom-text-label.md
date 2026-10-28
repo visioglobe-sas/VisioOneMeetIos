@@ -9,125 +9,128 @@ Every `Label` must belong to a POI. This demo uses an existing "anchor" POI (res
 ## SDK usage
 
 ```js
-// window.MapBridge, JS side. textLabel holds the Label object -- Label isn't
-// JSON-serializable, so it never crosses the bridge. textLabelOptions keeps
-// the createLabel options so a rotation change can recreate it.
+// VisioOneMeet/WebContent/features/custom-text-label.js
+// textLabel holds the Label object -- Label isn't JSON-serializable, so it
+// never crosses the bridge. textLabelOptions keeps the createLabel options so
+// a rotation change can recreate it.
 var textLabel = null;
 var textLabelOptions = null;
 
 function createTextLabel(options) {
   try {
-    textLabel = venue.createLabel(options);
+    textLabel = core.venue.createLabel(options);
   } catch (e) {
-    return { status: 'error', message: e && e.message ? e.message : String(e) };
+    return { status: 'error', message: core.errorMessage(e) };
   }
   textLabelOptions = options;
   return { status: 'placed' };
 }
 
-// A POI's display position: first label, else first image, else first marker
-// (skipping `exclude`, one of our own objects attached to it), else the
-// centroid of its first surface. See simulated-position.md.
-function poiDisplayPosition(poi, exclude) {
-  function first(list) { return list.find(function (o) { return o !== exclude && o.position; }); }
-  var item = first(poi.labels) || first(poi.images) || first(poi.markers);
-  if (item) return item.position;
-  var surface = poi.surfaces.find(function (s) { return s.positions.length > 0; });
-  return surface ? centroidOf(surface.positions) : null;
+function removeCurrentLabel() {
+  core.venue.removeLabel(textLabel);
+  textLabel = null;
+  textLabelOptions = null;
 }
 
-placeTextLabel: async function (anchorId, text, color, width, height, rotation) {
-  // Validate everything before touching the label already placed.
-  if (!text || !String(text).trim()) return { status: 'textRequired' };
-  var anchor = venue.pois.find(function (p) { return p.id === anchorId; });
-  if (!anchor) return { status: 'poiNotFound' };
-  // Our own label is attached to the anchor too: never read the position from it.
-  var anchorPosition = poiDisplayPosition(anchor, textLabel);
-  if (!anchorPosition) return { status: 'noPosition' };
+core.register({
+  placeTextLabel: async function (anchorId, text, color, width, height, rotation) {
+    if (!core.venue) return { status: 'poiNotFound' };
+    // Validate everything before touching the label already placed.
+    if (!text || !String(text).trim()) return { status: 'textRequired' };
+    var anchor = core.findPoi(anchorId);
+    if (!anchor) return { status: 'poiNotFound' };
+    // Our own label is attached to the anchor too: never read the position from it.
+    var anchorPosition = core.poiDisplayPosition(anchor, textLabel);
+    if (!anchorPosition) return { status: 'noPosition' };
 
-  if (textLabel) {                       // one label at a time
-    venue.removeLabel(textLabel);
-    textLabel = null;
-  }
+    if (textLabel) removeCurrentLabel(); // one label at a time
 
-  return createTextLabel({
-    poi: anchor,
-    position: offsetPosition(anchorPosition), // ~4 m north-east of the anchor
-    width: width,       // meters
-    height: height,     // meters -- always pass it, see "Things to know"
-    text: text,
-    color: color,       // '#E53935', 'rgb(...)' or 'hsl(...)'
-    rotation: rotation, // degrees, creation only
-  });
-},
+    return createTextLabel({
+      poi: anchor,
+      position: core.offsetPosition(anchorPosition), // ~4 m north-east of the anchor
+      width: width,       // meters
+      height: height,     // meters -- always pass it, see "Things to know"
+      text: text,
+      color: color,       // '#E53935', 'rgb(...)' or 'hsl(...)'
+      rotation: rotation, // degrees, creation only
+    });
+  },
 
-// options: { text } or { color } or { width, height } -- never rotation
-updateTextLabel: function (options) {
-  if (!textLabel) return { status: 'noLabel' };
-  if ('text' in options && (!options.text || !String(options.text).trim())) {
-    return { status: 'textRequired' };
-  }
-  try {
-    venue.updateLabel(textLabel, options);
-  } catch (e) {
-    return { status: 'error', message: e.message };
-  }
-  Object.assign(textLabelOptions, options);
-  return { status: 'updated' };
-},
+  // options: { text } or { color } or { width, height } -- never rotation
+  updateTextLabel: function (options) {
+    if (!core.venue || !textLabel) return { status: 'noLabel' };
+    if ('text' in options && (!options.text || !String(options.text).trim())) {
+      return { status: 'textRequired' };
+    }
+    try {
+      core.venue.updateLabel(textLabel, options);
+    } catch (e) {
+      return { status: 'error', message: core.errorMessage(e) };
+    }
+    Object.assign(textLabelOptions, options);
+    return { status: 'updated' };
+  },
 
-// rotation isn't part of LabelUpdateOptions: remove + recreate
-setTextLabelRotation: function (rotation) {
-  if (!textLabel) return { status: 'noLabel' };
-  var options = Object.assign({}, textLabelOptions, { rotation: rotation });
-  venue.removeLabel(textLabel);
-  textLabel = null;
-  return createTextLabel(options);
-},
+  // rotation isn't part of LabelUpdateOptions: remove + recreate
+  setTextLabelRotation: function (rotation) {
+    if (!core.venue || !textLabel) return { status: 'noLabel' };
+    var options = Object.assign({}, textLabelOptions, { rotation: rotation });
+    removeCurrentLabel();
+    return createTextLabel(options);
+  },
 
-removeTextLabel: function () {
-  if (!textLabel) return;   // the SDK throws on a double remove
-  venue.removeLabel(textLabel);
-  textLabel = null;
-},
+  removeTextLabel: function () {
+    if (!core.venue || !textLabel) return; // the SDK throws on a double remove
+    removeCurrentLabel();
+  },
+});
+```
+
+`core.poiDisplayPosition` and `core.offsetPosition` live in `VisioOneMeet/WebContent/bridge/core.js` (the POI position rule is described in `docs/features/simulated-position.md`).
+
+```swift
+// VisioOneMeet/Features/CustomTextLabel/CustomTextLabel+Bridge.swift
+// callForStatus passes the arguments as real JS values (no string
+// interpolation) and maps the { status, message? } object to a BridgeResult.
+extension VisioOneBridge {
+    func placeTextLabel(anchorId: String, text: String, color: TextLabelColor, size: TextLabelSize, rotation: Int) async -> BridgeResult {
+        await callForStatus("placeTextLabel", args: [anchorId, text, color.rawValue, size.width, size.height, rotation])
+    }
+
+    // Live restyle: ["text": ...], ["color": ...] or ["width": ..., "height": ...] -- width and height always together.
+    func updateTextLabel(_ options: [String: Any]) async -> BridgeResult {
+        await callForStatus("updateTextLabel", args: [options])
+    }
+
+    func setTextLabelRotation(_ rotation: Int) async -> BridgeResult {
+        await callForStatus("setTextLabelRotation", args: [rotation])
+    }
+
+    func removeTextLabel() {
+        call("removeTextLabel")
+    }
+}
 ```
 
 ```swift
-// Native side: every call goes through callAsyncJavaScript with `arguments`,
-// so the text and color strings are passed safely (no string interpolation),
-// and the { status, message? } object comes back as a [String: Any].
-func placeTextLabel(anchorId: String, text: String) async -> MapOverlayResult {
-    await callOverlayBridge(
-        "return await window.MapBridge.placeTextLabel(anchorId, text, color, width, height, rotation);",
-        arguments: [
-            "anchorId": anchorId,
-            "text": text,
-            "color": "#E53935",
-            "width": 16.0,
-            "height": 3.0,
-            "rotation": 0,
-        ]
-    )
-}
-
-// Live restyle -- width and height are always sent together.
-callOverlayBridge("return window.MapBridge.updateTextLabel({ text: text });", arguments: ["text": text])
-callOverlayBridge("return window.MapBridge.updateTextLabel({ color: color });", arguments: ["color": "#43A047"])
-callOverlayBridge("return window.MapBridge.updateTextLabel({ width: width, height: height });",
-                  arguments: ["width": 22.0, "height": 4.0])
-callOverlayBridge("return window.MapBridge.setTextLabelRotation(rotation);", arguments: ["rotation": 90])
-
-webView.callAsyncJavaScript("window.MapBridge.removeTextLabel();", arguments: [:], in: nil, in: .page) { _ in }
-
-private func callOverlayBridge(_ script: String, arguments: [String: Any]) async -> MapOverlayResult {
-    await withCheckedContinuation { continuation in
-        webView.callAsyncJavaScript(script, arguments: arguments, in: nil, in: .page) { result in
-            // maps { status: 'placed' | 'updated' | 'textRequired' | 'poiNotFound'
-            //        | 'noPosition' | 'noLabel' | 'error', message? } into MapOverlayResult;
-            // 'error' (the SDK call threw) is told apart from a failure of the
-            // call itself (WebKit error, unexpected response), see below.
-        }
+// VisioOneMeet/Features/CustomTextLabel/CustomTextLabelModel.swift
+func place(anchorId: String) async -> BridgeResult {
+    let text = text
+    let result = await bridge.placeTextLabel(anchorId: anchorId, text: text, color: color, size: size, rotation: rotation)
+    switch result {
+    case .success:
+        placedAnchorId = anchorId
+        placedText = text
+    case .sdkError:
+        // Validation passed and the previous label was already removed,
+        // but venue.createLabel itself threw: nothing is placed anymore.
+        clearPlaced()
+    default:
+        // Validation failed before anything was touched, or the bridge call
+        // itself failed (map state unknown): keep the native state.
+        break
     }
+    return result
 }
 ```
 

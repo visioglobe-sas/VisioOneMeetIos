@@ -7,48 +7,44 @@ Adds a brand-new locale to the SDK **at runtime** — `'es'` (Spanish), never au
 ## SDK usage
 
 ```js
-// window.MapBridge, JS side
+// VisioOneMeet/WebContent/features/add-locale.js
 addLocale: function (locale, resources) {
-  if (!venue) return;
-  venue.translator.addLocale(locale, resources);
+  if (!core.venue) return;
+  core.venue.translator.addLocale(locale, resources);
 },
 translate: function (key, locale) {
-  if (!venue) return '';
-  return venue.translator.translate(key, locale);
+  if (!core.venue) return '';
+  return core.venue.translator.translate(key, locale);
 },
 ```
 
 ```swift
-/// Adds the 'es' locale via venue.translator.addLocale(), then reads
-/// addLocaleKeys back via translate(_:) to populate spanishTranslations.
-func addSpanishLocale() async {
-    guard let webView else { return }
-    // ... JSON-encodes spanishResources, then:
-    let didAdd: Bool = await withCheckedContinuation { continuation in
-        webView.evaluateJavaScript("window.MapBridge.addLocale('es', \(resourcesJson))") { _, error in
-            // ... continuation.resume(returning: error == nil)
-        }
+// VisioOneMeet/Features/AddLocale/AddLocale+Bridge.swift
+func addLocale(_ locale: String, resources: [String: String]) async -> Bool {
+    if case .success = await callForResult("addLocale", args: [locale, resources]) {
+        return true
     }
-    guard didAdd else { return }
+    return false
+}
+
+func translate(_ key: String, locale: String) async -> String {
+    guard case .success(let value) = await callForResult("translate", args: [key, locale]) else { return "" }
+    return value as? String ?? ""
+}
+
+// VisioOneMeet/Features/AddLocale/AddLocaleModel.swift
+func addSpanishLocale() async {
+    guard await bridge.addLocale("es", resources: Self.spanishResources) else { return }
+
     var results: [String: String] = [:]
-    for key in Self.addLocaleKeys {
-        results[key] = await translateSpanish(key)
+    for key in Self.keys {
+        results[key] = await bridge.translate(key, locale: "es")
     }
     spanishTranslations = results
 }
-
-private func translateSpanish(_ key: String) async -> String {
-    guard let webView else { return "" }
-    // ... JSON-encodes key, then:
-    return await withCheckedContinuation { continuation in
-        webView.evaluateJavaScript("window.MapBridge.translate(\(json), 'es')") { result, error in
-            // ... continuation.resume(returning: result as? String ?? "")
-        }
-    }
-}
 ```
 
-`venue.translator.addLocale(locale: string, resources: Resources): void` and `venue.translator.translate(key: string, locale: string, context?: Context): string` are both **synchronous** — no `Promise` is returned by either, unlike `venue.setCurrentLocale()` (see `runtime-locale.md`). `addSpanishLocale()` is still declared `async` on the Swift side purely to sequence its own two `evaluateJavaScript` round trips (add, then read back), not because either SDK call itself is asynchronous.
+`venue.translator.addLocale(locale: string, resources: Resources): void` and `venue.translator.translate(key: string, locale: string, context?: Context): string` are both **synchronous** — no `Promise` is returned by either, unlike `venue.setCurrentLocale()` (see `runtime-locale.md`). The Swift side is still `async` purely to sequence its own bridge round trips (add, then read back), not because either SDK call itself is asynchronous.
 
 The fixed dictionary passed to `addLocale` here is:
 

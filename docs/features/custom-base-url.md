@@ -9,26 +9,30 @@ Unlike every other bridge-driven demo screen in this app, `baseURL` cannot be ch
 ## SDK usage
 
 ```js
-// map.html, page init — hash is always read the same way every other
-// feature already does; baseURL is a second, independent override read the
+// VisioOneMeet/WebContent/bridge/core.js, MapCore.start() — hash is always
+// read the same way; baseURL is a second, independent override read the
 // same way, empty/omitted meaning "let the SDK's own default apply".
-var baseURL = new URLSearchParams(window.location.search).get('baseURL');
+var params = new URLSearchParams(window.location.search);
+var hash = params.get('vg_maphash');
+var baseURL = params.get('baseURL');
 
-visioOne.loadVenue(baseURL ? { vg_maphash: hash, baseURL: baseURL } : { vg_maphash: hash }, container)
-  .then(function (v) {
-    venue = v;
-    return visioOne.createView(container, venue);
-  })
-  // ...
-  .catch(function (error) {
-    sendToNative('error', error && error.message ? error.message : String(error));
-  });
+loadMap(
+  baseURL ? { vg_maphash: hash, baseURL: baseURL } : { vg_maphash: hash },
+  Object.keys(viewOptions).length ? viewOptions : undefined
+).catch(onLoadError);
+
+// Same file: loadMap = visioOne.loadVenue(loadOptions, container), then
+// visioOne.createView(container, venue, viewOptions?).
+function onLoadError(error) {
+  visioOne.showError(error, container);
+  sendToNative('error', errorMessage(error));
+}
 ```
 
 ```swift
-// MapWebView.swift — same override mechanism this app already uses for a
-// custom map hash (see docs/features/custom-data.md), extended with a
-// second, independent query item.
+// VisioOneMeet/Shell/MapWebView.swift — same override mechanism this app
+// already uses for a custom map hash (see docs/features/custom-data.md),
+// extended with a second, independent query item.
 var baseURLOverride: String?
 
 // ...
@@ -38,23 +42,30 @@ if let baseURLOverride {
 ```
 
 ```swift
-// VisioOneBridge.swift — baseURL can't be mutated on a live venue/view, so
-// "Reload" has to redo the whole page load rather than call into the
-// existing one. The view hosting MapWebView keys it with .id(...) built
-// from `baseURL`, so updating `baseURL` tears down and recreates the
-// WKWebView (a fresh loadFileURL with the new ?baseURL= query item);
-// retrying the exact same value just loads the page again.
+// VisioOneMeet/Features/CustomBaseUrl/CustomBaseUrl+Bridge.swift — baseURL
+// can't be mutated on a live venue/view, so "Reload" has to redo the whole
+// page load rather than call into the existing one.
 func reloadWithBaseURL(_ newBaseURL: String) {
-    loadState = .loading
-    if newBaseURL == baseURL {
+    var options = pageOptions
+    options.baseURL = newBaseURL
+    reloadPage(with: options)
+}
+
+// VisioOneMeet/Bridge/VisioOneBridge.swift — the view hosting MapWebView
+// keys it with .id(bridge.pageOptions), so a new baseURL tears down and
+// recreates the WKWebView (a fresh loadFileURL with the new ?baseURL= query
+// item); retrying the exact same value just loads the page again.
+func reloadPage(with options: MapPageOptions) {
+    if options == pageOptions {
         reload()
     } else {
-        baseURL = newBaseURL
+        willReload()          // loadState = .loading, features reset their map state
+        pageOptions = options
     }
 }
 ```
 
-`loadVenue(options: LoadOptions, container: HTMLElement): Promise<Venue>` throws a typed, catchable `VenueNotFoundError` (a plain `Error` subclass) when the hash or `baseURL` is invalid — this app already surfaces that through the exact same `.catch` → `sendToNative('error', ...)` → `.error(message)` overlay every other feature falls back to on a bad hash, no new error-handling path needed for this feature.
+`loadVenue(options: LoadOptions, container: HTMLElement): Promise<Venue>` throws a typed, catchable `VenueNotFoundError` (a plain `Error` subclass) when the hash or `baseURL` is invalid — this app already surfaces that through the exact same `.catch(onLoadError)` → `sendToNative('error', ...)` → `.error(message)` overlay every other feature falls back to on a bad hash, no new error-handling path needed for this feature.
 
 ## Things to know
 

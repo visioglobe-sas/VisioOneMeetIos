@@ -7,27 +7,51 @@ Drives the SDK's 3 building-exploration modes via `view.currentExploreMode`, and
 ## SDK usage
 
 ```js
-// window.MapBridge, JS side
-
-setExploreMode: function (mode) {
+// VisioOneMeet/WebContent/features/explore-mode.js
+// Pushed once after createView (onReady), and again on every subsequent
+// change -- including changes triggered by direct camera/map interaction,
+// not just the setExploreMode command below (e.g. moving the camera into a
+// building while in 'global' mode, or a click auto-switching 'building' to
+// 'floor').
+function sendExploreModeState() {
+  var view = core.view;
   if (!view) return;
-  view.currentExploreMode = mode; // 'global' | 'building' | 'floor'
-},
-```
+  core.sendToNative('exploreModeChanged', { currentExploreMode: view.currentExploreMode });
+}
 
-```js
-// Pushed once after createView, and again on every subsequent change --
-// including changes triggered by direct camera/map interaction, not just
-// the setExploreMode command above (e.g. moving the camera into a building
-// while in 'global' mode, or a click auto-switching 'building' to 'floor').
-view.addEventListener('exploremodechanged', function (event) {
-  sendToNative('exploreModeChanged', { currentExploreMode: event.currentExploreMode });
+core.onViewCreated(function (view) {
+  view.addEventListener('exploremodechanged', sendExploreModeState);
+});
+core.onReady(sendExploreModeState);
+
+core.register({
+  setExploreMode: function (mode) {
+    if (!core.view) return;
+    core.view.currentExploreMode = mode; // 'global' | 'building' | 'floor'
+  },
 });
 ```
 
-`view.currentExploreMode` is a settable property of type `ExploreMode = 'global' | 'building' | 'floor'`. `setExploreMode` on the native side follows the same JSON-encoding-free pattern as other enum-backed calls in this bridge (a plain, non-user-supplied string interpolated directly into the generated script — see `VisioOneBridge.setExploreMode`).
+```swift
+// VisioOneMeet/Features/ExploreMode/ExploreMode+Bridge.swift
+extension VisioOneBridge {
+    func setExploreMode(_ mode: MapExploreMode) {
+        call("setExploreMode", args: [mode.rawValue])
+    }
+}
 
-The `exploremodechanged` event fires with an `ExploreModeEvent` payload; `event.currentExploreMode` carries the new mode directly, so the JS side never needs to re-read `view.currentExploreMode` separately inside the handler.
+// VisioOneMeet/Features/ExploreMode/ExploreModeModel.swift
+bridge.onMessage("exploreModeChanged") { [weak self] payload in
+    guard let payload = payload as? [String: Any],
+          let rawMode = payload["currentExploreMode"] as? String,
+          let mode = MapExploreMode(rawValue: rawMode) else { return }
+    self?.currentExploreMode = mode
+}
+```
+
+`view.currentExploreMode` is a settable property of type `ExploreMode = 'global' | 'building' | 'floor'`. The native mode never changes optimistically on `setExploreMode`: it only follows the `exploreModeChanged` message.
+
+The `exploremodechanged` event fires with an `ExploreModeEvent` payload whose `event.currentExploreMode` carries the new mode; the handler above reads `view.currentExploreMode` instead, so the same function also sends the initial state once the view is ready.
 
 ## Things to know
 

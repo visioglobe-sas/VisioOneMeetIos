@@ -10,10 +10,13 @@ All of it is built on the SDK's camera animation API: `view.goToFloor()`, `view.
 
 ## SDK usage
 
-The loop lives in the web page (`map.html`), next to the SDK, not in native code: it needs to `await` each `AnimationPromise` and read `isCanceled`, and keeping it there means there is exactly one loop per map, whatever the native UI does. Native only sends start/stop and displays the state the page pushes back.
+The loop lives in the web page (`VisioOneMeet/WebContent/features/camera-showcase-carousel.js`), next to the SDK, not in native code: it needs to `await` each `AnimationPromise` and read `isCanceled`, and keeping it there means there is exactly one loop per map, whatever the native UI does. Native only sends start/stop and displays the state the page pushes back.
 
 ```js
-// map.html
+// VisioOneMeet/WebContent/features/camera-showcase-carousel.js (simplified:
+// the real file names these carouselState, carouselIndex, carouselRun...,
+// reads venue/view through core.venue/core.view and sends state through
+// core.sendToNative)
 var STOPS = [];          // POI ids, in order: sent by native with startCarousel()
 var state = 'stopped';   // 'running' | 'paused' | 'stopped'
 var index = 0;
@@ -79,7 +82,7 @@ container.addEventListener('pointerdown', function () {
 }, true);
 // (the real page also re-arms the 10 s delay on pointerup, so a long drag counts as touching)
 
-window.MapBridge = {
+core.register({
   startCarousel: function (stopIds) {
     if (state !== 'stopped' || !stopIds.length) return;
     STOPS = stopIds;
@@ -93,31 +96,33 @@ window.MapBridge = {
     state = 'stopped';
     sendToNative('carouselStateChanged', { state: 'stopped' });
   },
-};
+});
 ```
 
 ```swift
-// VisioOneBridge.swift: native -> JS
-// The stops (DemoMap.carouselStopIds: replace them with your own map's POI
-// ids), JSON-encoded so they arrive as a real JS array.
+// VisioOneMeet/Features/CameraShowcaseCarousel/CameraShowcaseCarousel+Bridge.swift
+// native -> JS. The stops (DemoMap.carouselStopIds: replace them with your
+// own map's POI ids) arrive as a real JS array (callAsyncJavaScript).
 func startCarousel(stopIds: [String] = DemoMap.carouselStopIds) {
-    guard let data = try? JSONSerialization.data(withJSONObject: stopIds),
-          let json = String(data: data, encoding: .utf8) else { return }
-    webView?.evaluateJavaScript("window.MapBridge.startCarousel(\(json))")
+    call("startCarousel", args: [stopIds])
 }
 func stopCarousel() {
-    webView?.evaluateJavaScript("window.MapBridge.stopCarousel()")
+    call("stopCarousel")
 }
 
-// JS -> native (WKScriptMessageHandler): the page pushes every state change,
-// including the ones native didn't ask for (a touch pausing the tour, the
-// idle timer resuming it), so the UI always shows the real state.
-case "carouselStateChanged":
-    switch payload["state"] as? String {
-    case "running": carouselStatus = .running(stop: ..., total: ..., poiId: ...)
-    case "paused":  carouselStatus = .paused
-    default:        carouselStatus = .stopped
+// VisioOneMeet/Features/CameraShowcaseCarousel/CameraShowcaseCarouselModel.swift
+// JS -> native: the page pushes every state change, including the ones
+// native didn't ask for (a touch pausing the tour, the idle timer resuming
+// it), so the UI always shows the real state.
+bridge.onMessage("carouselStateChanged") { [weak self] payload in
+    guard let payload = payload as? [String: Any],
+          let state = payload["state"] as? String else { return }
+    switch state {
+    case "running": self?.status = .running(stop: ..., total: ..., poiId: ...)
+    case "paused":  self?.status = .paused
+    default:        self?.status = .stopped
     }
+}
 ```
 
 Leaving the screen calls `stopCarousel()`. The `WKWebView` is torn down anyway, but stopping explicitly doesn't depend on that.

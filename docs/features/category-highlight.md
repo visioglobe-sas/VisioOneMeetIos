@@ -7,60 +7,63 @@ Highlights every POI belonging to a chosen category (e.g. all restaurants, all s
 ## SDK usage
 
 ```js
-// window.MapBridge, JS side
-getCategories: function () {
-  if (!venue) return [];
-  var locale = venue.currentLocale;
-  return venue.categories.map(function (c) {
-    var translated = venue.translator.translateCategory(c, locale);
-    return { id: c.id, label: (translated && translated.name) || c.id };
+// VisioOneMeet/WebContent/features/category-highlight.js
+var highlightedCategoryId = null;
+
+function poisOfCategory(categoryId) {
+  return core.venue.pois.filter(function (p) {
+    return p.categories.some(function (c) { return c.id === categoryId; });
   });
-},
-highlightCategory: function (categoryId) {
-  if (!venue) return;
-  if (highlightedCategoryId) {
-    venue.pois
-      .filter(function (p) { return p.categories.some(function (c) { return c.id === highlightedCategoryId; }); })
-      .forEach(function (poi) {
-        poi.surfaces.forEach(function (surface) { venue.updateSurface(surface, { color: 'initial' }); });
-      });
-  }
-  highlightedCategoryId = categoryId;
-  venue.pois
-    .filter(function (p) { return p.categories.some(function (c) { return c.id === categoryId; }); })
-    .forEach(function (poi) {
-      poi.surfaces.forEach(function (surface) { venue.updateSurface(surface, { color: '#FF6B00' }); });
+}
+
+function colorCategory(categoryId, color) {
+  var venue = core.venue;
+  poisOfCategory(categoryId).forEach(function (poi) {
+    poi.surfaces.forEach(function (surface) { venue.updateSurface(surface, { color: color }); });
+  });
+}
+
+core.register({
+  getCategories: function () {
+    var venue = core.venue;
+    if (!venue) return [];
+    var locale = venue.currentLocale;
+    return venue.categories.map(function (c) {
+      var translated = venue.translator.translateCategory(c, locale);
+      return { id: c.id, label: (translated && translated.name) || c.id };
     });
-},
-clearCategoryHighlight: function () {
-  if (!venue || !highlightedCategoryId) return;
-  venue.pois
-    .filter(function (p) { return p.categories.some(function (c) { return c.id === highlightedCategoryId; }); })
-    .forEach(function (poi) {
-      poi.surfaces.forEach(function (surface) { venue.updateSurface(surface, { color: 'initial' }); });
-    });
-  highlightedCategoryId = null;
-},
+  },
+  highlightCategory: function (categoryId) {
+    if (!core.venue) return;
+    if (highlightedCategoryId) colorCategory(highlightedCategoryId, 'initial');
+    highlightedCategoryId = categoryId;
+    colorCategory(categoryId, '#FF6B00');
+  },
+  clearCategoryHighlight: function () {
+    if (!core.venue || !highlightedCategoryId) return;
+    colorCategory(highlightedCategoryId, 'initial');
+    highlightedCategoryId = null;
+  },
+});
 ```
 
 ```swift
+// VisioOneMeet/Features/CategoryHighlight/CategoryHighlight+Bridge.swift
 func getCategories() async -> [MapCategory]? {
-    guard let webView else { return nil }
-    return await withCheckedContinuation { continuation in
-        webView.evaluateJavaScript("window.MapBridge.getCategories()") { result, error in
-            // ... parses the returned [[String: Any]] into [MapCategory]
-        }
+    guard case .success(let value) = await callForResult("getCategories"),
+          let payload = value as? [[String: Any]] else { return nil }
+    return payload.compactMap { entry -> MapCategory? in
+        guard let id = entry["id"] as? String else { return nil }
+        return MapCategory(id: id, label: entry["label"] as? String ?? id)
     }
 }
 
 func highlightCategory(_ categoryId: String) {
-    guard let webView else { return }
-    // ... JSON-encodes categoryId, then:
-    webView.evaluateJavaScript("window.MapBridge.highlightCategory(\(json))") { _, error in /* ... */ }
+    call("highlightCategory", args: [categoryId])
 }
 
 func clearCategoryHighlight() {
-    webView?.evaluateJavaScript("window.MapBridge.clearCategoryHighlight()") { _, error in /* ... */ }
+    call("clearCategoryHighlight")
 }
 ```
 
@@ -68,7 +71,7 @@ func clearCategoryHighlight() {
 
 `poi.categories: Category[]` lists the categories attached to a given POI — a POI can belong to several. The highlight itself is `venue.pois.filter(poi => poi.categories.some(c => c.id === categoryId))` to find the matching POIs, then `poi.surfaces.forEach(surface => venue.updateSurface(surface, { color: HIGHLIGHT_COLOR }))` per POI (this demo uses `#FF6B00`).
 
-`getCategories` is read straight from `evaluateJavaScript`'s own return value on the Swift side (wrapped in `withCheckedContinuation` so callers can `await` it), the same idiom used by `resolvePoiPosition` in `docs/features/simulated-position.md` — it's a synchronous JS computation, not a JS `Promise`, so plain `evaluateJavaScript` (rather than `callAsyncJavaScript`, needed only when the JS side genuinely awaits something — see `docs/features/custom-data.md`) is the right tool. `highlightCategory` and `clearCategoryHighlight` are fire-and-forget one-way calls: neither needs a response, so nothing round-trips back through `WKScriptMessageHandler`.
+`getCategories` is read straight from the JS function's return value on the Swift side (`callForResult`, over `WKWebView.callAsyncJavaScript`), the same idiom used by `resolvePoiPosition` in `docs/features/simulated-position.md` — `venue.categories` is a synchronous JS read, no `Promise` involved. `highlightCategory` and `clearCategoryHighlight` are fire-and-forget one-way calls (`call`): neither needs a response, so nothing round-trips back through `WKScriptMessageHandler`.
 
 ## Things to know
 

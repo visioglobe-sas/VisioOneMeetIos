@@ -7,75 +7,74 @@ Animates a simulated tracked position (with a precision circle) moving between t
 ## SDK usage
 
 ```js
-// window.MapBridge, JS side
+// VisioOneMeet/WebContent/bridge/core.js — shared POI position rule
 // A POI has no lat/lng field: read its display position off what is attached to it.
-function poiDisplayPosition(poi) {
-  var item = poi.labels.find(hasPosition) || poi.images.find(hasPosition) || poi.markers.find(hasPosition);
-  if (item) return item.position;
-  var surface = poi.surfaces.find(function (s) { return s.positions.length > 0; });
+function poiDisplayPosition(poi, exclude) {
+  function firstWithPosition(list) {
+    return (list || []).find(function (o) { return o !== exclude && o.position; });
+  }
+  var item = firstWithPosition(poi.labels) || firstWithPosition(poi.images) || firstWithPosition(poi.markers);
+  if (item) {
+    return { latitude: item.position.latitude, longitude: item.position.longitude, altitude: item.position.altitude };
+  }
+  var surface = (poi.surfaces || []).find(function (sf) { return sf.positions && sf.positions.length > 0; });
   if (!surface) return null;
-  return centroidOf(surface.positions); // average of the surface's latitude/longitude/altitude
+  // ... centroid (average) of the surface's latitude/longitude/altitude
 }
 
-resolvePoiPosition: function (poiId) {
-  var poi = findPoi(poiId); // venue.pois.find(p => p.id === poiId)
-  if (!poi) return null;
-  var position = poiDisplayPosition(poi);
-  if (!position) return null;
-  return { latitude: position.latitude, longitude: position.longitude };
-},
-injectTrackedPosition: function (latitude, longitude, precisionCircleRadius) {
-  if (!view) return;
-  if (!view.allowTracking) {
-    view.allowTracking = true;
-  }
-  view.injectTrackedPosition({
-    position: { latitude: latitude, longitude: longitude },
-    precisionCircleRadius: precisionCircleRadius,
-  });
-},
-stopTrackedPosition: function () {
-  if (!view) return;
-  view.allowTracking = false;
-},
+// VisioOneMeet/WebContent/features/simulated-position.js
+core.register({
+  resolvePoiPosition: function (poiId) {
+    var poi = core.findPoi(poiId); // venue.pois.find(p => p.id === poiId)
+    if (!poi) return null;
+    var position = core.poiDisplayPosition(poi);
+    if (!position) return null;
+    return { latitude: position.latitude, longitude: position.longitude };
+  },
+  injectTrackedPosition: function (latitude, longitude, precisionCircleRadius) {
+    var view = core.view;
+    if (!view) return;
+    if (!view.allowTracking) {
+      view.allowTracking = true;
+    }
+    view.injectTrackedPosition({
+      position: { latitude: latitude, longitude: longitude },
+      precisionCircleRadius: precisionCircleRadius,
+    });
+  },
+  stopTrackedPosition: function () {
+    if (!core.view) return;
+    core.view.allowTracking = false;
+  },
+});
 ```
 
 ```swift
+// VisioOneMeet/Shared/PositionTracking/PositionTrackingController.swift
 struct GeoPosition: Equatable {
     let latitude: Double
     let longitude: Double
 }
 
+// VisioOneMeet/Features/SimulatedPosition/SimulatedPosition+Bridge.swift
 func resolvePoiPosition(_ poiId: String) async -> GeoPosition? {
-    guard let webView else { return nil }
-    guard let data = try? JSONSerialization.data(withJSONObject: poiId, options: [.fragmentsAllowed]),
-          let json = String(data: data, encoding: .utf8) else { return nil }
-    return await withCheckedContinuation { continuation in
-        webView.evaluateJavaScript("window.MapBridge.resolvePoiPosition(\(json))") { result, error in
-            guard error == nil,
-                  let payload = result as? [String: Any],
-                  let latitude = payload["latitude"] as? Double,
-                  let longitude = payload["longitude"] as? Double else {
-                continuation.resume(returning: nil)
-                return
-            }
-            continuation.resume(returning: GeoPosition(latitude: latitude, longitude: longitude))
-        }
-    }
+    guard case .success(let value) = await callForResult("resolvePoiPosition", args: [poiId]),
+          let payload = value as? [String: Any],
+          let latitude = payload["latitude"] as? Double,
+          let longitude = payload["longitude"] as? Double else { return nil }
+    return GeoPosition(latitude: latitude, longitude: longitude)
 }
 
 func injectTrackedPosition(latitude: Double, longitude: Double, precisionCircleRadius: Double) {
-    webView?.evaluateJavaScript(
-        "window.MapBridge.injectTrackedPosition(\(latitude), \(longitude), \(precisionCircleRadius))"
-    )
+    call("injectTrackedPosition", args: [latitude, longitude, precisionCircleRadius])
 }
 
 func stopTrackedPosition() {
-    webView?.evaluateJavaScript("window.MapBridge.stopTrackedPosition()")
+    call("stopTrackedPosition")
 }
 ```
 
-`latitude`/`longitude`/`precisionCircleRadius` are interpolated directly into the JS call rather than JSON-encoded, since they're plain `Double` values computed natively, never user-entered text.
+The loop that interpolates between the two resolved positions and calls `injectTrackedPosition` every 150 ms is `PositionTrackingController` (`VisioOneMeet/Shared/PositionTracking/PositionTrackingController.swift`), shared by the four tracking screens.
 
 ## Things to know
 
@@ -83,7 +82,7 @@ func stopTrackedPosition() {
 - **Drive the position from exactly one loop, and own it outside any transient UI.** The view has a single tracked position: two loops injecting at the same time make the marker jump between both paths, and because `injectTrackedPosition` turns `allowTracking` back on, a leftover loop silently restarts tracking right after you set `allowTracking = false`. This demo keeps the loop in the map screen's state, so closing and reopening the control panel never starts a second one, and stops it when the map screen is left.
 - **There's no dedicated "stop" SDK method** — setting `view.allowTracking = false` is what removes the tracked-position marker and precision circle from the map. This is the same mechanism used to stop tracking.
 - **A POI has no direct lat/lng field** (there is no `poi.position`). Its position has to be read off the objects attached to it: `poi.labels[].position`, `poi.images[].position`, `poi.markers[].position` (each a `Position` `{ latitude, longitude, altitude? }`), or `poi.surfaces[].positions` (the surface outline). This demo uses one rule everywhere a POI's position is needed: first label, else first image, else first marker, else the centroid (vertex average) of the first surface. A surface-only POI (no label/image/marker) therefore still resolves. If the POI has none of these, or the ID matches no POI, `resolvePoiPosition` returns `null`.
-- **`resolvePoiPosition` deliberately doesn't use the JS → native `WKScriptMessageHandler` channel** used elsewhere (see `docs/features/poi-click.md`/`docs/features/loading-state.md`) — it's a synchronous, side-effect-free read, so the direct return value of `evaluateJavaScript(_:completionHandler:)` is enough; no request/response correlation is needed for a lookup this simple.
+- **`resolvePoiPosition` deliberately doesn't use the JS → native `WKScriptMessageHandler` channel** used elsewhere (see `docs/features/poi-click.md`/`docs/features/loading-state.md`) — it's a synchronous, side-effect-free read, so the JS function's return value, read by `callForResult`, is enough; no request/response correlation is needed for a lookup this simple.
 - **This is a simulated position, not real indoor positioning** — no BLE/Wi-Fi/UWB data is involved, only linear interpolation between two points known in advance. `injectTrackedPosition`/`allowTracking` remain valid as-is if the simulation is later replaced with a real positioning source.
 
 ## Learn more

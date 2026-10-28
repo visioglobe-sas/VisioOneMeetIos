@@ -4,13 +4,14 @@
 
 **Code sample only.** Shows how to load a map protected by an authorization token (a JWT) via `LoadOptions.authorizationToken`, refresh that token on a loaded venue via `venue.setAuthorizationToken()`, and recognize the SDK's `UnauthorizedError` apart from other load errors.
 
-This demo has no protected map to ship, so **every value in this repo is a fictitious placeholder** — `YOUR_PROTECTED_MAP_HASH` and `YOUR_JWT_FROM_YOUR_BACKEND` in `VisioOneMeet/ProtectedMapSample.swift`. Replace them with your own values. The app's "Protected map (token)" screen only displays a pointer to this code; it never loads anything.
+This demo has no protected map to ship, so **every value in this repo is a fictitious placeholder** — `YOUR_PROTECTED_MAP_HASH` and `YOUR_JWT_FROM_YOUR_BACKEND` in `VisioOneMeet/Features/AuthToken/ProtectedMapSample.swift`. Replace them with your own values. The app's "Protected map (token)" screen only displays a pointer to this code; it never loads anything.
 
 ## SDK usage
 
-Native side — the values to configure, and the entry points (`VisioOneMeet/ProtectedMapSample.swift`):
+Native side — the values to configure, and the entry points:
 
 ```swift
+// VisioOneMeet/Features/AuthToken/ProtectedMapSample.swift
 enum ProtectedMapSample {
     static let mapHash = "YOUR_PROTECTED_MAP_HASH"
     static let baseURL = "https://mapserver-auth.visioglobe.com/"
@@ -25,45 +26,63 @@ MapWebView(bridge: bridge, protectedMap: ProtectedMapSample.loadOptions(token: j
 
 // Before the current token expires:
 bridge.setAuthorizationToken(freshJwt)
+
+// VisioOneBridge extension, same file:
+func setAuthorizationToken(_ freshToken: String) {
+    callReportingStatus("setAuthorizationToken", args: [freshToken])
+}
 ```
 
-`MapWebView` passes the options to the page as a document-start `WKUserScript` defining `window.VISIOONE_PROTECTED_MAP` (rather than a URL query item, since a JWT doesn't belong in a URL). `setAuthorizationToken(_:)` calls `window.MapBridge.setAuthorizationToken(token)` through `WKWebView.callAsyncJavaScript`.
+`MapWebView` passes the options to the page as a document-start `WKUserScript` defining `window.VISIOONE_PROTECTED_MAP` (rather than a URL query item, since a JWT doesn't belong in a URL). `setAuthorizationToken(_:)` calls `window.MapBridge.setAuthorizationToken(token)` through `WKWebView.callAsyncJavaScript` (`VisioOneBridge.callReportingStatus`, which logs a non-`applied` result).
 
-JS side — the real SDK calls (`VisioOneMeet/WebContent/map.html`):
+JS side — the real SDK calls:
 
 ```js
-async function loadProtectedVenue(options) {
-  try {
-    venue = await visioOne.loadVenue({
-      vg_maphash: options.vg_maphash,
-      baseURL: options.baseURL,                       // 'https://mapserver-auth.visioglobe.com/'
-      authorizationToken: options.authorizationToken,
-    }, container);
-    onViewCreated(await visioOne.createView(container, venue));
-  } catch (error) {
+// VisioOneMeet/WebContent/features/auth-token.js
+core.loadProtectedVenue = function (options) {
+  // core.loadMap = visioOne.loadVenue(loadOptions, container), then
+  // visioOne.createView(container, venue).
+  return core.loadMap({
+    vg_maphash: options.vg_maphash,
+    baseURL: options.baseURL,                       // 'https://mapserver-auth.visioglobe.com/'
+    authorizationToken: options.authorizationToken,
+  }, undefined).catch(function (error) {
     if (isUnauthorizedError(error)) {
-      // Token invalid, expired or missing.
-      sendToNative('unauthorized', error.message);
+      // Token invalid, expired or missing: get a new one from your backend
+      // and load again.
+      core.visioOne.showError(error, core.container);
+      core.sendToNative('unauthorized', error.message);
     } else {
-      onLoadError(error);
+      core.onLoadError(error);
     }
-  }
-}
+  });
+};
 
-if (window.VISIOONE_PROTECTED_MAP) {
-  loadProtectedVenue(window.VISIOONE_PROTECTED_MAP);
-}
+core.register({
+  // Token refresh.
+  setAuthorizationToken: function (token) {
+    var venue = core.venue;
+    if (!venue) return { status: 'error', message: 'No venue loaded' };
+    try {
+      venue.setAuthorizationToken(token);
+    } catch (e) {
+      return { status: 'error', message: core.errorMessage(e) };
+    }
+    return { status: 'applied' };
+  },
+});
 
-// Token refresh (window.MapBridge):
-setAuthorizationToken: function (token) {
-  venue.setAuthorizationToken(token);
-  return { status: 'applied' };
+// VisioOneMeet/WebContent/bridge/core.js, MapCore.start()
+if (window.VISIOONE_PROTECTED_MAP && core.loadProtectedVenue) {
+  core.loadProtectedVenue(window.VISIOONE_PROTECTED_MAP);
+  return;
 }
 ```
 
 Identifying `UnauthorizedError`:
 
 ```js
+// VisioOneMeet/WebContent/features/auth-token.js
 var UNAUTHORIZED_MESSAGE = 'This venue needs an Authorization token to be loaded';
 function isUnauthorizedError(error) {
   if (!error) return false;
@@ -82,7 +101,7 @@ The native side receives the `unauthorized` message separately from the generic 
 - **`UnauthorizedError` is only raised on an HTTP 403** for the map's `descriptor.json` (e.g. no token at all). Any other non-OK response is reported as the generic `Error('Cannot load the venue')`, with the underlying cause only in a `console.warn("VisioOne error:", …)`. Verified in this app's `WKWebView`: with the placeholder hash and token, the server answers an error status for the fake JWT and `loadVenue` rejects with `Error: Cannot load the venue` (console: `The map hash 'YOUR_PROTECTED_MAP_HASH' was not found.`); with an empty token (no `Authorization` header sent), it rejects with `UnauthorizedError: This venue needs an Authorization token to be loaded`. So a malformed token may surface as the generic error, not as `UnauthorizedError`.
 - **Tokens are short-lived** (the protected server accepts a lifetime of at most 1 hour). Requests made after expiry are rejected. Call `venue.setAuthorizationToken(freshToken)` before expiry: it updates the token for every subsequent request, no reload needed. Refreshing in time is up to your app.
 - **Never embed the JWT signing secret** in the app or the page. Get tokens from your own backend; Visioglobe provides the signing secret and the claims to use.
-- **The server checks the request's `Origin` against an allowlist** configured by Visioglobe for your account (CORS; the `Authorization` header forces a preflight). This app loads `map.html` from the app bundle via `loadFileURL`, so the page's `window.location.origin` is `file://` and WebKit sends `Origin: null` on its requests. Tell Visioglobe which origin(s) your app uses; if your page isn't served the same way, its origin will differ. A rejected preflight makes the fetch itself fail, which the SDK also reports as the generic `Error('Cannot load the venue')`.
+- **The server checks the request's `Origin` against an allowlist** configured by Visioglobe for your account (CORS; the `Authorization` header forces a preflight). This app loads its page (`map.html`) from the app bundle via `loadFileURL`, so the page's `window.location.origin` is `file://` and WebKit sends `Origin: null` on its requests. Tell Visioglobe which origin(s) your app uses; if your page isn't served the same way, its origin will differ. A rejected preflight makes the fetch itself fail, which the SDK also reports as the generic `Error('Cannot load the venue')`.
 
 ## Learn more
 

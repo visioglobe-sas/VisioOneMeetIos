@@ -7,20 +7,19 @@ Recenters the camera on the whole venue via `view.goToGlobal()` — a `View` met
 ## SDK usage
 
 ```swift
+// VisioOneMeet/Features/ResetView/ResetView+Bridge.swift
 func goToGlobal() {
-    webView?.evaluateJavaScript("window.MapBridge.goToGlobal()") { _, error in
-        if let error {
-            print("VisioOneBridge: goToGlobal failed: \(error.localizedDescription)")
-        }
-    }
+    call("goToGlobal")
 }
 ```
 
 ```js
-// window.MapBridge, JS side
-goToGlobal: function () {
-  if (view) view.goToGlobal();
-},
+// VisioOneMeet/WebContent/features/reset-view.js
+core.register({
+  goToGlobal: function () {
+    if (core.view) core.view.goToGlobal();
+  },
+});
 ```
 
 `view` is the object returned once the promise from `visioOne.createView(container, venue)` resolves — keep a reference to it, since most `View` methods (including this one) are called on it directly.
@@ -29,7 +28,7 @@ goToGlobal: function () {
 
 - Takes no arguments — no JSON-encoding needed, unlike SDK calls that take structured data.
 - `view` is `null` until `createView` resolves; calling `goToGlobal` before that is a silent no-op — no error, the camera simply doesn't move.
-- The camera animates back immediately when called. The `evaluateJavaScript` completion handler only reports JS-execution errors, not animation completion — there's no callback or event to await for the animation itself.
+- The camera animates back immediately when called. The bridge call's completion (`callAsyncJavaScript`) only reports JS-execution errors, not animation completion — there's no callback or event to await for the animation itself.
 
 ## Learn more
 

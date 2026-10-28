@@ -7,35 +7,60 @@ Reflects the SDK's loading/ready/error lifecycle natively, by observing the prom
 ## SDK usage
 
 ```js
-// map.html
-visioOne.loadVenue({ vg_maphash: '...' }, container)
-  .then(function (v) { venue = v; return visioOne.createView(container, venue); })
-  .then(function () {
-    window.webkit.messageHandlers.mapBridge.postMessage({ type: 'ready' });
-  })
-  .catch(function (error) {
-    visioOne.showError(error, container); // SDK helper: renders a default error UI into `container`
-    window.webkit.messageHandlers.mapBridge.postMessage({
-      type: 'error',
-      message: error && error.message ? error.message : String(error),
-    });
-  });
+// VisioOneMeet/WebContent/bridge/core.js
+function onViewCreated(v) {
+  view = v;
+  runHooks(viewCreatedHooks, view);
+  sendToNative('ready', { cameraProjection: view.cameraProjection });
+  runHooks(readyHooks, view);
+}
+
+function onLoadError(error) {
+  visioOne.showError(error, container); // SDK helper: renders a default error UI into `container`
+  sendToNative('error', errorMessage(error));
+}
+
+function loadMap(loadOptions, viewOptions) {
+  return visioOne.loadVenue(loadOptions, container)
+    .then(function (v) {
+      venue = v;
+      return viewOptions
+        ? visioOne.createView(container, venue, viewOptions)
+        : visioOne.createView(container, venue);
+    })
+    .then(onViewCreated);
+}
+
+// in MapCore.start():
+loadMap({ vg_maphash: hash }, undefined).catch(onLoadError);
 ```
 
+`sendToNative(type, message)` posts `{ type, message }` to `window.webkit.messageHandlers.mapBridge`.
+
 ```swift
-// VisioOneBridge.swift
+// VisioOneMeet/Bridge/VisioOneBridge.swift
+@MainActor
 final class VisioOneBridge: NSObject, WKScriptMessageHandler, ObservableObject {
     static let messageHandlerName = "mapBridge"
     @Published private(set) var loadState: MapLoadState = .loading
     weak var webView: WKWebView?
 
-    func userContentController(_ c: WKUserContentController, didReceive message: WKScriptMessage) {
-        guard let body = message.body as? [String: Any],
+    func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
+        guard message.name == Self.messageHandlerName,
+              let body = message.body as? [String: Any],
               let type = body["type"] as? String else { return }
+        let payload = body["message"]
+
+        messageHandlers[type]?.forEach { $0(payload) }
+
         switch type {
-        case "ready": loadState = .ready
-        case "error": loadState = .error(body["message"] as? String ?? "Unknown VisioOne SDK error")
-        default: break
+        case "ready":
+            loadState = .ready
+        case "error":
+            loadState = .error(payload as? String ?? String(localized: "Unknown VisioOne SDK error"))
+        // ...
+        default:
+            break
         }
     }
 }
@@ -44,14 +69,16 @@ final class VisioOneBridge: NSObject, WKScriptMessageHandler, ObservableObject {
 Registering the handler requires a weak proxy, since `WKUserContentController` retains its handler strongly (and the handler here would otherwise retain the bridge, itself retained by the owning view — a retain cycle):
 
 ```swift
+// VisioOneMeet/Bridge/VisioOneBridge.swift
 final class WeakScriptMessageHandler: NSObject, WKScriptMessageHandler {
     private weak var target: WKScriptMessageHandler?
     init(target: WKScriptMessageHandler) { self.target = target }
-    func userContentController(_ c: WKUserContentController, didReceive message: WKScriptMessage) {
-        target?.userContentController(c, didReceive: message)
+    func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
+        target?.userContentController(userContentController, didReceive: message)
     }
 }
 
+// VisioOneMeet/Shell/MapWebView.swift
 let contentController = WKUserContentController()
 contentController.add(WeakScriptMessageHandler(target: bridge), name: VisioOneBridge.messageHandlerName)
 let configuration = WKWebViewConfiguration()

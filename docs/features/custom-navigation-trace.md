@@ -7,40 +7,42 @@ Restyles the route drawn by [`compute-navigation`](./compute-navigation.md) with
 ## SDK usage
 
 ```js
-// window.MapBridge, JS side
-computeNavigation: function (request) {
-  if (!venue || !view) return;
-  var navigation = venue.computeNavigation({ /* ... */ });
-  var navigationTrace = venue.createNavigationTrace(navigation);
-  currentNavigationTrace = navigationTrace; // kept for a later restyle call
-  view.setCurrentNavigationTrace(navigationTrace);
-},
-updateNavigationTrace: function (options) {
-  if (!venue || !currentNavigationTrace) return;
-  try {
-    venue.updateNavigationTrace(currentNavigationTrace, options);
-  } catch (error) {
-    console.warn('updateNavigationTrace threw (trace styling still applied):', error);
-  }
-},
+// VisioOneMeet/WebContent/bridge/core.js -- showNavigation, used by computeNavigation
+var navigationTrace = venue.createNavigationTrace(venue.computeNavigation(options));
+core.currentNavigationTrace = navigationTrace; // kept for a later restyle call
+view.setCurrentNavigationTrace(navigationTrace);
+```
+
+```js
+// VisioOneMeet/WebContent/features/custom-navigation-trace.js
+core.register({
+  updateNavigationTrace: function (options) {
+    if (!core.venue || !core.currentNavigationTrace) return;
+    try {
+      core.venue.updateNavigationTrace(core.currentNavigationTrace, options);
+    } catch (error) {
+      console.warn('[VisioOne:web] updateNavigationTrace threw (trace styling still applied):', error);
+    }
+  },
+});
 ```
 
 ```swift
-// VisioOneBridge, native side
-func updateNavigationTrace(_ colors: NavigationTraceColors) {
-    guard let webView else { return }
-    let options: [String: Any] = [
-        "progressColor": colors.progressColor,
-        "progressOutlineColor": colors.progressOutlineColor,
-        "progressFutureColor": colors.progressFutureColor,
-        "previewColor": colors.previewColor,
-        "previewOutlineColor": colors.previewOutlineColor,
-    ]
-    guard let data = try? JSONSerialization.data(withJSONObject: options),
-          let json = String(data: data, encoding: .utf8) else { return }
-    webView.evaluateJavaScript("window.MapBridge.updateNavigationTrace(\(json))")
+// VisioOneMeet/Features/CustomNavigationTrace/CustomNavigationTrace+Bridge.swift
+extension VisioOneBridge {
+    func updateNavigationTrace(_ colors: NavigationTraceColors) {
+        call("updateNavigationTrace", args: [[
+            "progressColor": colors.progressColor,
+            "progressOutlineColor": colors.progressOutlineColor,
+            "progressFutureColor": colors.progressFutureColor,
+            "previewColor": colors.previewColor,
+            "previewOutlineColor": colors.previewOutlineColor,
+        ]])
+    }
 }
 ```
+
+The route and its colors are sent in order, right after each other: `bridge.computeNavigation(...)` then `bridge.updateNavigationTrace(preset.colors)` (`VisioOneMeet/Features/CustomNavigationTrace/CustomNavigationTraceModel.swift`).
 
 `NavigationTraceUpdateOptions` (`Navigation/NavigationTraceUpdateOptions.d.ts`) only exposes colors (plus `textureRepeat`/`animationSpeed`, relevant only for the `'textured'` `displayMode`) — there is no way to change `displayMode` or `thickness` after creation, and `createNavigationTrace()` itself takes no options, so a trace always starts in the SDK's default display mode.
 

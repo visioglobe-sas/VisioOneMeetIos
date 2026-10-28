@@ -7,10 +7,11 @@ Makes a POI's surface(s) interactive, via `venue.updateSurface(surface, options)
 ## SDK usage
 
 ```js
-// window.MapBridge, JS side
-setSurfaceInteractive: function (placeId, isInteractive) {
+// VisioOneMeet/WebContent/features/clickable-surface.js
+setSurfaceInteractive: function (poiId, isInteractive) {
+  var venue = core.venue;
   if (!venue) return;
-  var poi = venue.pois.find(function (p) { return p.id === placeId; });
+  var poi = core.findPoi(poiId); // venue.pois.find(p => p.id === poiId)
   if (!poi) return;
   poi.surfaces.forEach(function (surface) {
     venue.updateSurface(
@@ -24,11 +25,9 @@ setSurfaceInteractive: function (placeId, isInteractive) {
 ```
 
 ```swift
-func setSurfaceInteractive(_ placeId: String, isInteractive: Bool) {
-    guard let webView else { return }
-    guard let data = try? JSONSerialization.data(withJSONObject: placeId, options: [.fragmentsAllowed]),
-          let json = String(data: data, encoding: .utf8) else { return }
-    webView.evaluateJavaScript("window.MapBridge.setSurfaceInteractive(\(json), \(isInteractive))")
+// VisioOneMeet/Features/ClickableSurface/ClickableSurface+Bridge.swift
+func setSurfaceInteractive(_ poiId: String, isInteractive: Bool) {
+    call("setSurfaceInteractive", args: [poiId, isInteractive])
 }
 ```
 
@@ -39,7 +38,7 @@ func setSurfaceInteractive(_ placeId: String, isInteractive: Bool) {
 - **Passing `color: 'initial'` (rather than omitting it, or passing `undefined`) resets the surface to whatever color the map bundle originally defined for it.** Disabling interactivity without resetting `color` would leave the surface stuck on whatever custom color was set while it was enabled.
 - `hoverColor`/`selectionColor` also each accept the literal `'default'` in addition to a `Color`, falling back to the SDK's own default hover/selection styling rather than a caller-chosen color.
 - A POI can have multiple `surfaces` (e.g. an L-shaped room); `updateSurface` is called once per surface via `poi.surfaces.forEach(...)` so the whole POI footprint becomes interactive, not just one polygon.
-- `venue.pois.find(...)` fails silently if `placeId` doesn't match any POI in the loaded map — nothing is raised on either side of the bridge.
+- `venue.pois.find(...)` fails silently if `poiId` doesn't match any POI in the loaded map — nothing is raised on either side of the bridge.
 
 ## Learn more
 

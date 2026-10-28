@@ -6,7 +6,7 @@ There are two independent channels:
 
 | Direction | Mechanism | Use case |
 |---|---|---|
-| **Native → JS** | `webView.evaluateJavaScript(...)` | Trigger SDK actions from native UI (e.g. a native "recenter" button calling `view.goToGlobal()`) |
+| **Native → JS** | `webView.evaluateJavaScript(...)` / `webView.callAsyncJavaScript(...)` | Trigger SDK actions from native UI (e.g. a native "recenter" button calling `view.goToGlobal()`) |
 | **JS → Native** | `WKScriptMessageHandler` + `window.webkit.messageHandlers.<name>.postMessage(...)` | React natively to SDK events (e.g. show a native sheet when a POI is tapped) |
 
 Both channels only work with content you trust — here, your own bundled `map.html`, not arbitrary remote pages.
@@ -249,7 +249,25 @@ final class MapViewModel: ObservableObject {
 
 `ContentView` can then show a native overlay (banner, sheet, `.alert`) whenever `selectedPOIName` changes — running alongside, or instead of, the SDK's own `poiDetails` panel (`view.setUIPartVisible('poiDetails', false)` if you want the native UI to fully replace it).
 
-## 3. Debugging the bridge
+## 3. How this repo applies it
+
+The snippets above are the minimal, single-file version. This repo applies the same two channels, split per feature:
+
+- **JS:** `WebContent/map.html` only loads classic scripts. `WebContent/bridge/core.js` creates `window.MapBridge` (empty), `sendToNative(type, message)` (the single `postMessage` channel, `{ type, message }` payloads), the shared helpers and the map loading, and exposes `window.MapCore`. Each `WebContent/features/<slug>.js` adds its own commands with `MapCore.register({ ... })`, its view event listeners with `MapCore.onViewCreated(fn)`, pushes its initial state with `MapCore.onReady(fn)` and resets its own state with `MapCore.onReset(fn)`.
+- **Swift:** `Bridge/VisioOneBridge.swift` is the core: every native → JS call goes through `call(_:args:)` (fire-and-forget), `callForResult(_:args:) async` (the returned value, Promises awaited) or `callForStatus(_:args:) async` (a `{ status, message? }` result mapped to `BridgeResult`), all three built on `callAsyncJavaScript`, so arguments are real JS values and never interpolated into the script. Each feature's calls are an extension in `Features/<Feature>/<Feature>+Bridge.swift`, e.g.:
+
+```swift
+// VisioOneMeet/Features/GotoPoi/GotoPoi+Bridge.swift
+extension VisioOneBridge {
+    func goToPOI(_ poiId: String) {
+        call("goToPOI", args: [poiId])
+    }
+}
+```
+
+JS → native messages are dispatched by type to the features that registered for them with `bridge.onMessage("floorsChanged") { payload in ... }`; the core itself only handles `ready`, `error` and `unauthorized`.
+
+## 4. Debugging the bridge
 
 On iOS 16.4+ / macOS 13.3+, set `webView.isInspectable = true` (debug builds only) to inspect the bundled page from **Safari → Develop → Simulator → map.html**: full console, DOM, and network panel for the WKWebView content. This is the fastest way to confirm your `postMessage` payloads and `MapBridge` calls actually fire as expected.
 
@@ -261,7 +279,7 @@ if #available(iOS 16.4, *) {
 #endif
 ```
 
-## 4. Summary checklist
+## 5. Summary checklist
 
 - [ ] `map.html` exposes a small `window.MapBridge` object — Swift never touches `venue`/`view` internals directly.
 - [ ] Arguments passed from Swift into JS are JSON-encoded or sent via `callAsyncJavaScript`, never raw string interpolation.
