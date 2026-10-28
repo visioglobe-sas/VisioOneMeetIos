@@ -3,22 +3,23 @@ import WebKit
 
 struct MapWebView: UIViewRepresentable {
     let bridge: VisioOneBridge
-    /// Map hash to load (`Feature.mapHash`, values in `DemoMap.swift`).
+    /// Map hash to load (`MapPageOptions.mapHash`, values in `DemoMap.swift`).
     /// Appended as a `?vg_maphash=` query item on the `file://` URL passed
     /// to `loadFileURL`, read back on the JS side via
-    /// `URLSearchParams(window.location.search)` (see `map.html`). `nil`
-    /// only for the auth-token sample, which passes its hash through
-    /// `protectedMap` instead.
+    /// `URLSearchParams(window.location.search)` (see `MapCore.start()` in
+    /// `bridge/core.js`). `nil` only for the auth-token sample, which passes
+    /// its hash through `protectedMap` instead.
     var mapHash: String?
 
     /// Optional `baseURL` to pass to `loadVenue`, same override mechanism as
     /// `mapHash` above but for the custom-base-url feature: appended as
-    /// a second `?baseURL=` query item, read back in `map.html`. `nil` (the
-    /// default) leaves the SDK's own built-in `baseURL` default in effect.
+    /// a second `?baseURL=` query item, read back in `bridge/core.js`. `nil`
+    /// (the default) leaves the SDK's own built-in `baseURL` default in
+    /// effect.
     /// See `docs/features/custom-base-url.md`.
     var baseURLOverride: String?
 
-    /// Whether `map.html` should create the view with
+    /// Whether the page should create the view with
     /// `createView(container, venue, { enableShadows: true })`, appended as
     /// an `?enableShadows=1` query item (same mechanism as the two overrides
     /// above). Only the custom-theme feature sets it: `view.setTheme()` has
@@ -32,9 +33,9 @@ struct MapWebView: UIViewRepresentable {
     /// feature sets it. See `docs/features/camera-projection-toggle.md`.
     var cameraProjection: CameraProjection?
 
-    /// When set, `map.html` loads this token-protected map via its
-    /// `loadProtectedVenue()` instead of its default public map. Injected as
-    /// a document-start user script (not a query item: a JWT doesn't belong
+    /// When set, the page loads this token-protected map via
+    /// `loadProtectedVenue()` (`features/auth-token.js`) instead of its
+    /// default public map. Injected as a document-start user script (not a query item: a JWT doesn't belong
     /// in a URL). `nil` (the default) leaves every screen unchanged -- no
     /// demo screen sets it, it's the auth-token code sample's entry point.
     /// See `ProtectedMapSample.swift` and `docs/features/auth-token.md`.

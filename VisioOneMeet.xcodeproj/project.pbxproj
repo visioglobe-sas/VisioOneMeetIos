@@ -7,39 +7,263 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		031A45EEB2D69BD83CE20512 /* ColorSwatchChip.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D323FB86379E70D22B3AD50 /* ColorSwatchChip.swift */; };
 		085525C9A4DAFB7D06797F3F /* ProtectedMapSample.swift in Sources */ = {isa = PBXBuildFile; fileRef = 922E225C1F1530851FD195E8 /* ProtectedMapSample.swift */; };
-		1656C85A458CA9C3081BDCD7 /* SharedControls.swift in Sources */ = {isa = PBXBuildFile; fileRef = C147115AD6BF9D2C999D7E91 /* SharedControls.swift */; };
+		0B09C68085CB8182AF5697BF /* CategoryHighlightPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3227B142CB6C378A592A778C /* CategoryHighlightPanel.swift */; };
+		0B4DA71FEE6455320D41E978 /* NativeUiReplacementModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A25ED925CA65D9C1D47358D /* NativeUiReplacementModel.swift */; };
+		0FF92A400DF18D66C80E93A0 /* ResetView+Bridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 522DBB7744EFB9B4A1738A3C /* ResetView+Bridge.swift */; };
+		13DFBE74834FBA1FA3D6A449 /* RuntimeLocalePanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = F61F4D256E917CD11006F877 /* RuntimeLocalePanel.swift */; };
+		16C61C58B69E831B847EB28C /* OccupancySimulatedPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 110A6E71229F9BAD800A6D83 /* OccupancySimulatedPanel.swift */; };
+		1BC02BC900215675C7529403 /* OriginDestinationFields.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5DD6621915967133EAB31ACC /* OriginDestinationFields.swift */; };
+		1D6241D84C3DAC9DDB72154C /* CustomTextLabel+Bridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 38EE4561EA8A7806C299AEA4 /* CustomTextLabel+Bridge.swift */; };
+		1D8928B58B70CD3780279E17 /* GotoPoiModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9C98F99C78FB427776D7C5A5 /* GotoPoiModel.swift */; };
+		1D99339CA7DA7CE4A0BFF8E2 /* NavigationExcludeModalities+Bridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 34F1A237BE98177F501D51BC /* NavigationExcludeModalities+Bridge.swift */; };
+		23CCF659C4192C0DD1258081 /* OccupancySimulated+Bridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00A01B5E18097207992F7E90 /* OccupancySimulated+Bridge.swift */; };
+		23E474E8B7CA7DA7CC215D25 /* FloorSelectorModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = B86C31E53EF42ADE6E8974B2 /* FloorSelectorModel.swift */; };
+		2468E7F16C1C93B5F6E2D756 /* IconMarker3DModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 65F673BEEC59378531A15FE8 /* IconMarker3DModel.swift */; };
+		24CBF2DF49A74EF93ACA4A40 /* ExploreModePanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = AF7F2CC94F1B35D5BA6AF048 /* ExploreModePanel.swift */; };
+		283F890D2E00CE9D1BA3058B /* CameraProjectionToggleModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 27D3FC833A95C23CC6DBE100 /* CameraProjectionToggleModel.swift */; };
+		2A0EAE1606B75C539AD061B2 /* CustomThemeModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 643BF42167390CA006B54CA1 /* CustomThemeModel.swift */; };
+		30202D5D78D720AE48FF923F /* HtmlOverlayMarker+Bridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 50D599110334D2C278B48233 /* HtmlOverlayMarker+Bridge.swift */; };
+		381948A62A989E4FFAAB9A3C /* DynamicPoiCrud+Bridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB2D14187078CB81453785AA /* DynamicPoiCrud+Bridge.swift */; };
 		3993DABAE9BE2F6513DBE4B8 /* DemoMap.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB45AADBB6759D73E5508983 /* DemoMap.swift */; };
-		3CFB3B290673F85F34877E3F /* FeatureOverlays.swift in Sources */ = {isa = PBXBuildFile; fileRef = E62A59B4BB0AC4E6DFED2747 /* FeatureOverlays.swift */; };
+		3ABA39842C413792BA3F26C4 /* IconMarker3D+Bridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = F65EBCA4CB42810F98C983B9 /* IconMarker3D+Bridge.swift */; };
+		3B6D120DDABD5B2E4CA36C9A /* AccessibleModeModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 47D57DBDCCA7F0E724EDC0DE /* AccessibleModeModel.swift */; };
 		44B189A582869A41D82E2519 /* VisioOneBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7C6C823CF0AA817AB2919F3D /* VisioOneBridge.swift */; };
+		4AA9F2CA7A68548729A18EC6 /* UiPartVisibilityModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = F9D35AB8A009833E34327AC5 /* UiPartVisibilityModel.swift */; };
+		4EECDFD85759B4BF60AF7280 /* ClickableSurfacePanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9F8214FC6334CB7D691CA64E /* ClickableSurfacePanel.swift */; };
+		522673BF01855598C744EA1E /* CustomBaseUrlPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 43C0F650203A98DAB0AD7D10 /* CustomBaseUrlPanel.swift */; };
+		52B6706C107822BE67025DC2 /* CustomNavigationTracePanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3EEA667B9661E66A7D0C8BAC /* CustomNavigationTracePanel.swift */; };
+		531DC3766A936F487D2292DF /* CameraShowcaseCarouselModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = E3FA06323BABC3488366E911 /* CameraShowcaseCarouselModel.swift */; };
+		55290C1818B7E062EE2041E3 /* PositionTrackingControls.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3DB3FB658E7A155B2550B4BC /* PositionTrackingControls.swift */; };
+		5623C123CA213294C179B1EB /* ClickableSurfaceModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = D3917356A30982FAEEC15EEE /* ClickableSurfaceModel.swift */; };
 		5AE948C390C0188E908499E8 /* WebContent in Resources */ = {isa = PBXBuildFile; fileRef = BDFA82E7DAF044589B4DF57D /* WebContent */; };
+		5C5066221C35AB25EF9AC5EF /* CategoryHighlight+Bridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 46650235B38AC0651E4A9084 /* CategoryHighlight+Bridge.swift */; };
 		5CBCBC7BC25F3655FFDB9449 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = C34C4BBEB8D408F4E676FDD4 /* Assets.xcassets */; };
-		950944881CC20973AF04615D /* FeatureMapView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6DD8109E85A372C8097A4477 /* FeatureMapView.swift */; };
+		646F6DB3B2A7F97A3901CF3B /* CustomNavigationTrace+Bridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 26C02C0123EB44C959957EAC /* CustomNavigationTrace+Bridge.swift */; };
+		670DD33C957D1567DC99EFC4 /* PlacedObjectErrorMessage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 42780DBBECAA00FC45C4F2D6 /* PlacedObjectErrorMessage.swift */; };
+		68B80B1246D85AEBBCE7134B /* BridgeResult.swift in Sources */ = {isa = PBXBuildFile; fileRef = 558A2E9BDBFC675BD2944C01 /* BridgeResult.swift */; };
+		69D56E8BC8B71241F13D5E06 /* DynamicPoiCrudPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = B780594FCA80449888497B82 /* DynamicPoiCrudPanel.swift */; };
+		6CFF6017464F3877E00F510D /* AddLocale+Bridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 519B5B9DAD140DC565A4CCFC /* AddLocale+Bridge.swift */; };
+		6F8490EAA215672D6F78B209 /* ExploreMode+Bridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 39D7D930EB7B63F8348EA4F8 /* ExploreMode+Bridge.swift */; };
+		704923C285A4DB8614BEADE1 /* AccuracyCircleStyle+Bridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6324745D8A976DACBAB1E28F /* AccuracyCircleStyle+Bridge.swift */; };
+		7359FC317A3AC48939B38A9F /* CustomBaseUrl+Bridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 99B21B9BD525BCB042AB6800 /* CustomBaseUrl+Bridge.swift */; };
+		75DCD48A4C435CE8904BE53C /* HtmlOverlayMarkerPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A6518B2E93E20113524A244 /* HtmlOverlayMarkerPanel.swift */; };
+		771DC4CD0C4A8575F837B3F4 /* CustomBaseUrlModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = AFEFD39BD4A8F171CFF78AE3 /* CustomBaseUrlModel.swift */; };
+		77D59A7A219BDD94936DA5FB /* CustomThemePanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A9A20C2D5B9936DB3D9CA5D /* CustomThemePanel.swift */; };
+		797BFF659EA7F5A23AE53DF3 /* CustomTextLabelModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 417D999EA6D10BFE056B11F0 /* CustomTextLabelModel.swift */; };
+		7E70B8A17CCD7D32774AAE27 /* GotoPoi+Bridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = EA01A24BE55BCD45D871411F /* GotoPoi+Bridge.swift */; };
+		7FA184390F40E38818D22991 /* FloorSelectorList.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2DD8B6844BA5F7C5FBC9FEB7 /* FloorSelectorList.swift */; };
+		81221C5DF12E4C657EF479BE /* CustomTheme+Bridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18D52F32C7E2CF0DB95FF455 /* CustomTheme+Bridge.swift */; };
+		81821FD307F95ABA8BCAC18D /* SimulatedPositionModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 92367ADA6DD64FAE01728A5F /* SimulatedPositionModel.swift */; };
+		8261E460BF3F2494B292EA21 /* FloorSelector+Bridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 12163A8CC84EC24148EF40A1 /* FloorSelector+Bridge.swift */; };
+		88E6103B8272C260660CCE77 /* CameraShowcaseCarousel+Bridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6430C22AC02F92E3CF713E60 /* CameraShowcaseCarousel+Bridge.swift */; };
+		8CB596AB132DA6FAC935595A /* HtmlOverlayMarkerModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 07E40E51C36F8160B0E3ADAC /* HtmlOverlayMarkerModel.swift */; };
+		8E682D1E7BF144359D907060 /* ExploreModeModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94592852AAD9058A92E4418B /* ExploreModeModel.swift */; };
+		8F31C949F5089DAD738580FC /* CategoryHighlightModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 766E74C38B5EBA9D4D38A32F /* CategoryHighlightModel.swift */; };
+		9188F9ADAB2EAD92951177FD /* ClickableSurface+Bridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 37CFCE63C605E90DB052BB8E /* ClickableSurface+Bridge.swift */; };
+		9666A3B885018644A34C1AC5 /* FeatureModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = E39F71821024CC5E89E8C02A /* FeatureModel.swift */; };
+		96F8930937B736EEC1671C84 /* CameraProjectionTogglePanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 64AE7DBD35D525160C951CAA /* CameraProjectionTogglePanel.swift */; };
 		98B20AE3D3646AC7F17E421F /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0E2EE7917F2543DA1F5C20C /* ContentView.swift */; };
+		9D0A3C32AC28CA96D19061D1 /* PoiClickPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7BC66461315181BFA1BD984 /* PoiClickPanel.swift */; };
+		9EAFE8BF96E24158A3625D9A /* RuntimeLocale+Bridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3064842F33FA807E532649F8 /* RuntimeLocale+Bridge.swift */; };
+		9ED691EB86DEDD6C3988632A /* Color+Hex.swift in Sources */ = {isa = PBXBuildFile; fileRef = 954161C70A698492A9833000 /* Color+Hex.swift */; };
+		9EE8EE61A0456849334017EE /* Geofencing+Bridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD3FFCB92A9DEBCB9F3AAD9C /* Geofencing+Bridge.swift */; };
+		A0726D4B62C94FF0FF54875A /* PoiIdField.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7F9A1E35582F4E807A4C6EB4 /* PoiIdField.swift */; };
+		A375201A1FD45B094ADBDE56 /* NavigationExcludeModalitiesModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 23156EDAE7DBAD36FE256072 /* NavigationExcludeModalitiesModel.swift */; };
+		A645499E8631C52F31EC748D /* PositionTrackingController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 26EF0624F5685F5A59C67740 /* PositionTrackingController.swift */; };
+		A6D70B0C0B913709323D8D92 /* CustomDataModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = F4E2C91359BAEB4F22FDAE2D /* CustomDataModel.swift */; };
 		A706008CB2A251B7FC24BFD6 /* VisioOneMeetApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 019563F2C8991421B82D36FB /* VisioOneMeetApp.swift */; };
+		A868B290988481BB9ED4BCAA /* ComputeNavigationPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = B80AF9C063789AA78E8CF2FA /* ComputeNavigationPanel.swift */; };
+		AA7D8303595C6A3BD30CAE7E /* UiPartVisibilityPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0C30203D183367B4F93FC407 /* UiPartVisibilityPanel.swift */; };
+		AB63A63CC5A74123FB5C079D /* CustomDataPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = F464B161D481CD7EFC32FE1B /* CustomDataPanel.swift */; };
+		ACBF0614F1A36B92D6BFD811 /* ResetViewPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A41D143067B4FD8D26B36043 /* ResetViewPanel.swift */; };
+		AE6EC30C800F2C53FC75653F /* AuthTokenScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0EF4E01E24B82500DF83E69 /* AuthTokenScreen.swift */; };
+		B5598F8534465D5FDC3645E7 /* ComputeNavigation+Bridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = C521BED98A37DDF278A00112 /* ComputeNavigation+Bridge.swift */; };
+		BB72C4B92FC791D9C32A6805 /* ResetViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = B24036726493EEF26920BB16 /* ResetViewModel.swift */; };
+		BBEB78433670B350FD6F0F5F /* AddLocalePanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 42F6B0DC1946270DFAD7451D /* AddLocalePanel.swift */; };
+		BC0D083A50D0D3825BCB71D3 /* GeofencingPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 461EE58F7E0093E523BCB7D5 /* GeofencingPanel.swift */; };
+		BFEC7CFD6FC0DBD6E02A27BD /* OccupancySimulatedModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 92E50876C78A6E5E3B5C60D2 /* OccupancySimulatedModel.swift */; };
+		C30B52A2C157C6D076BAACE3 /* NavigationExcludeModalitiesPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 71EED2E7EED8676F6D8ADA80 /* NavigationExcludeModalitiesPanel.swift */; };
 		C441B616C63F967224148EEC /* MapWebView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7FFF1F5770DEB99E86B8D9A9 /* MapWebView.swift */; };
+		CA0B47942CAD462F933ADD81 /* CameraLockOnPositionPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0F8A8392B676C9B58DAD38A /* CameraLockOnPositionPanel.swift */; };
+		CA75852D477876C7ECA92926 /* UiPartVisibility+Bridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 41BCE844F7A4F907581003D5 /* UiPartVisibility+Bridge.swift */; };
+		CB513850B01DE35B8BFAFE2F /* CameraProjectionToggle+Bridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 39A1A47B37C387CD11F09791 /* CameraProjectionToggle+Bridge.swift */; };
+		CB6296D7AA0310A54F4C73C9 /* AccuracyCircleStylePanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7DC589AEDBA47E4883331F8 /* AccuracyCircleStylePanel.swift */; };
+		CD199454B9DE37A66F771DFA /* IconMarker3DPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E4A3BC18694A2B621DF6718 /* IconMarker3DPanel.swift */; };
+		CFDF19737FE2C6052A7DE004 /* AccessibleModePanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7D4FFEE03B7E9F5D1BB4A298 /* AccessibleModePanel.swift */; };
+		D5B2294D906993C9561FBE4A /* CustomData+Bridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7EED4927CF05202D9E740F0 /* CustomData+Bridge.swift */; };
+		D69FA4E90E678040293FE2EE /* CustomTextLabelPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6A063DD10D4332F61EC0F153 /* CustomTextLabelPanel.swift */; };
+		DB25106F07265475767EBEC6 /* CameraShowcaseCarouselPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3029F007542865383F67306C /* CameraShowcaseCarouselPanel.swift */; };
+		DC9D102A8A520383B4A88868 /* FeatureScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = E0E3D42A6242B014CE3BB63A /* FeatureScreen.swift */; };
+		DD24B320408A717973B36A2D /* SimulatedPosition+Bridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84622A2C7E740B9CB41C1B17 /* SimulatedPosition+Bridge.swift */; };
+		E100724943CD731C067A4A59 /* CameraLockOnPositionModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 45D941015DE5A624DF677815 /* CameraLockOnPositionModel.swift */; };
+		E1F38C94F4A41CA38A9F02DA /* PoiClickModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2C48CA81B589AF9EC77CB05 /* PoiClickModel.swift */; };
 		E2FD9C6C5880B733CED7444E /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = 78F5F28A7C73D01EDDB0CB89 /* Localizable.xcstrings */; };
+		E34FAAB7668BA02BD605B9F3 /* CustomNavigationTraceModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F25B52C9E6CD60F2E631B2A /* CustomNavigationTraceModel.swift */; };
+		E357EC2F41E18F5C76BDD460 /* GeofencingModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 563F360FF352A9D942B477FC /* GeofencingModel.swift */; };
+		E4ABCFB31AEBA759D22AE0B9 /* GotoPoiPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = E281F50D40D121AFC5F8F709 /* GotoPoiPanel.swift */; };
+		E5F04499A6289F13D4F37FCF /* AddLocaleModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0E70FEA7F42DEB55B753EA3 /* AddLocaleModel.swift */; };
+		E6F07E2AB9684A4EDD99A1F9 /* NativeUiReplacementPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE2AD54584E806B693997CB5 /* NativeUiReplacementPanel.swift */; };
+		E88E777CFEAE018F85D84E2C /* AccuracyCircleStyleModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5CEEC5A3E708C52017D3C49B /* AccuracyCircleStyleModel.swift */; };
+		EB5F8A0D2152B16D86E703EF /* DynamicPoiCrudModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 731542174E715F9A05EC9BB8 /* DynamicPoiCrudModel.swift */; };
+		EFEA9D00F15910CC13EB5257 /* CameraLockOnPosition+Bridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 21D274012E59A70056CFD300 /* CameraLockOnPosition+Bridge.swift */; };
+		F0654DFBD2196C3E957B6D7D /* ComputeNavigationModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD33E4BD2459197BCB65C8C2 /* ComputeNavigationModel.swift */; };
+		F3DDE2066CDDE0ECC6996046 /* RuntimeLocaleModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6F212ABFE06A27AE210C0535 /* RuntimeLocaleModel.swift */; };
 		F5DA0D14A2224A0CFCE5A15D /* Feature.swift in Sources */ = {isa = PBXBuildFile; fileRef = 46F56A7BC76019B91BD94389 /* Feature.swift */; };
+		FD5E168824BEB10E4ECDC934 /* SimulatedPositionPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0535350318BF18B89F7BC179 /* SimulatedPositionPanel.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		00A01B5E18097207992F7E90 /* OccupancySimulated+Bridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "OccupancySimulated+Bridge.swift"; sourceTree = "<group>"; };
 		019563F2C8991421B82D36FB /* VisioOneMeetApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VisioOneMeetApp.swift; sourceTree = "<group>"; };
+		0535350318BF18B89F7BC179 /* SimulatedPositionPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SimulatedPositionPanel.swift; sourceTree = "<group>"; };
+		07E40E51C36F8160B0E3ADAC /* HtmlOverlayMarkerModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HtmlOverlayMarkerModel.swift; sourceTree = "<group>"; };
+		0C30203D183367B4F93FC407 /* UiPartVisibilityPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UiPartVisibilityPanel.swift; sourceTree = "<group>"; };
+		110A6E71229F9BAD800A6D83 /* OccupancySimulatedPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OccupancySimulatedPanel.swift; sourceTree = "<group>"; };
+		12163A8CC84EC24148EF40A1 /* FloorSelector+Bridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "FloorSelector+Bridge.swift"; sourceTree = "<group>"; };
+		18D52F32C7E2CF0DB95FF455 /* CustomTheme+Bridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "CustomTheme+Bridge.swift"; sourceTree = "<group>"; };
+		21D274012E59A70056CFD300 /* CameraLockOnPosition+Bridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "CameraLockOnPosition+Bridge.swift"; sourceTree = "<group>"; };
+		23156EDAE7DBAD36FE256072 /* NavigationExcludeModalitiesModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NavigationExcludeModalitiesModel.swift; sourceTree = "<group>"; };
+		26C02C0123EB44C959957EAC /* CustomNavigationTrace+Bridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "CustomNavigationTrace+Bridge.swift"; sourceTree = "<group>"; };
+		26EF0624F5685F5A59C67740 /* PositionTrackingController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PositionTrackingController.swift; sourceTree = "<group>"; };
+		27D3FC833A95C23CC6DBE100 /* CameraProjectionToggleModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraProjectionToggleModel.swift; sourceTree = "<group>"; };
+		2A9A20C2D5B9936DB3D9CA5D /* CustomThemePanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CustomThemePanel.swift; sourceTree = "<group>"; };
+		2DD8B6844BA5F7C5FBC9FEB7 /* FloorSelectorList.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FloorSelectorList.swift; sourceTree = "<group>"; };
+		3029F007542865383F67306C /* CameraShowcaseCarouselPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraShowcaseCarouselPanel.swift; sourceTree = "<group>"; };
+		3064842F33FA807E532649F8 /* RuntimeLocale+Bridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "RuntimeLocale+Bridge.swift"; sourceTree = "<group>"; };
+		3227B142CB6C378A592A778C /* CategoryHighlightPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CategoryHighlightPanel.swift; sourceTree = "<group>"; };
+		34F1A237BE98177F501D51BC /* NavigationExcludeModalities+Bridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "NavigationExcludeModalities+Bridge.swift"; sourceTree = "<group>"; };
+		37CFCE63C605E90DB052BB8E /* ClickableSurface+Bridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ClickableSurface+Bridge.swift"; sourceTree = "<group>"; };
+		38EE4561EA8A7806C299AEA4 /* CustomTextLabel+Bridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "CustomTextLabel+Bridge.swift"; sourceTree = "<group>"; };
+		39A1A47B37C387CD11F09791 /* CameraProjectionToggle+Bridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "CameraProjectionToggle+Bridge.swift"; sourceTree = "<group>"; };
+		39D7D930EB7B63F8348EA4F8 /* ExploreMode+Bridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ExploreMode+Bridge.swift"; sourceTree = "<group>"; };
+		3DB3FB658E7A155B2550B4BC /* PositionTrackingControls.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PositionTrackingControls.swift; sourceTree = "<group>"; };
+		3EEA667B9661E66A7D0C8BAC /* CustomNavigationTracePanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CustomNavigationTracePanel.swift; sourceTree = "<group>"; };
+		417D999EA6D10BFE056B11F0 /* CustomTextLabelModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CustomTextLabelModel.swift; sourceTree = "<group>"; };
+		41BCE844F7A4F907581003D5 /* UiPartVisibility+Bridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "UiPartVisibility+Bridge.swift"; sourceTree = "<group>"; };
+		42780DBBECAA00FC45C4F2D6 /* PlacedObjectErrorMessage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlacedObjectErrorMessage.swift; sourceTree = "<group>"; };
+		42F6B0DC1946270DFAD7451D /* AddLocalePanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddLocalePanel.swift; sourceTree = "<group>"; };
+		43C0F650203A98DAB0AD7D10 /* CustomBaseUrlPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CustomBaseUrlPanel.swift; sourceTree = "<group>"; };
+		45D941015DE5A624DF677815 /* CameraLockOnPositionModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraLockOnPositionModel.swift; sourceTree = "<group>"; };
+		461EE58F7E0093E523BCB7D5 /* GeofencingPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GeofencingPanel.swift; sourceTree = "<group>"; };
+		46650235B38AC0651E4A9084 /* CategoryHighlight+Bridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "CategoryHighlight+Bridge.swift"; sourceTree = "<group>"; };
 		46F56A7BC76019B91BD94389 /* Feature.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Feature.swift; sourceTree = "<group>"; };
+		47D57DBDCCA7F0E724EDC0DE /* AccessibleModeModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccessibleModeModel.swift; sourceTree = "<group>"; };
+		50D599110334D2C278B48233 /* HtmlOverlayMarker+Bridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "HtmlOverlayMarker+Bridge.swift"; sourceTree = "<group>"; };
+		519B5B9DAD140DC565A4CCFC /* AddLocale+Bridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AddLocale+Bridge.swift"; sourceTree = "<group>"; };
 		5206E976F660AE4D56D4695B /* VisioOneMeet.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = VisioOneMeet.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		6DD8109E85A372C8097A4477 /* FeatureMapView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeatureMapView.swift; sourceTree = "<group>"; };
+		522DBB7744EFB9B4A1738A3C /* ResetView+Bridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ResetView+Bridge.swift"; sourceTree = "<group>"; };
+		558A2E9BDBFC675BD2944C01 /* BridgeResult.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BridgeResult.swift; sourceTree = "<group>"; };
+		563F360FF352A9D942B477FC /* GeofencingModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GeofencingModel.swift; sourceTree = "<group>"; };
+		5A25ED925CA65D9C1D47358D /* NativeUiReplacementModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeUiReplacementModel.swift; sourceTree = "<group>"; };
+		5CEEC5A3E708C52017D3C49B /* AccuracyCircleStyleModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccuracyCircleStyleModel.swift; sourceTree = "<group>"; };
+		5D323FB86379E70D22B3AD50 /* ColorSwatchChip.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ColorSwatchChip.swift; sourceTree = "<group>"; };
+		5DD6621915967133EAB31ACC /* OriginDestinationFields.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OriginDestinationFields.swift; sourceTree = "<group>"; };
+		5F25B52C9E6CD60F2E631B2A /* CustomNavigationTraceModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CustomNavigationTraceModel.swift; sourceTree = "<group>"; };
+		6324745D8A976DACBAB1E28F /* AccuracyCircleStyle+Bridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AccuracyCircleStyle+Bridge.swift"; sourceTree = "<group>"; };
+		6430C22AC02F92E3CF713E60 /* CameraShowcaseCarousel+Bridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "CameraShowcaseCarousel+Bridge.swift"; sourceTree = "<group>"; };
+		643BF42167390CA006B54CA1 /* CustomThemeModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CustomThemeModel.swift; sourceTree = "<group>"; };
+		64AE7DBD35D525160C951CAA /* CameraProjectionTogglePanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraProjectionTogglePanel.swift; sourceTree = "<group>"; };
+		65F673BEEC59378531A15FE8 /* IconMarker3DModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IconMarker3DModel.swift; sourceTree = "<group>"; };
+		6A063DD10D4332F61EC0F153 /* CustomTextLabelPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CustomTextLabelPanel.swift; sourceTree = "<group>"; };
+		6F212ABFE06A27AE210C0535 /* RuntimeLocaleModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RuntimeLocaleModel.swift; sourceTree = "<group>"; };
+		71EED2E7EED8676F6D8ADA80 /* NavigationExcludeModalitiesPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NavigationExcludeModalitiesPanel.swift; sourceTree = "<group>"; };
+		731542174E715F9A05EC9BB8 /* DynamicPoiCrudModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DynamicPoiCrudModel.swift; sourceTree = "<group>"; };
+		766E74C38B5EBA9D4D38A32F /* CategoryHighlightModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CategoryHighlightModel.swift; sourceTree = "<group>"; };
 		78F5F28A7C73D01EDDB0CB89 /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
+		7A6518B2E93E20113524A244 /* HtmlOverlayMarkerPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HtmlOverlayMarkerPanel.swift; sourceTree = "<group>"; };
 		7C6C823CF0AA817AB2919F3D /* VisioOneBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VisioOneBridge.swift; sourceTree = "<group>"; };
+		7D4FFEE03B7E9F5D1BB4A298 /* AccessibleModePanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccessibleModePanel.swift; sourceTree = "<group>"; };
+		7E4A3BC18694A2B621DF6718 /* IconMarker3DPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IconMarker3DPanel.swift; sourceTree = "<group>"; };
+		7F9A1E35582F4E807A4C6EB4 /* PoiIdField.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PoiIdField.swift; sourceTree = "<group>"; };
 		7FFF1F5770DEB99E86B8D9A9 /* MapWebView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapWebView.swift; sourceTree = "<group>"; };
+		84622A2C7E740B9CB41C1B17 /* SimulatedPosition+Bridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SimulatedPosition+Bridge.swift"; sourceTree = "<group>"; };
 		922E225C1F1530851FD195E8 /* ProtectedMapSample.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProtectedMapSample.swift; sourceTree = "<group>"; };
+		92367ADA6DD64FAE01728A5F /* SimulatedPositionModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SimulatedPositionModel.swift; sourceTree = "<group>"; };
+		92E50876C78A6E5E3B5C60D2 /* OccupancySimulatedModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OccupancySimulatedModel.swift; sourceTree = "<group>"; };
+		94592852AAD9058A92E4418B /* ExploreModeModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExploreModeModel.swift; sourceTree = "<group>"; };
+		954161C70A698492A9833000 /* Color+Hex.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Color+Hex.swift"; sourceTree = "<group>"; };
+		99B21B9BD525BCB042AB6800 /* CustomBaseUrl+Bridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "CustomBaseUrl+Bridge.swift"; sourceTree = "<group>"; };
+		9C98F99C78FB427776D7C5A5 /* GotoPoiModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GotoPoiModel.swift; sourceTree = "<group>"; };
+		9F8214FC6334CB7D691CA64E /* ClickableSurfacePanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClickableSurfacePanel.swift; sourceTree = "<group>"; };
+		A41D143067B4FD8D26B36043 /* ResetViewPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ResetViewPanel.swift; sourceTree = "<group>"; };
+		AE2AD54584E806B693997CB5 /* NativeUiReplacementPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeUiReplacementPanel.swift; sourceTree = "<group>"; };
+		AF7F2CC94F1B35D5BA6AF048 /* ExploreModePanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExploreModePanel.swift; sourceTree = "<group>"; };
+		AFEFD39BD4A8F171CFF78AE3 /* CustomBaseUrlModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CustomBaseUrlModel.swift; sourceTree = "<group>"; };
+		B0EF4E01E24B82500DF83E69 /* AuthTokenScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthTokenScreen.swift; sourceTree = "<group>"; };
+		B24036726493EEF26920BB16 /* ResetViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ResetViewModel.swift; sourceTree = "<group>"; };
+		B780594FCA80449888497B82 /* DynamicPoiCrudPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DynamicPoiCrudPanel.swift; sourceTree = "<group>"; };
+		B7DC589AEDBA47E4883331F8 /* AccuracyCircleStylePanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccuracyCircleStylePanel.swift; sourceTree = "<group>"; };
+		B80AF9C063789AA78E8CF2FA /* ComputeNavigationPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ComputeNavigationPanel.swift; sourceTree = "<group>"; };
+		B86C31E53EF42ADE6E8974B2 /* FloorSelectorModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FloorSelectorModel.swift; sourceTree = "<group>"; };
 		BB45AADBB6759D73E5508983 /* DemoMap.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DemoMap.swift; sourceTree = "<group>"; };
 		BDFA82E7DAF044589B4DF57D /* WebContent */ = {isa = PBXFileReference; lastKnownFileType = folder; name = WebContent; path = VisioOneMeet/WebContent; sourceTree = SOURCE_ROOT; };
 		C0E2EE7917F2543DA1F5C20C /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
-		C147115AD6BF9D2C999D7E91 /* SharedControls.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SharedControls.swift; sourceTree = "<group>"; };
 		C34C4BBEB8D408F4E676FDD4 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
-		E62A59B4BB0AC4E6DFED2747 /* FeatureOverlays.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeatureOverlays.swift; sourceTree = "<group>"; };
+		C521BED98A37DDF278A00112 /* ComputeNavigation+Bridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ComputeNavigation+Bridge.swift"; sourceTree = "<group>"; };
+		C7BC66461315181BFA1BD984 /* PoiClickPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PoiClickPanel.swift; sourceTree = "<group>"; };
+		CB2D14187078CB81453785AA /* DynamicPoiCrud+Bridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "DynamicPoiCrud+Bridge.swift"; sourceTree = "<group>"; };
+		D0E70FEA7F42DEB55B753EA3 /* AddLocaleModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddLocaleModel.swift; sourceTree = "<group>"; };
+		D0F8A8392B676C9B58DAD38A /* CameraLockOnPositionPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraLockOnPositionPanel.swift; sourceTree = "<group>"; };
+		D3917356A30982FAEEC15EEE /* ClickableSurfaceModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClickableSurfaceModel.swift; sourceTree = "<group>"; };
+		D7EED4927CF05202D9E740F0 /* CustomData+Bridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "CustomData+Bridge.swift"; sourceTree = "<group>"; };
+		DD3FFCB92A9DEBCB9F3AAD9C /* Geofencing+Bridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Geofencing+Bridge.swift"; sourceTree = "<group>"; };
+		E0E3D42A6242B014CE3BB63A /* FeatureScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeatureScreen.swift; sourceTree = "<group>"; };
+		E281F50D40D121AFC5F8F709 /* GotoPoiPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GotoPoiPanel.swift; sourceTree = "<group>"; };
+		E39F71821024CC5E89E8C02A /* FeatureModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeatureModel.swift; sourceTree = "<group>"; };
+		E3FA06323BABC3488366E911 /* CameraShowcaseCarouselModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraShowcaseCarouselModel.swift; sourceTree = "<group>"; };
+		EA01A24BE55BCD45D871411F /* GotoPoi+Bridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "GotoPoi+Bridge.swift"; sourceTree = "<group>"; };
+		F2C48CA81B589AF9EC77CB05 /* PoiClickModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PoiClickModel.swift; sourceTree = "<group>"; };
+		F464B161D481CD7EFC32FE1B /* CustomDataPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CustomDataPanel.swift; sourceTree = "<group>"; };
+		F4E2C91359BAEB4F22FDAE2D /* CustomDataModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CustomDataModel.swift; sourceTree = "<group>"; };
+		F61F4D256E917CD11006F877 /* RuntimeLocalePanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RuntimeLocalePanel.swift; sourceTree = "<group>"; };
+		F65EBCA4CB42810F98C983B9 /* IconMarker3D+Bridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "IconMarker3D+Bridge.swift"; sourceTree = "<group>"; };
+		F9D35AB8A009833E34327AC5 /* UiPartVisibilityModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UiPartVisibilityModel.swift; sourceTree = "<group>"; };
+		FD33E4BD2459197BCB65C8C2 /* ComputeNavigationModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ComputeNavigationModel.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
+		035A49525EFA751851A5C648 /* AddLocale */ = {
+			isa = PBXGroup;
+			children = (
+				519B5B9DAD140DC565A4CCFC /* AddLocale+Bridge.swift */,
+				D0E70FEA7F42DEB55B753EA3 /* AddLocaleModel.swift */,
+				42F6B0DC1946270DFAD7451D /* AddLocalePanel.swift */,
+			);
+			path = AddLocale;
+			sourceTree = "<group>";
+		};
+		0369DDB092AA7E263AF846E0 /* CameraProjectionToggle */ = {
+			isa = PBXGroup;
+			children = (
+				39A1A47B37C387CD11F09791 /* CameraProjectionToggle+Bridge.swift */,
+				27D3FC833A95C23CC6DBE100 /* CameraProjectionToggleModel.swift */,
+				64AE7DBD35D525160C951CAA /* CameraProjectionTogglePanel.swift */,
+			);
+			path = CameraProjectionToggle;
+			sourceTree = "<group>";
+		};
+		0A383407335BF51737CE1CAF /* CustomTheme */ = {
+			isa = PBXGroup;
+			children = (
+				18D52F32C7E2CF0DB95FF455 /* CustomTheme+Bridge.swift */,
+				643BF42167390CA006B54CA1 /* CustomThemeModel.swift */,
+				2A9A20C2D5B9936DB3D9CA5D /* CustomThemePanel.swift */,
+			);
+			path = CustomTheme;
+			sourceTree = "<group>";
+		};
+		0FF8F61E28303919A3F6B8E4 /* HtmlOverlayMarker */ = {
+			isa = PBXGroup;
+			children = (
+				50D599110334D2C278B48233 /* HtmlOverlayMarker+Bridge.swift */,
+				07E40E51C36F8160B0E3ADAC /* HtmlOverlayMarkerModel.swift */,
+				7A6518B2E93E20113524A244 /* HtmlOverlayMarkerPanel.swift */,
+			);
+			path = HtmlOverlayMarker;
+			sourceTree = "<group>";
+		};
 		19222E3FFF928B91BDE285E9 = {
 			isa = PBXGroup;
 			children = (
@@ -53,15 +277,27 @@
 			children = (
 				BB45AADBB6759D73E5508983 /* DemoMap.swift */,
 				E959B961141C3B87CA70F68D /* Components */,
+				C72CE2DED8926C94F158726C /* PositionTracking */,
 			);
 			path = Shared;
+			sourceTree = "<group>";
+		};
+		1D6705255D512EF30BCB773E /* ExploreMode */ = {
+			isa = PBXGroup;
+			children = (
+				39D7D930EB7B63F8348EA4F8 /* ExploreMode+Bridge.swift */,
+				94592852AAD9058A92E4418B /* ExploreModeModel.swift */,
+				AF7F2CC94F1B35D5BA6AF048 /* ExploreModePanel.swift */,
+			);
+			path = ExploreMode;
 			sourceTree = "<group>";
 		};
 		2B3D51CCA335A9277E498E1C /* Shell */ = {
 			isa = PBXGroup;
 			children = (
 				46F56A7BC76019B91BD94389 /* Feature.swift */,
-				6DD8109E85A372C8097A4477 /* FeatureMapView.swift */,
+				E39F71821024CC5E89E8C02A /* FeatureModel.swift */,
+				E0E3D42A6242B014CE3BB63A /* FeatureScreen.swift */,
 				7FFF1F5770DEB99E86B8D9A9 /* MapWebView.swift */,
 			);
 			path = Shell;
@@ -75,17 +311,178 @@
 			name = Products;
 			sourceTree = "<group>";
 		};
+		3817A080C59613A166296C17 /* SimulatedPosition */ = {
+			isa = PBXGroup;
+			children = (
+				84622A2C7E740B9CB41C1B17 /* SimulatedPosition+Bridge.swift */,
+				92367ADA6DD64FAE01728A5F /* SimulatedPositionModel.swift */,
+				0535350318BF18B89F7BC179 /* SimulatedPositionPanel.swift */,
+			);
+			path = SimulatedPosition;
+			sourceTree = "<group>";
+		};
+		397B5212B943B89785F16F1D /* AccuracyCircleStyle */ = {
+			isa = PBXGroup;
+			children = (
+				6324745D8A976DACBAB1E28F /* AccuracyCircleStyle+Bridge.swift */,
+				5CEEC5A3E708C52017D3C49B /* AccuracyCircleStyleModel.swift */,
+				B7DC589AEDBA47E4883331F8 /* AccuracyCircleStylePanel.swift */,
+			);
+			path = AccuracyCircleStyle;
+			sourceTree = "<group>";
+		};
+		39F10D130D5E9B932CD98AEC /* RuntimeLocale */ = {
+			isa = PBXGroup;
+			children = (
+				3064842F33FA807E532649F8 /* RuntimeLocale+Bridge.swift */,
+				6F212ABFE06A27AE210C0535 /* RuntimeLocaleModel.swift */,
+				F61F4D256E917CD11006F877 /* RuntimeLocalePanel.swift */,
+			);
+			path = RuntimeLocale;
+			sourceTree = "<group>";
+		};
+		3FAB3F0CCDB0AA3F020802F0 /* CategoryHighlight */ = {
+			isa = PBXGroup;
+			children = (
+				46650235B38AC0651E4A9084 /* CategoryHighlight+Bridge.swift */,
+				766E74C38B5EBA9D4D38A32F /* CategoryHighlightModel.swift */,
+				3227B142CB6C378A592A778C /* CategoryHighlightPanel.swift */,
+			);
+			path = CategoryHighlight;
+			sourceTree = "<group>";
+		};
 		4872A83DD2B9CAAEDB4FD4E3 /* AuthToken */ = {
 			isa = PBXGroup;
 			children = (
+				B0EF4E01E24B82500DF83E69 /* AuthTokenScreen.swift */,
 				922E225C1F1530851FD195E8 /* ProtectedMapSample.swift */,
 			);
 			path = AuthToken;
 			sourceTree = "<group>";
 		};
+		57630D72AC9A90E88DEF35BD /* CustomNavigationTrace */ = {
+			isa = PBXGroup;
+			children = (
+				26C02C0123EB44C959957EAC /* CustomNavigationTrace+Bridge.swift */,
+				5F25B52C9E6CD60F2E631B2A /* CustomNavigationTraceModel.swift */,
+				3EEA667B9661E66A7D0C8BAC /* CustomNavigationTracePanel.swift */,
+			);
+			path = CustomNavigationTrace;
+			sourceTree = "<group>";
+		};
+		5B2307F6726A2A6117BDF881 /* Geofencing */ = {
+			isa = PBXGroup;
+			children = (
+				DD3FFCB92A9DEBCB9F3AAD9C /* Geofencing+Bridge.swift */,
+				563F360FF352A9D942B477FC /* GeofencingModel.swift */,
+				461EE58F7E0093E523BCB7D5 /* GeofencingPanel.swift */,
+			);
+			path = Geofencing;
+			sourceTree = "<group>";
+		};
+		676582471AC8771599EDE8B2 /* UiPartVisibility */ = {
+			isa = PBXGroup;
+			children = (
+				41BCE844F7A4F907581003D5 /* UiPartVisibility+Bridge.swift */,
+				F9D35AB8A009833E34327AC5 /* UiPartVisibilityModel.swift */,
+				0C30203D183367B4F93FC407 /* UiPartVisibilityPanel.swift */,
+			);
+			path = UiPartVisibility;
+			sourceTree = "<group>";
+		};
+		67BA9C6BA4202DBC10D75A2B /* NavigationExcludeModalities */ = {
+			isa = PBXGroup;
+			children = (
+				34F1A237BE98177F501D51BC /* NavigationExcludeModalities+Bridge.swift */,
+				23156EDAE7DBAD36FE256072 /* NavigationExcludeModalitiesModel.swift */,
+				71EED2E7EED8676F6D8ADA80 /* NavigationExcludeModalitiesPanel.swift */,
+			);
+			path = NavigationExcludeModalities;
+			sourceTree = "<group>";
+		};
+		72A04BD05B3CCACDBDFDEEDD /* OccupancySimulated */ = {
+			isa = PBXGroup;
+			children = (
+				00A01B5E18097207992F7E90 /* OccupancySimulated+Bridge.swift */,
+				92E50876C78A6E5E3B5C60D2 /* OccupancySimulatedModel.swift */,
+				110A6E71229F9BAD800A6D83 /* OccupancySimulatedPanel.swift */,
+			);
+			path = OccupancySimulated;
+			sourceTree = "<group>";
+		};
+		7AE308BD3BC685002A7B82D1 /* CustomTextLabel */ = {
+			isa = PBXGroup;
+			children = (
+				38EE4561EA8A7806C299AEA4 /* CustomTextLabel+Bridge.swift */,
+				417D999EA6D10BFE056B11F0 /* CustomTextLabelModel.swift */,
+				6A063DD10D4332F61EC0F153 /* CustomTextLabelPanel.swift */,
+			);
+			path = CustomTextLabel;
+			sourceTree = "<group>";
+		};
+		7C433D6245902539F97786BB /* ResetView */ = {
+			isa = PBXGroup;
+			children = (
+				522DBB7744EFB9B4A1738A3C /* ResetView+Bridge.swift */,
+				B24036726493EEF26920BB16 /* ResetViewModel.swift */,
+				A41D143067B4FD8D26B36043 /* ResetViewPanel.swift */,
+			);
+			path = ResetView;
+			sourceTree = "<group>";
+		};
+		7D0FE425B2C18038300497A8 /* AccessibleMode */ = {
+			isa = PBXGroup;
+			children = (
+				47D57DBDCCA7F0E724EDC0DE /* AccessibleModeModel.swift */,
+				7D4FFEE03B7E9F5D1BB4A298 /* AccessibleModePanel.swift */,
+			);
+			path = AccessibleMode;
+			sourceTree = "<group>";
+		};
+		8D3DACB76355B8697F94148D /* ClickableSurface */ = {
+			isa = PBXGroup;
+			children = (
+				37CFCE63C605E90DB052BB8E /* ClickableSurface+Bridge.swift */,
+				D3917356A30982FAEEC15EEE /* ClickableSurfaceModel.swift */,
+				9F8214FC6334CB7D691CA64E /* ClickableSurfacePanel.swift */,
+			);
+			path = ClickableSurface;
+			sourceTree = "<group>";
+		};
+		933F5ED2634DEB1229E97EAB /* GotoPoi */ = {
+			isa = PBXGroup;
+			children = (
+				EA01A24BE55BCD45D871411F /* GotoPoi+Bridge.swift */,
+				9C98F99C78FB427776D7C5A5 /* GotoPoiModel.swift */,
+				E281F50D40D121AFC5F8F709 /* GotoPoiPanel.swift */,
+			);
+			path = GotoPoi;
+			sourceTree = "<group>";
+		};
+		9BC393DC583F8B6D8BC5E3DA /* CameraShowcaseCarousel */ = {
+			isa = PBXGroup;
+			children = (
+				6430C22AC02F92E3CF713E60 /* CameraShowcaseCarousel+Bridge.swift */,
+				E3FA06323BABC3488366E911 /* CameraShowcaseCarouselModel.swift */,
+				3029F007542865383F67306C /* CameraShowcaseCarouselPanel.swift */,
+			);
+			path = CameraShowcaseCarousel;
+			sourceTree = "<group>";
+		};
+		A54B083623902C36C702CBF5 /* FloorSelector */ = {
+			isa = PBXGroup;
+			children = (
+				12163A8CC84EC24148EF40A1 /* FloorSelector+Bridge.swift */,
+				2DD8B6844BA5F7C5FBC9FEB7 /* FloorSelectorList.swift */,
+				B86C31E53EF42ADE6E8974B2 /* FloorSelectorModel.swift */,
+			);
+			path = FloorSelector;
+			sourceTree = "<group>";
+		};
 		AD64EC795882388E638AE231 /* Bridge */ = {
 			isa = PBXGroup;
 			children = (
+				558A2E9BDBFC675BD2944C01 /* BridgeResult.swift */,
 				7C6C823CF0AA817AB2919F3D /* VisioOneBridge.swift */,
 			);
 			path = Bridge;
@@ -100,10 +497,96 @@
 			path = App;
 			sourceTree = "<group>";
 		};
+		B2B36401A6D20620F128EEE0 /* NativeUiReplacement */ = {
+			isa = PBXGroup;
+			children = (
+				5A25ED925CA65D9C1D47358D /* NativeUiReplacementModel.swift */,
+				AE2AD54584E806B693997CB5 /* NativeUiReplacementPanel.swift */,
+			);
+			path = NativeUiReplacement;
+			sourceTree = "<group>";
+		};
+		BD34A9FE97FE524BB9E61E83 /* PoiClick */ = {
+			isa = PBXGroup;
+			children = (
+				F2C48CA81B589AF9EC77CB05 /* PoiClickModel.swift */,
+				C7BC66461315181BFA1BD984 /* PoiClickPanel.swift */,
+			);
+			path = PoiClick;
+			sourceTree = "<group>";
+		};
+		C72CE2DED8926C94F158726C /* PositionTracking */ = {
+			isa = PBXGroup;
+			children = (
+				26EF0624F5685F5A59C67740 /* PositionTrackingController.swift */,
+				3DB3FB658E7A155B2550B4BC /* PositionTrackingControls.swift */,
+			);
+			path = PositionTracking;
+			sourceTree = "<group>";
+		};
+		C72F62912844F864EC2D94FA /* CameraLockOnPosition */ = {
+			isa = PBXGroup;
+			children = (
+				21D274012E59A70056CFD300 /* CameraLockOnPosition+Bridge.swift */,
+				45D941015DE5A624DF677815 /* CameraLockOnPositionModel.swift */,
+				D0F8A8392B676C9B58DAD38A /* CameraLockOnPositionPanel.swift */,
+			);
+			path = CameraLockOnPosition;
+			sourceTree = "<group>";
+		};
+		D482C0020510C41BACE38FF4 /* DynamicPoiCrud */ = {
+			isa = PBXGroup;
+			children = (
+				CB2D14187078CB81453785AA /* DynamicPoiCrud+Bridge.swift */,
+				731542174E715F9A05EC9BB8 /* DynamicPoiCrudModel.swift */,
+				B780594FCA80449888497B82 /* DynamicPoiCrudPanel.swift */,
+			);
+			path = DynamicPoiCrud;
+			sourceTree = "<group>";
+		};
+		DC9C6742A3B9EA3FE859513F /* CustomData */ = {
+			isa = PBXGroup;
+			children = (
+				D7EED4927CF05202D9E740F0 /* CustomData+Bridge.swift */,
+				F4E2C91359BAEB4F22FDAE2D /* CustomDataModel.swift */,
+				F464B161D481CD7EFC32FE1B /* CustomDataPanel.swift */,
+			);
+			path = CustomData;
+			sourceTree = "<group>";
+		};
 		E42DCF440224AE77EB64166E /* Features */ = {
 			isa = PBXGroup;
 			children = (
+				E8538D5BCA855BECA46EC7CF /* 3dIconMarker */,
+				7D0FE425B2C18038300497A8 /* AccessibleMode */,
+				397B5212B943B89785F16F1D /* AccuracyCircleStyle */,
+				035A49525EFA751851A5C648 /* AddLocale */,
 				4872A83DD2B9CAAEDB4FD4E3 /* AuthToken */,
+				C72F62912844F864EC2D94FA /* CameraLockOnPosition */,
+				0369DDB092AA7E263AF846E0 /* CameraProjectionToggle */,
+				9BC393DC583F8B6D8BC5E3DA /* CameraShowcaseCarousel */,
+				3FAB3F0CCDB0AA3F020802F0 /* CategoryHighlight */,
+				8D3DACB76355B8697F94148D /* ClickableSurface */,
+				E4FB251E1330B2E2821BC768 /* ComputeNavigation */,
+				F42FF955F6C0EC4D3750D802 /* CustomBaseUrl */,
+				DC9C6742A3B9EA3FE859513F /* CustomData */,
+				57630D72AC9A90E88DEF35BD /* CustomNavigationTrace */,
+				7AE308BD3BC685002A7B82D1 /* CustomTextLabel */,
+				0A383407335BF51737CE1CAF /* CustomTheme */,
+				D482C0020510C41BACE38FF4 /* DynamicPoiCrud */,
+				1D6705255D512EF30BCB773E /* ExploreMode */,
+				A54B083623902C36C702CBF5 /* FloorSelector */,
+				5B2307F6726A2A6117BDF881 /* Geofencing */,
+				933F5ED2634DEB1229E97EAB /* GotoPoi */,
+				0FF8F61E28303919A3F6B8E4 /* HtmlOverlayMarker */,
+				B2B36401A6D20620F128EEE0 /* NativeUiReplacement */,
+				67BA9C6BA4202DBC10D75A2B /* NavigationExcludeModalities */,
+				72A04BD05B3CCACDBDFDEEDD /* OccupancySimulated */,
+				BD34A9FE97FE524BB9E61E83 /* PoiClick */,
+				7C433D6245902539F97786BB /* ResetView */,
+				39F10D130D5E9B932CD98AEC /* RuntimeLocale */,
+				3817A080C59613A166296C17 /* SimulatedPosition */,
+				676582471AC8771599EDE8B2 /* UiPartVisibility */,
 			);
 			path = Features;
 			sourceTree = "<group>";
@@ -112,7 +595,6 @@
 			isa = PBXGroup;
 			children = (
 				C34C4BBEB8D408F4E676FDD4 /* Assets.xcassets */,
-				E62A59B4BB0AC4E6DFED2747 /* FeatureOverlays.swift */,
 				78F5F28A7C73D01EDDB0CB89 /* Localizable.xcstrings */,
 				BDFA82E7DAF044589B4DF57D /* WebContent */,
 				AE4953DB8F6D969BD060695A /* App */,
@@ -124,12 +606,46 @@
 			path = VisioOneMeet;
 			sourceTree = "<group>";
 		};
+		E4FB251E1330B2E2821BC768 /* ComputeNavigation */ = {
+			isa = PBXGroup;
+			children = (
+				C521BED98A37DDF278A00112 /* ComputeNavigation+Bridge.swift */,
+				FD33E4BD2459197BCB65C8C2 /* ComputeNavigationModel.swift */,
+				B80AF9C063789AA78E8CF2FA /* ComputeNavigationPanel.swift */,
+			);
+			path = ComputeNavigation;
+			sourceTree = "<group>";
+		};
+		E8538D5BCA855BECA46EC7CF /* 3dIconMarker */ = {
+			isa = PBXGroup;
+			children = (
+				F65EBCA4CB42810F98C983B9 /* IconMarker3D+Bridge.swift */,
+				65F673BEEC59378531A15FE8 /* IconMarker3DModel.swift */,
+				7E4A3BC18694A2B621DF6718 /* IconMarker3DPanel.swift */,
+			);
+			path = 3dIconMarker;
+			sourceTree = "<group>";
+		};
 		E959B961141C3B87CA70F68D /* Components */ = {
 			isa = PBXGroup;
 			children = (
-				C147115AD6BF9D2C999D7E91 /* SharedControls.swift */,
+				954161C70A698492A9833000 /* Color+Hex.swift */,
+				5D323FB86379E70D22B3AD50 /* ColorSwatchChip.swift */,
+				5DD6621915967133EAB31ACC /* OriginDestinationFields.swift */,
+				42780DBBECAA00FC45C4F2D6 /* PlacedObjectErrorMessage.swift */,
+				7F9A1E35582F4E807A4C6EB4 /* PoiIdField.swift */,
 			);
 			path = Components;
+			sourceTree = "<group>";
+		};
+		F42FF955F6C0EC4D3750D802 /* CustomBaseUrl */ = {
+			isa = PBXGroup;
+			children = (
+				99B21B9BD525BCB042AB6800 /* CustomBaseUrl+Bridge.swift */,
+				AFEFD39BD4A8F171CFF78AE3 /* CustomBaseUrlModel.swift */,
+				43C0F650203A98DAB0AD7D10 /* CustomBaseUrlPanel.swift */,
+			);
+			path = CustomBaseUrl;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -205,14 +721,106 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				3B6D120DDABD5B2E4CA36C9A /* AccessibleModeModel.swift in Sources */,
+				CFDF19737FE2C6052A7DE004 /* AccessibleModePanel.swift in Sources */,
+				704923C285A4DB8614BEADE1 /* AccuracyCircleStyle+Bridge.swift in Sources */,
+				E88E777CFEAE018F85D84E2C /* AccuracyCircleStyleModel.swift in Sources */,
+				CB6296D7AA0310A54F4C73C9 /* AccuracyCircleStylePanel.swift in Sources */,
+				6CFF6017464F3877E00F510D /* AddLocale+Bridge.swift in Sources */,
+				E5F04499A6289F13D4F37FCF /* AddLocaleModel.swift in Sources */,
+				BBEB78433670B350FD6F0F5F /* AddLocalePanel.swift in Sources */,
+				AE6EC30C800F2C53FC75653F /* AuthTokenScreen.swift in Sources */,
+				68B80B1246D85AEBBCE7134B /* BridgeResult.swift in Sources */,
+				EFEA9D00F15910CC13EB5257 /* CameraLockOnPosition+Bridge.swift in Sources */,
+				E100724943CD731C067A4A59 /* CameraLockOnPositionModel.swift in Sources */,
+				CA0B47942CAD462F933ADD81 /* CameraLockOnPositionPanel.swift in Sources */,
+				CB513850B01DE35B8BFAFE2F /* CameraProjectionToggle+Bridge.swift in Sources */,
+				283F890D2E00CE9D1BA3058B /* CameraProjectionToggleModel.swift in Sources */,
+				96F8930937B736EEC1671C84 /* CameraProjectionTogglePanel.swift in Sources */,
+				88E6103B8272C260660CCE77 /* CameraShowcaseCarousel+Bridge.swift in Sources */,
+				531DC3766A936F487D2292DF /* CameraShowcaseCarouselModel.swift in Sources */,
+				DB25106F07265475767EBEC6 /* CameraShowcaseCarouselPanel.swift in Sources */,
+				5C5066221C35AB25EF9AC5EF /* CategoryHighlight+Bridge.swift in Sources */,
+				8F31C949F5089DAD738580FC /* CategoryHighlightModel.swift in Sources */,
+				0B09C68085CB8182AF5697BF /* CategoryHighlightPanel.swift in Sources */,
+				9188F9ADAB2EAD92951177FD /* ClickableSurface+Bridge.swift in Sources */,
+				5623C123CA213294C179B1EB /* ClickableSurfaceModel.swift in Sources */,
+				4EECDFD85759B4BF60AF7280 /* ClickableSurfacePanel.swift in Sources */,
+				9ED691EB86DEDD6C3988632A /* Color+Hex.swift in Sources */,
+				031A45EEB2D69BD83CE20512 /* ColorSwatchChip.swift in Sources */,
+				B5598F8534465D5FDC3645E7 /* ComputeNavigation+Bridge.swift in Sources */,
+				F0654DFBD2196C3E957B6D7D /* ComputeNavigationModel.swift in Sources */,
+				A868B290988481BB9ED4BCAA /* ComputeNavigationPanel.swift in Sources */,
 				98B20AE3D3646AC7F17E421F /* ContentView.swift in Sources */,
+				7359FC317A3AC48939B38A9F /* CustomBaseUrl+Bridge.swift in Sources */,
+				771DC4CD0C4A8575F837B3F4 /* CustomBaseUrlModel.swift in Sources */,
+				522673BF01855598C744EA1E /* CustomBaseUrlPanel.swift in Sources */,
+				D5B2294D906993C9561FBE4A /* CustomData+Bridge.swift in Sources */,
+				A6D70B0C0B913709323D8D92 /* CustomDataModel.swift in Sources */,
+				AB63A63CC5A74123FB5C079D /* CustomDataPanel.swift in Sources */,
+				646F6DB3B2A7F97A3901CF3B /* CustomNavigationTrace+Bridge.swift in Sources */,
+				E34FAAB7668BA02BD605B9F3 /* CustomNavigationTraceModel.swift in Sources */,
+				52B6706C107822BE67025DC2 /* CustomNavigationTracePanel.swift in Sources */,
+				1D6241D84C3DAC9DDB72154C /* CustomTextLabel+Bridge.swift in Sources */,
+				797BFF659EA7F5A23AE53DF3 /* CustomTextLabelModel.swift in Sources */,
+				D69FA4E90E678040293FE2EE /* CustomTextLabelPanel.swift in Sources */,
+				81221C5DF12E4C657EF479BE /* CustomTheme+Bridge.swift in Sources */,
+				2A0EAE1606B75C539AD061B2 /* CustomThemeModel.swift in Sources */,
+				77D59A7A219BDD94936DA5FB /* CustomThemePanel.swift in Sources */,
 				3993DABAE9BE2F6513DBE4B8 /* DemoMap.swift in Sources */,
+				381948A62A989E4FFAAB9A3C /* DynamicPoiCrud+Bridge.swift in Sources */,
+				EB5F8A0D2152B16D86E703EF /* DynamicPoiCrudModel.swift in Sources */,
+				69D56E8BC8B71241F13D5E06 /* DynamicPoiCrudPanel.swift in Sources */,
+				6F8490EAA215672D6F78B209 /* ExploreMode+Bridge.swift in Sources */,
+				8E682D1E7BF144359D907060 /* ExploreModeModel.swift in Sources */,
+				24CBF2DF49A74EF93ACA4A40 /* ExploreModePanel.swift in Sources */,
 				F5DA0D14A2224A0CFCE5A15D /* Feature.swift in Sources */,
-				950944881CC20973AF04615D /* FeatureMapView.swift in Sources */,
-				3CFB3B290673F85F34877E3F /* FeatureOverlays.swift in Sources */,
+				9666A3B885018644A34C1AC5 /* FeatureModel.swift in Sources */,
+				DC9D102A8A520383B4A88868 /* FeatureScreen.swift in Sources */,
+				8261E460BF3F2494B292EA21 /* FloorSelector+Bridge.swift in Sources */,
+				7FA184390F40E38818D22991 /* FloorSelectorList.swift in Sources */,
+				23E474E8B7CA7DA7CC215D25 /* FloorSelectorModel.swift in Sources */,
+				9EE8EE61A0456849334017EE /* Geofencing+Bridge.swift in Sources */,
+				E357EC2F41E18F5C76BDD460 /* GeofencingModel.swift in Sources */,
+				BC0D083A50D0D3825BCB71D3 /* GeofencingPanel.swift in Sources */,
+				7E70B8A17CCD7D32774AAE27 /* GotoPoi+Bridge.swift in Sources */,
+				1D8928B58B70CD3780279E17 /* GotoPoiModel.swift in Sources */,
+				E4ABCFB31AEBA759D22AE0B9 /* GotoPoiPanel.swift in Sources */,
+				30202D5D78D720AE48FF923F /* HtmlOverlayMarker+Bridge.swift in Sources */,
+				8CB596AB132DA6FAC935595A /* HtmlOverlayMarkerModel.swift in Sources */,
+				75DCD48A4C435CE8904BE53C /* HtmlOverlayMarkerPanel.swift in Sources */,
+				3ABA39842C413792BA3F26C4 /* IconMarker3D+Bridge.swift in Sources */,
+				2468E7F16C1C93B5F6E2D756 /* IconMarker3DModel.swift in Sources */,
+				CD199454B9DE37A66F771DFA /* IconMarker3DPanel.swift in Sources */,
 				C441B616C63F967224148EEC /* MapWebView.swift in Sources */,
+				0B4DA71FEE6455320D41E978 /* NativeUiReplacementModel.swift in Sources */,
+				E6F07E2AB9684A4EDD99A1F9 /* NativeUiReplacementPanel.swift in Sources */,
+				1D99339CA7DA7CE4A0BFF8E2 /* NavigationExcludeModalities+Bridge.swift in Sources */,
+				A375201A1FD45B094ADBDE56 /* NavigationExcludeModalitiesModel.swift in Sources */,
+				C30B52A2C157C6D076BAACE3 /* NavigationExcludeModalitiesPanel.swift in Sources */,
+				23CCF659C4192C0DD1258081 /* OccupancySimulated+Bridge.swift in Sources */,
+				BFEC7CFD6FC0DBD6E02A27BD /* OccupancySimulatedModel.swift in Sources */,
+				16C61C58B69E831B847EB28C /* OccupancySimulatedPanel.swift in Sources */,
+				1BC02BC900215675C7529403 /* OriginDestinationFields.swift in Sources */,
+				670DD33C957D1567DC99EFC4 /* PlacedObjectErrorMessage.swift in Sources */,
+				E1F38C94F4A41CA38A9F02DA /* PoiClickModel.swift in Sources */,
+				9D0A3C32AC28CA96D19061D1 /* PoiClickPanel.swift in Sources */,
+				A0726D4B62C94FF0FF54875A /* PoiIdField.swift in Sources */,
+				A645499E8631C52F31EC748D /* PositionTrackingController.swift in Sources */,
+				55290C1818B7E062EE2041E3 /* PositionTrackingControls.swift in Sources */,
 				085525C9A4DAFB7D06797F3F /* ProtectedMapSample.swift in Sources */,
-				1656C85A458CA9C3081BDCD7 /* SharedControls.swift in Sources */,
+				0FF92A400DF18D66C80E93A0 /* ResetView+Bridge.swift in Sources */,
+				BB72C4B92FC791D9C32A6805 /* ResetViewModel.swift in Sources */,
+				ACBF0614F1A36B92D6BFD811 /* ResetViewPanel.swift in Sources */,
+				9EAFE8BF96E24158A3625D9A /* RuntimeLocale+Bridge.swift in Sources */,
+				F3DDE2066CDDE0ECC6996046 /* RuntimeLocaleModel.swift in Sources */,
+				13DFBE74834FBA1FA3D6A449 /* RuntimeLocalePanel.swift in Sources */,
+				DD24B320408A717973B36A2D /* SimulatedPosition+Bridge.swift in Sources */,
+				81821FD307F95ABA8BCAC18D /* SimulatedPositionModel.swift in Sources */,
+				FD5E168824BEB10E4ECDC934 /* SimulatedPositionPanel.swift in Sources */,
+				CA75852D477876C7ECA92926 /* UiPartVisibility+Bridge.swift in Sources */,
+				4AA9F2CA7A68548729A18EC6 /* UiPartVisibilityModel.swift in Sources */,
+				AA7D8303595C6A3BD30CAE7E /* UiPartVisibilityPanel.swift in Sources */,
 				44B189A582869A41D82E2519 /* VisioOneBridge.swift in Sources */,
 				A706008CB2A251B7FC24BFD6 /* VisioOneMeetApp.swift in Sources */,
 			);

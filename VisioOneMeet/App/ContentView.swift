@@ -8,7 +8,7 @@ struct ContentView: View {
     }
 
     var body: some View {
-        List(Feature.allCases) { feature in
+        List(Feature.all) { feature in
             NavigationLink(value: feature) {
                 VStack(alignment: .leading) {
                     Text(feature.title)

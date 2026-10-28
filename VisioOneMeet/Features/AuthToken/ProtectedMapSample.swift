@@ -17,10 +17,10 @@ import WebKit
 //
 //     bridge.setAuthorizationToken(freshJwt)
 
-/// What `map.html`'s `loadProtectedVenue()` needs: the protected map hash,
-/// the protected map server, and the JWT. Injected into the page before its
-/// own scripts run (see `MapWebView.swift`), so the token never ends up in a
-/// URL.
+/// What `loadProtectedVenue()` (`WebContent/features/auth-token.js`) needs:
+/// the protected map hash, the protected map server, and the JWT. Injected
+/// into the page before its own scripts run (see `MapWebView.swift`), so the
+/// token never ends up in a URL.
 struct ProtectedMapOptions {
     let mapHash: String
     let baseURL: String
@@ -48,39 +48,24 @@ enum ProtectedMapSample {
 }
 
 extension VisioOneBridge {
-    /// Message posted by `map.html` when `loadVenue` rejects with the SDK's
-    /// `UnauthorizedError`, handled in `userContentController(_:didReceive:)`.
+    /// Message posted by `features/auth-token.js` when `loadVenue` rejects
+    /// with the SDK's `UnauthorizedError`, handled in
+    /// `userContentController(_:didReceive:)`.
     static let unauthorizedMessageType = "unauthorized"
 
     /// Token-refresh entry point: forwards a fresh JWT to the loaded venue
     /// via `venue.setAuthorizationToken()`, used by every subsequent map
     /// request (no reload needed). Call it before the current token expires.
-    @MainActor
+    /// A failure is logged.
     func setAuthorizationToken(_ freshToken: String) {
-        guard let webView else { return }
-        webView.callAsyncJavaScript(
-            "return window.MapBridge.setAuthorizationToken(token);",
-            arguments: ["token": freshToken],
-            in: nil,
-            in: .page
-        ) { result in
-            switch result {
-            case .success(let value):
-                let payload = value as? [String: Any]
-                if payload?["status"] as? String != "applied" {
-                    print("VisioOneBridge: setAuthorizationToken failed: \(payload?["message"] as? String ?? "unexpected bridge response")")
-                }
-            case .failure(let error):
-                print("VisioOneBridge: setAuthorizationToken failed: \(error.localizedDescription)")
-            }
-        }
+        callReportingStatus("setAuthorizationToken", args: [freshToken])
     }
 }
 
 extension ProtectedMapOptions {
-    /// Script injected at document start, defining the options
-    /// `map.html` reads to call `loadProtectedVenue()` instead of loading
-    /// its default public map.
+    /// Script injected at document start, defining the options the page
+    /// reads to call `loadProtectedVenue()` instead of loading its default
+    /// public map (see `MapCore.start()` in `WebContent/bridge/core.js`).
     var userScript: WKUserScript? {
         let options: [String: String] = [
             "vg_maphash": mapHash,

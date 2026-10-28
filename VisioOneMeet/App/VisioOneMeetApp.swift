@@ -8,7 +8,7 @@ struct VisioOneMeetApp: App {
                 ContentView()
             }
             .navigationDestination(for: Feature.self) { feature in
-                FeatureMapView(feature: feature)
+                FeatureScreen(feature: feature)
             }
             .preferredColorScheme(.dark)
             .ignoresSafeArea()
